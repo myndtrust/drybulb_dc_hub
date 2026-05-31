@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { articles } from "@/.velite";
+import { articles, authors } from "@/.velite";
 import { constructMetadata } from "@/lib/metadata";
 import { MdxContent } from "@/components/shared/mdx-content";
 import { JsonLd } from "@/components/shared/json-ld";
@@ -33,6 +33,8 @@ export default async function ArticlePage({ params }: Props) {
   const article = articles.find((a) => a.slug === slug);
   if (!article) notFound();
 
+  const author = authors.find((a) => a.slug === article.author);
+
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -40,6 +42,15 @@ export default async function ArticlePage({ params }: Props) {
     description: article.description,
     datePublished: article.publishedAt,
     dateModified: article.updatedAt ?? article.publishedAt,
+    ...(author
+      ? {
+          author: {
+            "@type": "Person",
+            name: author.name,
+            url: `${siteConfig.url}/authors/${author.slug}`,
+          },
+        }
+      : {}),
     publisher: {
       "@type": "Organization",
       name: "Drybulb",
@@ -55,7 +66,7 @@ export default async function ArticlePage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Writing", item: `${siteConfig.url}/writing` },
+      { "@type": "ListItem", position: 1, name: "Blog", item: `${siteConfig.url}/writing` },
       { "@type": "ListItem", position: 2, name: article.title, item: `${siteConfig.url}${article.url}` },
     ],
   };
@@ -68,7 +79,7 @@ export default async function ArticlePage({ params }: Props) {
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs font-mono text-muted-foreground mb-10">
           <Link href="/writing" className="hover:text-foreground transition-colors">
-            Writing
+            Blog
           </Link>
           <span>/</span>
           <span className="text-foreground/60 truncate">{article.title}</span>
@@ -92,6 +103,17 @@ export default async function ArticlePage({ params }: Props) {
             {article.title}
           </h1>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            {author && (
+              <>
+                <Link
+                  href={`/authors/${author.slug}`}
+                  className="hover:text-foreground transition-colors"
+                >
+                  {author.name}
+                </Link>
+                <span>&middot;</span>
+              </>
+            )}
             <time dateTime={article.publishedAt}>
               {new Date(article.publishedAt).toLocaleDateString("en-US", {
                 year: "numeric",
@@ -101,14 +123,14 @@ export default async function ArticlePage({ params }: Props) {
             </time>
             {article.readingTime && (
               <>
-                <span>·</span>
+                <span>&middot;</span>
                 <span>{article.readingTime} min read</span>
               </>
             )}
           </div>
         </header>
 
-        {/* Body — heading/paragraph/list styles are in globals.css */}
+        {/* Body */}
         <article className="prose prose-lg prose-neutral dark:prose-invert max-w-none">
           <MdxContent code={article.body} />
         </article>
@@ -119,7 +141,7 @@ export default async function ArticlePage({ params }: Props) {
             href="/writing"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← All articles
+            &larr; All articles
           </Link>
         </div>
       </div>

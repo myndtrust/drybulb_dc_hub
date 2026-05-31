@@ -3,6 +3,27 @@ import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import remarkGfm from "remark-gfm";
 
+const authors = defineCollection({
+  name: "Author",
+  pattern: "authors/**/*.mdx",
+  schema: s.object({
+    name: s.string(),
+    slug: s.slug("authors"),
+    role: s.string().optional(),
+    bio: s.string(),
+    avatar: s.string().optional(),
+    expertise: s.array(s.string()).default([]),
+    links: s
+      .object({
+        twitter: s.string().optional(),
+        linkedin: s.string().optional(),
+        website: s.string().optional(),
+      })
+      .optional(),
+    body: s.mdx(),
+  }),
+});
+
 const articles = defineCollection({
   name: "Article",
   pattern: "articles/**/*.mdx",
@@ -17,12 +38,26 @@ const articles = defineCollection({
       draft: s.boolean().default(false),
       readingTime: s.number().optional(),
       ogImage: s.string().optional(),
+      author: s.string().default("founder"),
       body: s.mdx(),
     })
     .transform((data) => ({
       ...data,
       url: `/writing/${data.slug}`,
     })),
+});
+
+const tools = defineCollection({
+  name: "Tool",
+  pattern: "tools/**/*.mdx",
+  schema: s.object({
+    title: s.string(),
+    slug: s.slug("tools"),
+    summary: s.string(),
+    status: s.enum(["live", "beta", "coming-soon"]).default("coming-soon"),
+    appPath: s.string().optional(),
+    body: s.mdx(),
+  }),
 });
 
 export default defineConfig({
@@ -34,7 +69,7 @@ export default defineConfig({
     name: "[name]-[hash:6].[ext]",
     clean: true,
   },
-  collections: { articles },
+  collections: { authors, articles, tools },
   mdx: {
     remarkPlugins: [remarkGfm],
     rehypePlugins: [

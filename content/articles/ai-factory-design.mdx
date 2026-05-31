@@ -3,9 +3,299 @@ title: "An Engineering Overview of AI Factory Design"
 description: "How AI factories differ from traditional data centers — token throughput as the design product, GPU rack density, rail-optimized networks, power chains, and direct-liquid cooling at scale."
 publishedAt: "2026-05-30"
 slug: "ai-factory-design"
-tags: ["AI infrastructure", "data center design", "liquid cooling", "power systems", "GPU density"]
+tags: ["AI infrastructure", "data center design", "liquid cooling", "power systems", "GPU density", "networking"]
 draft: false
 readingTime: 25
+author: "founder"
 ---
 
-*This article is in progress. Full content coming soon.*
+<Callout variant="finding" title="Key takeaways">
+
+- **AI factories are not data centers with GPUs bolted in.** The design product is token throughput, not general-purpose compute availability. Every subsystem — power, cooling, networking, physical structure — is re-engineered around that objective.
+- **Rack density has jumped by an order of magnitude.** A single NVIDIA DGX GB300 NVL72 rack draws ~120 kW. A single AMD Instinct MI350X OAM universal baseboard reaches ~10 kW for GPUs alone. Traditional enterprise racks sit at 8–15 kW.
+- **Networking, not compute, is the bottleneck at scale.** Intra-rack fabrics like NVLink 5 deliver 1.8 TB/s per GPU; inter-rack fabrics must be carefully designed to avoid becoming the system's constraint.
+- **Direct liquid cooling is no longer optional.** Air cannot remove the heat flux these accelerators produce. Hybrid liquid-air cooling architectures are the baseline, not the exception.
+- **Power chain design has shifted from redundancy-first to density-first.** Concurrent maintainability remains essential, but the primary constraint is now delivering enough watts per square meter to feed the accelerators.
+
+</Callout>
+
+## Framing: what is an AI factory?
+
+The term "data center" carries legacy assumptions: diverse workloads, general-purpose servers, moderate power density, and a design philosophy oriented around uptime for heterogeneous applications. An AI factory shares the same building envelope but almost nothing else.
+
+An AI factory exists to produce one thing — **trained model weights and inference tokens** — at industrial scale. The "product" is measured in tokens per second per dollar, and every engineering decision traces back to maximizing that ratio. The building is a manufacturing plant. The raw materials are electricity and data. The finished goods are intelligence.
+
+This reframing has cascading consequences for every discipline involved in the design:
+
+- **Mechanical engineers** design for heat flux densities that would have been considered impossible five years ago — 120 kW per rack versus the 8–15 kW racks of the enterprise era.
+- **Electrical engineers** design power chains where a single scalable unit consumes 1.2 MW, approaching the capacity of a small substation.
+- **Network engineers** design fabrics where a single misconfigured switch can idle hundreds of GPUs costing millions of dollars per day in lost throughput.
+- **Civil and structural engineers** design floors that can support liquid-cooled racks weighing 3,000 pounds or more, with coolant distribution piping that rivals a small industrial plant.
+
+This article examines the physical and systems architecture of two leading AI accelerator platforms — NVIDIA's DGX SuperPOD GB300 and AMD's Instinct MI350X — through the lens of what a facility engineer needs to know to design, build, and operate the buildings that house them.
+
+## Physical hierarchy: from chip to scalable unit
+
+Understanding AI factory design begins with the physical hierarchy — the nesting of components from individual accelerator to full deployment. Both major platforms follow a similar structural logic, though the terminology and specific integration points differ.
+
+### NVIDIA DGX SuperPOD GB300
+
+The NVIDIA architecture builds from the bottom up through a clearly defined hierarchy:
+
+**GPU → Superchip → Compute Tray → Rack (NVL72) → Scalable Unit → Deployment**
+
+At the base sits the NVIDIA B300 GPU — a Blackwell-architecture accelerator fabricated on TSMC's custom 4 nm process (4NP). Two B300 GPUs are bonded with one Grace CPU via NVLink-C2C to form a **Grace Blackwell Superchip** (GB300). This chip-to-chip interconnect eliminates the PCIe bottleneck between CPU and GPU entirely, presenting unified memory across the CPU-GPU boundary.
+
+Two Superchips mount on a single **compute tray**, yielding four GPUs per tray. Eighteen compute trays stack into a single rack — the **NVL72** — for a total of 72 GPUs per rack. The NVL72 is the fundamental building block: all 72 GPUs within a rack are interconnected via NVLink 5, forming a single, flat memory domain with ~130 TB/s of aggregate bisection bandwidth.
+
+<Callout variant="finding" title="NVL72 rack-level specifications">
+
+- NVL72 rack: 72 GPUs, 36 Grace CPUs, 18 compute trays
+- NVLink 5 bandwidth: 18 links per GPU × 100 GB/s per link = 1.8 TB/s per GPU
+- Total NVL72 rack power: ~120 kW (liquid-cooled)
+- Rack weight (fully loaded with coolant): ~3,000 pounds
+
+</Callout>
+
+Eight NVL72 racks compose a **Scalable Unit (SU)** — 576 GPUs drawing approximately 1.2 MW. The Scalable Unit is the unit of deployment: it includes its own compute fabric switches, storage networking, and power distribution. The reference architecture documents configurations up to 128 racks (9,216 GPUs) and beyond.
+
+### AMD Instinct MI350X
+
+AMD's approach to the physical hierarchy reflects a different architectural philosophy — one rooted in the **Open Accelerator Module (OAM)** standard and chiplet-based design.
+
+**GPU die (XCD) → Package → OAM Module → Universal Baseboard → Rack → Cluster**
+
+The MI350X is built on AMD's CDNA 4 architecture, fabricated on TSMC's 3 nm process technology. The package uses a chiplet design with multiple **Accelerator Complex Dies (XCDs)** — expected to be four per package, up from three in the MI300X — integrated on a single package and connected via AMD's Infinity Fabric. Each MI350X package integrates 288 GB of HBM3E memory with approximately 12 TB/s of memory bandwidth.
+
+The OAM form factor — an industry-standard module specification — allows the MI350X to be deployed across a range of system designs from multiple OEMs. A typical **universal baseboard** hosts eight OAM modules, forming the compute node. Multiple baseboards populate a rack, though exact configurations vary by system integrator.
+
+<Callout variant="finding" title="AMD MI350X specifications">
+
+- CDNA 4 architecture on TSMC 3 nm, with 4 XCDs per package
+- HBM3E capacity per GPU: 288 GB
+- Memory bandwidth per GPU: ~12 TB/s
+- FP8 peak performance per GPU: ~1.2 PFLOPS; FP4: ~2.4 PFLOPS
+- TDP per GPU: ~750 W
+- OAM baseboard power (8 GPUs + overhead): ~10 kW
+
+</Callout>
+
+The architectural contrast is instructive. NVIDIA integrates vertically — the rack is a single, purpose-built product with a proprietary interconnect binding all 72 GPUs. AMD integrates horizontally — the OAM module is a standardized component that system integrators assemble into diverse configurations. Neither approach is inherently superior; the right choice depends on workload characteristics, procurement strategy, and the operator's tolerance for vendor lock-in versus the engineering simplicity of a turnkey system.
+
+## Compute and density: the numbers that reshape buildings
+
+The raw compute density of modern AI accelerators is what forces the rethinking of facility design. A single rack of AI GPUs can demand more power and produce more heat than an entire row of enterprise servers from a decade ago.
+
+### Per-GPU performance
+
+Both platforms target the low-precision arithmetic that dominates AI training and inference — FP8, FP6, and FP4 formats that trade numeric precision for throughput. The relevant metric is not peak FLOPS in isolation but **FLOPS per watt** and **FLOPS per dollar**, because these ratios determine the economics of the facility.
+
+| Metric | NVIDIA B300 | AMD MI350X |
+|---|---|---|
+| Architecture | Blackwell | CDNA 4 |
+| Process node | 4 nm (TSMC 4NP) | 3 nm (TSMC N3) |
+| HBM3E capacity | 288 GB | 288 GB |
+| Memory bandwidth | 12 TB/s | ~12 TB/s |
+| FP8 peak (dense) | ~2.5 PFLOPS | ~1.2 PFLOPS |
+| FP4 peak (dense) | ~5 PFLOPS | ~2.4 PFLOPS |
+| TDP | 1,200 W | ~750 W |
+
+<Callout variant="insight" title="Why memory bandwidth matters more than peak FLOPS">
+
+Large language model inference is almost always **memory-bandwidth-bound**, not compute-bound. The autoregressive nature of token generation means each forward pass reads the full KV-cache from HBM. A GPU with higher peak FLOPS but lower memory bandwidth will often deliver fewer tokens per second than a "slower" GPU with more bandwidth. Facility engineers should size cooling and power for the memory-bandwidth-optimized operating point, not the theoretical peak.
+
+</Callout>
+
+### Rack-level density
+
+The density leap becomes concrete at the rack level:
+
+- **Enterprise baseline:** 8–15 kW per rack, air-cooled, ~1,500 pounds
+- **NVIDIA NVL72:** ~120 kW per rack, hybrid liquid-air cooled, ~3,000 pounds
+- **AMD MI350X (8-GPU baseboard × N per rack):** 60–120 kW per rack, liquid-cooled, varies by integrator
+
+A data center hall designed for 2,000 enterprise racks at 10 kW each (20 MW total) can host roughly 167 NVL72 racks at the same total power — but those racks require fundamentally different cooling infrastructure, structural support, and power distribution. The building's capacity hasn't changed; its character has.
+
+## Networking: the fabric that makes GPUs a system
+
+A warehouse full of GPUs without a fabric connecting them is just a warehouse full of GPUs. The networking architecture is what converts thousands of individual accelerators into a coherent system capable of training a single model across all of them. In AI factory design, the network is not supporting infrastructure — it is core infrastructure, as critical as the power chain.
+
+### Intra-rack: the high-bandwidth domain
+
+Within the NVIDIA NVL72 rack, all 72 GPUs communicate over **NVLink 5** — a proprietary, high-bandwidth interconnect that operates at a fundamentally different scale than Ethernet or InfiniBand. Each GPU has 18 NVLink ports, each running at 100 GB/s bidirectional, for an aggregate of 1.8 TB/s per GPU. The entire NVL72 rack functions as a single NVLink domain — any GPU can access any other GPU's memory directly, without traversing a network switch in the traditional sense.
+
+NVLink switches are embedded within the rack itself — 9 NVLink switch trays per rack, each containing 2 NVLink switch chips (4th-generation NVSwitch). These 18 switch chips create a non-blocking, all-to-all fabric within the 72-GPU domain.
+
+AMD's intra-node connectivity relies on **Infinity Fabric** — AMD's coherent interconnect — within the baseboard, and higher-level interconnects between nodes. The bandwidth profile differs: Infinity Fabric provides ~896 GB/s aggregate between GPUs on the same baseboard, with higher-latency paths between nodes.
+
+<Callout variant="insight" title="The networking cliff">
+
+The transition from intra-rack to inter-rack networking represents a bandwidth reduction of roughly 18×. Within the NVL72, each GPU sees 1.8 TB/s of NVLink bandwidth. Between racks, each GPU's share of the inter-rack InfiniBand fabric drops to ~100 GB/s (800 Gbps). This cliff is the fundamental constraint on multi-rack training — and the reason that model parallelism strategies, network topology, and job placement are so tightly coupled in AI factory operations.
+
+</Callout>
+
+### Inter-rack: the scale-out fabric
+
+Between racks, the NVIDIA DGX SuperPOD uses **InfiniBand XDR** at 800 Gbps per port. Each NVL72 rack connects to the compute fabric via 72 ConnectX-8 SuperNICs — one per GPU. The fabric topology is a **rail-optimized fat-tree**: GPUs at the same position in each rack (the same "rail") connect to the same leaf switch, and leaf switches uplink to spine switches. This topology exploits the structured communication patterns of data-parallel training, where GPUs at corresponding positions exchange gradients.
+
+The switching infrastructure uses NVIDIA Quantum-3 Q3400 InfiniBand switches — 144-port devices running at 800 Gbps per port. At the Scalable Unit level (8 racks), the fabric requires approximately 36 leaf switches and 18 spine switches, housed in dedicated network racks.
+
+A parallel **storage network** runs on Ethernet, using NVIDIA Spectrum-4 SN5600 switches — 64-port, 800 Gbps Ethernet switches connecting to NVMe-oF storage targets. This keeps the storage traffic off the compute fabric entirely.
+
+AMD-based deployments typically use **Ultra Ethernet** or InfiniBand for the scale-out fabric, with RoCE v2 (RDMA over Converged Ethernet) as a common transport. The open-ecosystem approach means operators can select networking vendors independently of the GPU vendor — a flexibility that comes with additional integration complexity.
+
+### What this means for the facility
+
+The networking infrastructure has direct implications for facility design:
+
+- **Structured cabling runs** between racks must support 72+ fiber connections per rack for compute alone, plus storage and management networks.
+- **Cable pathway capacity** must accommodate the density of 800 Gbps optical transceivers — each consuming 15–20 W and producing heat that adds to the cooling load.
+- **Switch placement** — whether top-of-rack, end-of-row, or in dedicated network racks — determines cable lengths, which at 800 Gbps constrain topology options.
+- **Network racks** (housing leaf and spine switches) may themselves require 20–30 kW of power and cooling per rack.
+
+## Power chain: feeding the factory
+
+The power infrastructure of an AI factory operates at a scale and density that stretches conventional data center electrical design. The challenge is not just total capacity — it is delivering that capacity to an extremely concentrated load within a single rack footprint.
+
+### Rack-level power distribution
+
+The NVIDIA NVL72 rack integrates its own power distribution. Eight **power shelves** are distributed throughout the rack, each containing six hot-swappable power supply units rated at 5.5 kW each. The redundancy model is N (not N+1 or 2N) — the system is designed for concurrent maintainability without full redundancy at the PSU level, relying instead on the computational resilience of the distributed training framework to tolerate individual node failures.
+
+<Callout variant="insight" title="Redundancy rethinking for AI workloads">
+
+Traditional enterprise data centers design for 2N power redundancy because a server outage means lost transactions or downtime. AI training workloads are inherently checkpoint-based — a training run can resume from the last checkpoint if a node fails. This changes the economic calculus of redundancy. The cost of a brief training interruption (minutes to resume from checkpoint) is far less than the cost of doubling the power infrastructure. AI factories can tolerate N redundancy at the rack level while maintaining N+1 or 2N at the facility level (utility feeds, generators, switchgear).
+
+</Callout>
+
+### Facility-level power
+
+A single Scalable Unit (8 NVL72 racks, 576 GPUs) draws approximately **1.2 MW**. A full deployment of 128 racks requires roughly **15 MW** of IT load alone — before accounting for cooling, lighting, and ancillary systems. With facility overhead, total site power approaches **20 MW**.
+
+At this density, the facility's electrical infrastructure must address:
+
+- **Medium-voltage distribution** brought closer to the load. Transformers stepping from 13.8 kV or 34.5 kV to 480 V must be physically close to the compute halls to minimize distribution losses at high current.
+- **Busway versus cable** tradeoffs at the row level. The current draw per rack may exceed what traditional cable-and-plug systems can deliver, favoring overhead busway distribution.
+- **Utility coordination** for sites consuming 20 MW or more. Grid interconnection studies, dedicated substations, and potentially on-site generation become prerequisites, not options.
+- **Uninterruptible power** strategy: traditional battery UPS at this scale is extremely expensive. Some operators are moving to diesel rotary UPS or accepting that checkpoint-based resilience provides sufficient protection against brief outages, reserving UPS capacity for the storage and network infrastructure only.
+
+### Power density comparison
+
+| Configuration | Rack power | Floor area per MW | Power per m² |
+|---|---|---|---|
+| Enterprise (traditional) | 8–15 kW | ~500 m² | ~2,000 W/m² |
+| NVIDIA NVL72 | ~120 kW | ~50 m² | ~20,000 W/m² |
+| AMD MI350X (typical 8-GPU config) | 60–120 kW | 50–100 m² | 10,000–20,000 W/m² |
+
+## Cooling: removing heat at AI-factory density
+
+Cooling is the subsystem where the AI factory diverges most dramatically from traditional data center design. The heat flux produced by modern AI accelerators exceeds what air can physically remove from a rack-sized volume. Direct liquid cooling is not an upgrade — it is a prerequisite.
+
+### The physics of the problem
+
+A traditional air-cooled rack at 15 kW produces a heat flux that can be managed with cold-aisle/hot-aisle containment and standard CRAC or CRAH units. An NVL72 rack at 120 kW produces roughly 8× the heat in the same footprint. The specific heat capacity and density of air simply cannot carry that much energy away fast enough — the required air volume would create hurricane-force velocities in the aisle.
+
+Water's volumetric heat capacity is roughly **3,500× that of air**. This is why liquid cooling is not merely more efficient — it is the only viable heat transport mechanism at these power densities.
+
+### Hybrid liquid-air architecture
+
+The NVIDIA DGX SuperPOD GB300 uses a **hybrid cooling architecture**:
+
+- **Direct liquid cooling (DLC)** for the primary heat sources: GPU dies, Grace CPUs, NVLink switch chips, and high-power VRMs. Cold plates mounted directly on the heat-generating components carry facility water through the rack.
+- **Air cooling** for secondary components: storage drives, management controllers, optical transceivers, and other components with lower heat flux that do not justify the complexity of liquid connections.
+
+The liquid cooling loop operates at facility water temperatures — typically 35–45°C supply, 45–55°C return — warm enough in many climates to reject heat directly to the atmosphere via dry coolers or cooling towers without running a chiller. This is the "free cooling" dividend of liquid cooling: the higher approach temperatures enabled by direct contact with the heat source eliminate or dramatically reduce compressor energy.
+
+<Callout variant="finding" title="Cooling infrastructure implications">
+
+- **Coolant Distribution Units (CDUs)** are required at the row or rack level, converting facility water to the pressure and flow rates required by the rack manifolds.
+- **Piping infrastructure** within the data hall must support ~80 liters per minute per rack at 3–4 bar pressure, with leak detection throughout.
+- **Raised floor versus overhead piping**: liquid-cooled deployments often eliminate the raised floor entirely (no underfloor airflow needed), running coolant piping overhead and power from below, or vice versa.
+- **Air-side cooling** remains necessary for the air-cooled components and to maintain ambient conditions for personnel and equipment within the space — but at a fraction of the capacity required for a fully air-cooled facility.
+- **Drip risk mitigation**: liquid above electronics requires secondary containment, leak detection systems, and careful piping design. Every fitting is a potential failure point.
+
+</Callout>
+
+### AMD cooling considerations
+
+AMD MI350X deployments face similar thermal challenges, with TDPs in the 750 W range per GPU. The OAM form factor was designed with liquid cooling in mind — the module's thermal interface is standardized to accept cold plates. System integrators have flexibility in the cooling loop design, but the physics are identical: direct liquid cooling for the accelerators, with facility water or a secondary loop carrying heat to rejection equipment.
+
+The open-ecosystem approach means cooling solutions vary by OEM, which can be an advantage (competitive pricing, design flexibility) or a challenge (less prescriptive guidance, more integration engineering required from the operator).
+
+## Reliability and availability: rethinking uptime for AI
+
+Traditional data center availability standards — Uptime Institute Tier I through IV, TIA-942, EN50600 — were designed around the premise that every component failure is equally costly. AI factory operations challenge this assumption.
+
+### Concurrent maintainability, not full redundancy
+
+The NVIDIA DGX SuperPOD GB300 reference architecture targets **Uptime Tier 3 / TIA-942-B Rated 3 / EN50600 Class 3** — the concurrent maintainability tier. This means every component can be serviced without shutting down the system, but the system does not maintain full capacity during maintenance events.
+
+This is a deliberate engineering choice. In a training cluster, the loss of a single GPU or even a single rack is recoverable through:
+
+- **Checkpoint/restart**: distributed training frameworks periodically save model state. A failure resumes from the last checkpoint, losing minutes of work rather than hours.
+- **Job rescheduling**: the cluster scheduler reassigns work to healthy nodes, potentially at reduced parallelism.
+- **In-network fault tolerance**: NVLink and InfiniBand fabrics can route around failed links or switches.
+
+The cost calculus is clear: the capital cost of 2N redundancy at AI-factory power densities — doubling every transformer, every PDU, every cooling loop — far exceeds the cost of occasional brief training interruptions. The facility's role is to provide concurrent maintainability and rapid repair, not to guarantee zero-interruption operation.
+
+### Hot-swap and serviceability
+
+Both NVIDIA and AMD platforms emphasize hot-swap capability at the component level:
+
+- **Power supplies**: individually hot-swappable without tools
+- **Compute trays / OAM modules**: replaceable without draining the liquid cooling loop (varies by implementation)
+- **Network switches and transceivers**: hot-swappable
+- **Storage drives**: front-accessible, hot-swap
+
+The rack-level design of the NVL72 — with compute trays accessible from the front and power/cooling infrastructure accessible from the rear — reflects a manufacturing sensibility: mean time to repair (MTTR) matters more than mean time between failures (MTBF) when you have thousands of components and statistical failure is a certainty.
+
+<Callout variant="insight" title="Designing for failure rate, not failure prevention">
+
+A deployment of 9,216 GPUs with a per-GPU annualized failure rate of ~5% will experience roughly 38 GPU failures per month. The facility must be designed not to prevent these failures — that is a semiconductor problem — but to make each failure a five-minute repair event rather than a two-hour outage. Cable routing, rack access, spare parts logistics, and technician workflow become first-order facility design parameters.
+
+</Callout>
+
+## Sustainability: the carbon cost of intelligence
+
+AI factories intensify every sustainability challenge that traditional data centers face, while introducing new ones. The analysis from Drybulb's prior research on whole-lifecycle data center carbon applies with even greater force here.
+
+### Operational carbon
+
+A single Scalable Unit consumes 1.2 MW. At a grid carbon intensity of 390 gCO₂/kWh (US average), that unit produces roughly 4,100 tonnes of CO₂ per year from electricity alone. A full 128-rack deployment at ~20 MW total site power would produce over 68,000 tonnes annually — comparable to the emissions of a small town.
+
+PUE remains a relevant metric but tells an incomplete story. A liquid-cooled AI factory can achieve PUE values of 1.10–1.15 — impressively low — but the absolute energy consumption is so large that even small inefficiencies translate to significant carbon.
+
+### Embodied carbon
+
+The embodied carbon challenge is more acute in AI factories than in traditional data centers for two reasons:
+
+1. **Higher hardware cost per rack.** AI accelerators are larger, more complex chips with more HBM packages, consuming more semiconductor manufacturing energy per unit. The embodied carbon per GPU is estimated at 5–10× higher than a typical server CPU.
+2. **Faster refresh cycles.** GPU architectures evolve rapidly — the competitive dynamics of the AI hardware market drive 18-24 month generational upgrades. Each refresh cycle amortizes the embodied carbon over a shorter operational life.
+
+As explored in [The Whole Data Center](/writing/the-whole-data-center), IT hardware dominates the embodied footprint by roughly 10× compared to the building shell. In AI factories, this ratio may be even more extreme.
+
+### Water consumption
+
+Direct liquid cooling can reduce water consumption compared to evaporative cooling towers — if the system is designed for it. Warm-water cooling loops that reject heat through dry coolers (air-to-liquid heat exchangers) consume zero water. However, many deployments still use cooling towers for part of the heat rejection chain, particularly in hot climates where dry coolers cannot maintain supply temperatures.
+
+<Callout variant="finding" title="Sustainability metrics">
+
+- Water usage effectiveness (WUE) for liquid-cooled AI facilities: 0.5–1.8 L/kWh (near zero with dry coolers only)
+- Embodied carbon per GPU (manufacturing + supply chain): estimated 150–300 kgCO₂e
+- Typical AI factory PUE with hybrid liquid-air cooling: 1.10–1.15
+- Carbon payback period for efficiency-driven hardware upgrades: 12–18 months
+
+</Callout>
+
+## Designing for what comes next
+
+The AI factory is not a static endpoint — it is a snapshot of a rapidly moving target. The engineering decisions made today must account for the certainty that accelerator TDPs will continue to rise, memory capacities will grow, and networking bandwidths will increase. Several design principles emerge from this analysis:
+
+**Build the envelope for the next generation, not this one.** Facility infrastructure (power feeds, cooling piping, structural capacity) has a 15–20 year lifespan. The IT hardware inside has an 18–24 month lifespan. Design the building for 150+ kW per rack even if today's deployment uses 120 kW. The marginal cost of oversizing piping and electrical infrastructure during construction is a fraction of the cost of retrofitting later.
+
+**Standardize the interface, not the equipment.** The OAM specification, the Open Compute Project rack standards, and standardized cooling manifold connections allow operators to swap accelerator platforms without redesigning the facility. Whether the next generation is NVIDIA, AMD, or a new entrant, the facility should be agnostic.
+
+**Treat the network as a first-class utility.** Power and cooling have always been treated as utilities in data center design. Networking must join them. The structured cabling, pathway capacity, and switch room sizing should be designed with the same rigor as the electrical and mechanical systems.
+
+**Instrument everything.** The operational complexity of an AI factory — thousands of accelerators, hundreds of liquid cooling loops, dozens of power distribution paths — demands real-time monitoring at a granularity that most traditional BMS (Building Management Systems) cannot provide. Power per GPU, coolant flow per rack, network utilization per port — these are the telemetry signals that determine whether the factory is producing at capacity.
+
+*Drybulb publishes deep technical writing on AI factory and data center engineering. Questions or topics you'd like to see covered? [Get in touch](/contact).*

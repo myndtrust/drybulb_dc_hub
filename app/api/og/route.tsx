@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
             color: "#9ca3af",
           }}
         >
-          Independent Data Center & AI Infrastructure Consultant
+          AI Factory Engineering — By the Engineers Who Build Them
         </div>
       </div>
     ),

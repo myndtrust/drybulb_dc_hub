@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx shadcn@latest init --yes)",
+      "Bash(npx shadcn@latest add button badge card separator navigation-menu --yes)",
+      "Bash(ls \"C:/Users/Eric/Documents/drybulb_datacenter_hub/next.config\"*)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(npx velite *)",
+      "Bash(python3 -c \"import json; data=json.load\\(open\\('C:/Users/Eric/Documents/drybulb_datacenter_hub/.velite/articles.json'\\)\\); a=data[0]; print\\('body type:', type\\(a.get\\('body'\\)\\).__name__\\); print\\('body keys:', list\\(a['body'].keys\\(\\)\\) if isinstance\\(a.get\\('body'\\), dict\\) else 'not a dict'\\); print\\('body sample:', str\\(a.get\\('body'\\)\\)[:200]\\)\")",
+      "Bash(node -e \"const d=require\\('C:/Users/Eric/Documents/drybulb_datacenter_hub/.velite/articles.json'\\); const a=d[0]; console.log\\('body type:', typeof a.body\\); console.log\\('body keys:', a.body && typeof a.body === 'object' ? Object.keys\\(a.body\\) : 'N/A'\\); console.log\\('body sample:', JSON.stringify\\(a.body\\).slice\\(0,200\\)\\)\")"
+    ]
+  }
+}

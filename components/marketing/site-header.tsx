@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const navLinks = [
+  { href: "/writing", label: "Blog" },
+  { href: "/tools", label: "Tools" },
   { href: "/about", label: "About" },
-  { href: "/writing", label: "Writing" },
-  { href: "/consulting", label: "Consulting" },
 ];
 
 export function SiteHeader() {
@@ -28,7 +28,7 @@ export function SiteHeader() {
             </Link>
           ))}
           <Button asChild size="sm">
-            <Link href="/contact">Get in touch</Link>
+            <Link href="/contact">Contact</Link>
           </Button>
         </nav>
       </div>
