@@ -3,7 +3,7 @@ import { Metadata } from "next";
 export const siteConfig = {
   name: "Drybulb",
   tagline: "AI Factory Engineering — By the Engineers Who Build Them",
-  url: "https://drybulb.com", // TODO: update with real domain if different
+  url: "https://www.drybulb.com",
   description:
     "Deep technical writing on AI factory engineering — power, cooling, networking, reliability, and sustainability — for the owners, investors, and engineering teams building AI infrastructure. Plus free tools.",
   twitterHandle: "@drybulb", // TODO: update
