@@ -1,0 +1,32 @@
+{
+  "name": "drybulb",
+  "description": "Drybulb — Data Center & AI Infrastructure Engineering",
+  "buildpacks": [
+    { "url": "heroku/nodejs" }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_SITE_URL": {
+      "description": "Public URL of the deployed site (e.g. https://drybulb.com)",
+      "value": "https://drybulb.com"
+    },
+    "NODE_ENV": {
+      "description": "Set by Heroku automatically",
+      "value": "production"
+    },
+    "DATABASE_URL": {
+      "description": "Postgres connection string — set automatically by Heroku Postgres addon",
+      "required": false
+    },
+    "AUTH_SECRET": {
+      "description": "Phase 2 — secret for Auth.js / NextAuth session signing",
+      "required": false
+    }
+  },
+  "addons": []
+}

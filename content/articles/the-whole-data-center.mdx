@@ -1,0 +1,143 @@
+---
+title: "The Whole Data Center: Why PUE Was Never the Whole Story"
+description: "A decade of optimizing data centers for PUE captured the easy efficiency gains. A life-cycle model of workload, building, grid, and supply chain shows the carbon we can't see now outweighs the carbon we've learned to cut."
+publishedAt: "2026-05-30"
+slug: "the-whole-data-center"
+tags: ["data centers", "sustainability", "life-cycle assessment", "energy modeling", "PUE", "embodied carbon", "AI infrastructure"]
+draft: false
+readingTime: 18
+---
+
+*Adapted from Carnegie Mellon University School of Architecture research: "Development of a Global Data Center Infrastructure Systems Model Bound by the System's End-to-End Life Cycle" (2020).*
+
+---
+
+<Callout variant="finding" title="Key findings at a glance">
+
+- **Operational efficiency is the status-quo, no longer a differentiator.** Fifteen years of chasing PUE brought real gains — and nearly exhausted them.
+- **Embodied carbon now rivals or exceeds operational carbon.** The material cost of building a data center — and replacing its hardware every two to three years — can outweigh the energy cost of running it.
+- **IT hardware, not the building, dominates the embodied footprint** — by roughly an order of magnitude. The story is in the racks, not the concrete.
+- **Deferrable workloads create recoverable capacity.** Coupling a building energy model to a cluster scheduler reveals headroom that most operators are leaving on the table.
+
+</Callout>
+
+## Introduction
+
+Most people will never set foot in a data center. They experience them the way they experience plumbing — invisibly, and only when something breaks. But the building you're reading this from probably uses less electricity in a day than a single hyperscale data center burns through in an hour. These facilities are the size of a college campus, and the hardware inside them turns over every two to three years. They are, in a very literal sense, where the dematerialized world goes to be re-materialized: every streamed song, every map you don't print, every book you don't shelve has a physical home, and that home has a footprint.
+
+The better part of a decade was spent designing, deploying, and capacity-planning that infrastructure at major hyperscalers and frontier AI infrastructure companies. When the attempt was made to write down what had been learned, one problem took five years to state clearly: **we have been optimizing data centers for the wrong number.**
+
+## The tyranny of a single metric
+
+For most of the last fifteen years, the industry's north star has been **Power Usage Effectiveness** — PUE, the ratio of total facility energy to the energy that actually reaches the IT equipment. PUE is a genuinely good metric, and chasing it produced enormous real-world gains. Facilities that once ran at a PUE of 2.0 now routinely run below 1.1.
+
+But PUE has a blind spot, and it is a significant one. It tells you how *efficiently* you deliver power to your servers. It says nothing about:
+
+- **Where that power came from.** A perfect 1.0 PUE running on coal is an environmental disaster. PUE cannot see the carbon intensity of the grid behind the meter.
+- **What it cost to build the thing in the first place.** Every server, every transformer, every cubic yard of concrete carries an *embodied* cost that PUE ignores entirely.
+- **Whether you over-built.** Optimizing one number in isolation can quietly inflate the total cost of ownership of the whole system.
+
+Industry insiders had been muttering about this for years. The premise of this research was to take the muttering seriously: if you want to make good design decisions over the *life* of a data center, you have to model the *whole* life — cradle to grave, IT workload to power grid to the steel in the walls.
+
+## A four-module model of the whole system
+
+The core hypothesis was simple to state and hard to execute: good capacity decisions require scalable, agile, end-to-end models that are technology-agnostic. And a corollary that turned out to be the key insight — *environmental cost models and monetary cost models are structurally the same problem.* The life-cycle assessment community had already proven you could trace cost through a global supply chain. The task was to point that machinery at data centers and feed it the one thing those models usually lack: a realistic, time-varying picture of what the building is actually *doing* hour by hour.
+
+The model is built as four loosely-coupled software modules — each a link in a chain that runs from a user clicking a link to a tonne of CO₂ in the atmosphere. Everything is implementable in open-source tools: EnergyPlus and Python.
+
+> **Traffic → Building Energy → Marginal Cost of Energy → Embodied Cost**
+
+### Module 1 — Traffic: turning clicks into kilowatts
+
+You cannot model a data center's energy honestly if you pretend its load is flat. Real load breathes — it follows the sun, the workday, the weekend, the occasional viral spike. The first module simulates *real* internet demand.
+
+Wikipedia served as a stand-in for a globally distributed service: roughly 145,000 pages across seven languages, with page views as the usage signal. Languages became the proxy for distinct internet services, each with its own geographic center of gravity. German traffic clusters in one place, Japanese in another, English everywhere. By mapping each language's demand to the data centers most likely to serve it and projecting that demand forward in time, the model produces something most building simulations never have: a believable, *coincident* workload profile for a network of sites around the world.
+
+The point is not Wikipedia specifically. The point is the method — start from the **service**, characterize it by its geographic footprint, and translate an abstract software metric (page views, API requests) into something a building engineer can use: power, at a specific location, at a specific hour.
+
+### Module 2 — Building energy: making the simulation breathe
+
+The second module connects that traffic signal to a physics-based building energy model in EnergyPlus.
+
+EnergyPlus normally wants you to specify loads inside its input file. To represent a year of hourly IT load, you would have to hand-enter 8,760 values — toilsome, error-prone, and static. Instead, the IT load is driven *from the outside*, resetting at each simulation timestep from a Python agent fed by the traffic module. EnergyPlus handles the physics — the chillers, the cooling towers, the ambient weather, the inefficiencies — while Python handles the logic of what the workload is doing at each moment.
+
+That external interface is more than a convenience. It means the same hook can drive air temperatures, chilled-water setpoints, condenser-water temperatures, or network bandwidth — any run-parameter you want to vary. And once a building model can be steered by an external agent, the scaffolding for optimal control is already in place.
+
+### Module 3 — Marginal cost of energy: the grid has a carbon conscience
+
+A megawatt-hour is not a megawatt-hour. The carbon emitted by adding load to a grid depends on *which* generator ramps up to serve that marginal demand — and whether the grid had to maintain idle, dispatchable capacity in reserve just in case.
+
+The third module couples the building's hourly demand to a marginal-cost-of-energy model that accounts for the real mix of dispatchable and non-dispatchable sources, including the carrying cost of idle generator capacity that renewable-energy-credit accounting tends to obscure. Run the whole network through it and the result is the *marginal* carbon footprint of serving each service from each site.
+
+The findings here are exactly the kind of thing PUE cannot reveal. The Ashburn, Virginia site carried the highest operational carbon footprint in the modeled network — not because it was inefficient, but because of the carbon intensity of the grid behind it. Cooler-climate sites posted lower PUEs simply because their weather allowed more economizer hours. *Geography and weather, not engineering alone, write the carbon bill.*
+
+### Module 4 — Embodied cost: the footprint you pay before you plug it in
+
+The final module tackles the cost that is most consistently overlooked: the carbon embodied in *making* the data center — the building materials and, more consequentially, the IT hardware. A hybrid of process-based and economic input-output (EIO) life-cycle assessment is used, scaled by real hardware failure rates so the model accounts for the equipment that will be replaced over the facility's life, not just what is installed on day one.
+
+This is where the research delivers its most uncomfortable findings.
+
+## What the whole model revealed
+
+When all four modules run together and output a common functional unit — the carbon cost of provisioning **1 kW of data center capacity for one year** — two results stand out.
+
+<Callout variant="finding" title="Finding 1 — Embodied carbon can exceed operational carbon">
+
+After a decade of the industry concentrating on operational efficiency, the carbon locked into the *materials* of a data center — its structure, its power infrastructure, and above all its IT hardware — can outweigh the carbon from *running* it.
+
+The operational phase contributes a relatively stable share. The embodied side swings the total result dramatically, depending on hardware refresh cadence and grid carbon intensity.
+
+</Callout>
+
+<Callout variant="finding" title="Finding 2 — IT hardware dominates the embodied footprint by roughly 10×">
+
+The compute, network, and storage hardware carries approximately ten times the embodied carbon of the building shell that houses it. The industry has spent years debating concrete and steel. The material story sits in the racks, cycling every two to three years.
+
+Validation against the seminal work of Masanet, Shah, and Whitehead confirmed the direction: as grids decarbonize and PUEs approach their practical floor near 1.0, the *embodied* share of total lifecycle carbon only grows in relative importance.
+
+</Callout>
+
+
+
+<Callout variant="finding" title="Research Modeling Results">
+- **Total lifecycle footprint range:** 2.75 to 6.14 tonnes CO₂-equivalent per kW-year
+- **Operational phase contribution:** 2.47–2.75 tonnes CO₂-equivalent per kW-year
+- **IT hardware vs. building shell embodied ratio:** approximately 10×
+
+</Callout>
+
+The headline conclusion: **operational efficiency was the easy 80%.** The hard, growing, largely unaddressed remainder lives in the supply chain and the hardware refresh cycle. A facility can be a marvel of operational efficiency and still be deeply unsustainable across its full lifecycle.
+
+## Inverse cooling control: recovering hidden capacity
+
+There is a second contribution embedded in the coupling of traffic and building physics — one with more immediate practical value.
+
+A cooling plant has a comfortable operating point. Chillers do not perform well when yanked across a wide load range. The conventional approach treats IT load as the independent variable and lets the cooling system chase it. But consider the inverse: **vary the IT load — specifically the deferrable, batch component — to hold the chiller at a constant, efficient operating point.**
+
+<Callout variant="insight" title="The inverse cooling control insight">
+
+When the cooling plant and electrical infrastructure are running at part-load — on a cool night, during a demand trough — there is headroom going unused. If the cluster scheduler is aware of that headroom on a look-ahead basis, it can oversubscribe IT load into it: scheduling batch work precisely when the physical plant can absorb it at no additional cost.
+
+The result is **capacity beyond provisioned capacity**, without purchasing another transformer or adding a cooling loop. The capital is already in place; it is simply being used at the wrong time.
+
+</Callout>
+
+This idea has precedent on the electrical side — IBM and others have explored power-aware scheduling. This framework extends it to the coupled thermal-electrical system and makes the scheduler aware of available headroom in advance, not in real time.
+
+## Why this matters more now than it did in 2020
+
+The research was completed the year COVID rewrote internet traffic curves overnight — a vivid demonstration of why static load assumptions fail. In the years since, AI has done something more consequential: workloads are denser, per-rack power draw is higher, hardware refresh cycles are faster, and the embodied carbon of accelerator hardware is large.
+
+Every conclusion in the dissertation applies with greater force today. If IT hardware dominated the embodied footprint in 2020, that gap has widened. If deferrable batch work created recoverable capacity then, the scheduling opportunity in an AI fleet — where so much work is throughput-bound rather than latency-bound — is larger still.
+
+The framework was never really about Wikipedia or carbon specifically. Swap carbon for dollars and the same four-module structure computes total cost of ownership. The contribution is the *shape* of the model: characterize the infrastructure, couple it to a real workload signal, then layer objective functions on top.
+
+## Future directions
+
+Two directions follow naturally, and both involve turning a *descriptive* model into a *controlling* one.
+
+1. **Capacity and constraint management.** Wired into cluster-management software, this framework hands schedulers a forward-looking view of capacity versus demand — turning the recoverable-capacity insight from a one-off analysis into a live operational parameter.
+
+2. **Reinforcement learning for optimal control.** Once a building energy model is steerable by an external agent, it becomes an environment in the reinforcement learning sense. With the right reward function, an agent can co-optimize building controls *and* traffic routing across a whole network — moving work to where the grid is cleanest, the weather is coolest, and the plant is most efficient, continuously.
+
+*Drybulb provides independent engineering consulting for data center and AI infrastructure. Questions on this research or its application to active projects are welcome — [reach out](/contact).*
