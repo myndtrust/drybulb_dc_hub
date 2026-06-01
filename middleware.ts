@@ -1,29 +1,37 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const CANONICAL_HOST = "www.drybulb.com";
+
 /**
- * Auth middleware stub.
- *
- * TODO (Phase 2): Replace this stub with a real auth check.
- * Recommended options:
- *   - Auth.js (NextAuth v5): full ownership, any provider
- *   - Clerk: fastest setup, great DX
- *   - Supabase: auth + Postgres + storage in one
- *
- * Pattern: check session/JWT, redirect to /login if missing,
- * pass through otherwise.
+ * Middleware:
+ *  1. Redirect non-canonical hosts (e.g. herokuapp.com) → www.drybulb.com
+ *  2. Auth stub (Phase 2)
  */
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") ?? "";
 
-  // TODO: protect all (app) routes once auth is wired
-  // const isAppRoute = pathname.startsWith("/dashboard");
-  // const session = await getSession(request); // your auth provider
+  // Redirect any non-canonical host to the canonical domain (permanent 301).
+  // Skip in local development.
+  if (
+    host &&
+    host !== CANONICAL_HOST &&
+    !host.startsWith("localhost") &&
+    !host.startsWith("127.0.0.1")
+  ) {
+    const url = request.nextUrl.clone();
+    url.host = CANONICAL_HOST;
+    url.port = "";
+    url.protocol = "https:";
+    return NextResponse.redirect(url, 301);
+  }
+
+  // TODO (Phase 2): protect all (app) routes once auth is wired
+  // const isAppRoute = request.nextUrl.pathname.startsWith("/dashboard");
+  // const session = await getSession(request);
   // if (isAppRoute && !session) {
   //   return NextResponse.redirect(new URL("/login", request.url));
   // }
-
-  void pathname; // suppress unused variable warning until auth is wired
 
   return NextResponse.next();
 }
