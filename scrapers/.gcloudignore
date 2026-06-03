@@ -1,0 +1,8 @@
+# Keep the Cloud Build upload context small (gcloud --source uses THIS file,
+# not .dockerignore). The image only needs requirements.txt + datacenter_jobs/.
+.venv/
+**/__pycache__/
+*.py[cod]
+*.md
+.env*
+test_seed.json

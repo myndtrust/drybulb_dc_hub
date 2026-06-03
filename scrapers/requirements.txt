@@ -1,0 +1,6 @@
+# Datacenter jobs scraper dependencies (Python 3.11+)
+httpx[http2]>=0.27          # async HTTP client with HTTP/2 support
+pydantic>=2.6               # v2 runtime schema validation
+beautifulsoup4>=4.12        # fallback HTML-tag stripping for descriptions
+python-dotenv>=1.0          # load optional SerpAPI key from .env.local (--discover)
+google-cloud-storage>=2.16  # publish the seed JSON to the GCS bucket from Cloud Run

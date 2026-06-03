@@ -1,6 +1,7 @@
 {
   "name": "drybulb",
   "description": "Drybulb — Data Center & AI Infrastructure Engineering",
+  "stack": "heroku-24",
   "buildpacks": [
     { "url": "heroku/nodejs" }
   ],

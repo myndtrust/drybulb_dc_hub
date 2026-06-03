@@ -43,5 +43,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# python scraper (scrapers/)
+__pycache__/
+*.py[cod]
+scrapers/.venv/
+scrapers/**/__pycache__/
+
+# generated jobs seed (published to GCS by the Cloud Run Job; not version-controlled)
+public/data/datacenter_jobs_seed.json
+
 # velite generated output
 .velite
