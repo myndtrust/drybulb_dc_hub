@@ -15,17 +15,33 @@ export const revalidate = 300;
 export default async function JobsPage() {
   const jobs = await getJobs();
 
+  // Newest scrape timestamp across the feed → "Listings updated <date>".
+  const updatedAt = jobs.reduce<string>(
+    (latest, job) => (job.scraped_at > latest ? job.scraped_at : latest),
+    "",
+  );
+
   return (
     <div className="container mx-auto max-w-5xl px-4 py-16">
       <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-6">
         Jobs
       </p>
       <h1 className="text-4xl font-bold tracking-tight mb-4">Datacenter jobs</h1>
-      <p className="text-lg text-muted-foreground leading-relaxed mb-12 max-w-2xl">
+      <p className="text-lg text-muted-foreground leading-relaxed mb-4 max-w-2xl">
         Open roles across critical facilities, infrastructure engineering, construction
         &amp; commissioning, and network deployment — aggregated directly from operators&apos;
         public career boards and refreshed regularly.
       </p>
+      {updatedAt && (
+        <p className="text-xs font-mono text-muted-foreground mb-12">
+          Listings updated{" "}
+          {new Date(updatedAt).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
+        </p>
+      )}
 
       <JobsBoard jobs={jobs} />
     </div>

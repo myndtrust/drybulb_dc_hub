@@ -68,7 +68,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--gcs-object",
         default=SETTINGS.gcs_object,
-        help="GCS object name (or env GCS_OBJECT).",
+        help="GCS 'latest' pointer object name (or env GCS_OBJECT). Default latest.json.",
+    )
+    parser.add_argument(
+        "--gcs-archive-prefix",
+        default=SETTINGS.gcs_archive_prefix,
+        help="Prefix for immutable dated snapshots (or env GCS_ARCHIVE_PREFIX).",
     )
     parser.add_argument(
         "--no-local",
@@ -110,7 +115,9 @@ def main(argv: list[str] | None = None) -> int:
         storage.write_local(jobs, args.out)
 
     if args.gcs_bucket:
-        storage.upload_gcs(jobs, args.gcs_bucket, args.gcs_object)
+        storage.upload_gcs(
+            jobs, args.gcs_bucket, args.gcs_object, args.gcs_archive_prefix
+        )
 
     return 0
 

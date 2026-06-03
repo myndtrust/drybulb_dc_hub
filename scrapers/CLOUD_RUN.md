@@ -1,8 +1,14 @@
 # Cloud Run — Datacenter Jobs Scraper (operations)
 
 This is the live deployment of the scraper in `scrapers/`. It runs as a **Cloud Run
-Job** (on-demand, not a server), scrapes all configured ATS boards, and uploads
-`datacenter_jobs_seed.json` to a **public GCS bucket** that the drybulb.com site reads.
+Job** (on-demand, not a server), scrapes all configured ATS boards, and publishes the
+results to a **public GCS bucket** that the drybulb.com site reads.
+
+Each run writes **two** objects:
+- `latest.json` — overwritten every run (short cache); **this is what the site reads**.
+- `archive/datacenter_jobs_<UTC-timestamp>.json` — an immutable dated snapshot kept as
+  history. A bucket lifecycle rule auto-deletes `archive/` objects older than **90 days**
+  (`latest.json` is exempt — it lives outside `archive/`).
 
 > **Local source / "GCP directory":** `c:\Users\Eric\Documents\drybulb_datacenter_hub\scrapers`
 > — everything is deployed from here (`--source scrapers`). There is no separate local
@@ -17,8 +23,9 @@ Job** (on-demand, not a server), scrapes all configured ATS boards, and uploads
 | Cloud Run Job | `datacenter-jobs-scraper` |
 | Service account | `jobs-scraper@wordpress103020.iam.gserviceaccount.com` |
 | GCS bucket | `gs://drybulb-jobs` (public-read, CORS for drybulb.com) |
-| Published feed object | `datacenter_jobs_seed.json` |
-| **Public feed URL** | `https://storage.googleapis.com/drybulb-jobs/datacenter_jobs_seed.json` |
+| Latest pointer object | `latest.json` |
+| Dated history | `archive/datacenter_jobs_<UTC-timestamp>.json` (auto-deleted after 90 days) |
+| **Public feed URL** | `https://storage.googleapis.com/drybulb-jobs/latest.json` |
 
 Console links:
 - Job: https://console.cloud.google.com/run/jobs/details/us-central1/datacenter-jobs-scraper?project=wordpress103020
@@ -29,8 +36,8 @@ Console links:
 
 ## ▶️ Refresh the job listings (the common task)
 
-Trigger a fresh scrape on demand. This re-scrapes every company and overwrites the
-public JSON. A full run takes ~3–6 minutes.
+Trigger a fresh scrape on demand. This re-scrapes every company, writes a new dated
+`archive/` snapshot, and overwrites `latest.json`. A full run takes ~3–6 minutes.
 
 ```powershell
 gcloud run jobs execute datacenter-jobs-scraper --region us-central1 --project wordpress103020
@@ -47,7 +54,13 @@ Or just click **EXECUTE** on the [job page](https://console.cloud.google.com/run
 Confirm the feed updated (look at `scraped_at` / size):
 
 ```powershell
-curl.exe -s "https://storage.googleapis.com/drybulb-jobs/datacenter_jobs_seed.json" | Select-String "scraped_at" | Select-Object -First 1
+curl.exe -s "https://storage.googleapis.com/drybulb-jobs/latest.json" | Select-String "scraped_at" | Select-Object -First 1
+```
+
+List the dated history:
+
+```powershell
+gcloud storage ls gs://drybulb-jobs/archive/ --project wordpress103020
 ```
 
 ---
@@ -63,7 +76,7 @@ gcloud run jobs deploy datacenter-jobs-scraper `
   --region us-central1 `
   --project wordpress103020 `
   --service-account jobs-scraper@wordpress103020.iam.gserviceaccount.com `
-  --set-env-vars GCS_BUCKET=drybulb-jobs,GCS_OBJECT=datacenter_jobs_seed.json `
+  --set-env-vars GCS_BUCKET=drybulb-jobs,GCS_OBJECT=latest.json,GCS_ARCHIVE_PREFIX=archive `
   --memory 512Mi --max-retries 1 --task-timeout 1200
 ```
 
@@ -90,7 +103,7 @@ The site reads `NEXT_PUBLIC_JOBS_FEED_URL` (see `.env.example`). Set it in the H
 app config so the `/jobs` pages read the live bucket:
 
 ```powershell
-heroku config:set NEXT_PUBLIC_JOBS_FEED_URL=https://storage.googleapis.com/drybulb-jobs/datacenter_jobs_seed.json -a <your-heroku-app>
+heroku config:set NEXT_PUBLIC_JOBS_FEED_URL=https://storage.googleapis.com/drybulb-jobs/latest.json -a <your-heroku-app>
 ```
 
 (Until set, the site falls back to a local seed file in development and shows an empty
@@ -106,6 +119,9 @@ gcloud storage buckets create gs://drybulb-jobs --project=wordpress103020 --loca
 gcloud storage buckets add-iam-policy-binding gs://drybulb-jobs --member=allUsers --role=roles/storage.objectViewer
 gcloud storage buckets update gs://drybulb-jobs --cors-file=scrapers/cors.json
 
+# Retention: auto-delete dated archives older than 90 days (latest.json is exempt)
+gcloud storage buckets update gs://drybulb-jobs --lifecycle-file=scrapers/lifecycle.json
+
 # Service account + write access to the bucket
 gcloud iam service-accounts create jobs-scraper --project=wordpress103020 --display-name="Datacenter jobs scraper"
 gcloud storage buckets add-iam-policy-binding gs://drybulb-jobs `
@@ -114,7 +130,7 @@ gcloud storage buckets add-iam-policy-binding gs://drybulb-jobs `
 # Build + deploy the job (same as the redeploy command above)
 gcloud run jobs deploy datacenter-jobs-scraper --source scrapers --region us-central1 --project wordpress103020 `
   --service-account jobs-scraper@wordpress103020.iam.gserviceaccount.com `
-  --set-env-vars GCS_BUCKET=drybulb-jobs,GCS_OBJECT=datacenter_jobs_seed.json `
+  --set-env-vars GCS_BUCKET=drybulb-jobs,GCS_OBJECT=latest.json,GCS_ARCHIVE_PREFIX=archive `
   --memory 512Mi --max-retries 1 --task-timeout 1200
 ```
 

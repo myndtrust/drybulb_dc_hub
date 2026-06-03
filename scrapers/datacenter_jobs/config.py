@@ -77,8 +77,13 @@ class Settings:
 
     # GCS publish target (set in the Cloud Run Job env).
     gcs_bucket: str = field(default_factory=lambda: os.getenv("GCS_BUCKET", ""))
+    # The stable "latest" pointer object the site reads (overwritten each run).
     gcs_object: str = field(
-        default_factory=lambda: os.getenv("GCS_OBJECT", "datacenter_jobs_seed.json")
+        default_factory=lambda: os.getenv("GCS_OBJECT", "latest.json")
+    )
+    # Prefix under which immutable dated snapshots are written (history).
+    gcs_archive_prefix: str = field(
+        default_factory=lambda: os.getenv("GCS_ARCHIVE_PREFIX", "archive")
     )
 
 

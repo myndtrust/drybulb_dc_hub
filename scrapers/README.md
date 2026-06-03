@@ -2,14 +2,16 @@
 
 Async Python pipeline that aggregates **public** datacenter job listings from
 Greenhouse, Lever, and Workday, validates them against a strict Pydantic schema, and
-publishes `datacenter_jobs_seed.json`.
+publishes them to GCS as `latest.json` (the pointer the site reads) plus an immutable
+dated snapshot under `archive/`.
 
 ## Architecture
 
 ```
   (manual trigger)              Cloud Run Job                       GCS bucket
-  gcloud run jobs execute ───▶  scrape + validate + serialize  ───▶ datacenter_jobs_seed.json
-                                (this package)                      (public-read + CORS)
+  gcloud run jobs execute ───▶  scrape + validate + serialize  ───▶ latest.json  (site reads this)
+                                (this package)                      archive/datacenter_jobs_<ts>.json
+                                                                    (public-read + CORS)
                                                                           │
                                                                           ▼
                               Browser on drybulb.com fetches the JSON directly.
@@ -94,10 +96,15 @@ gcloud run jobs deploy datacenter-jobs-scraper \
   --source . \
   --region us-central1 \
   --service-account jobs-scraper@PROJECT.iam.gserviceaccount.com \
-  --set-env-vars GCS_BUCKET=drybulb-jobs,GCS_OBJECT=datacenter_jobs_seed.json \
+  --set-env-vars GCS_BUCKET=drybulb-jobs,GCS_OBJECT=latest.json,GCS_ARCHIVE_PREFIX=archive \
   --max-retries 1 \
   --task-timeout 1200
 ```
+
+Each run writes a dated `archive/datacenter_jobs_<UTC-timestamp>.json` snapshot and
+overwrites `latest.json`. Optionally cap history with a lifecycle rule:
+`gcloud storage buckets update gs://drybulb-jobs --lifecycle-file=lifecycle.json`
+(deletes `archive/` objects older than 90 days; `latest.json` is exempt).
 
 ### Trigger a scrape on demand
 
@@ -106,10 +113,10 @@ gcloud run jobs execute datacenter-jobs-scraper --region us-central1
 ```
 
 (or click **Execute** on the Job in the Cloud Console). When it finishes, the fresh
-JSON is live at:
+feed is live at:
 
 ```
-https://storage.googleapis.com/drybulb-jobs/datacenter_jobs_seed.json
+https://storage.googleapis.com/drybulb-jobs/latest.json
 ```
 
 ## Frontend integration (Next.js on Heroku)
@@ -117,7 +124,7 @@ https://storage.googleapis.com/drybulb-jobs/datacenter_jobs_seed.json
 Add the public URL to the site env:
 
 ```
-NEXT_PUBLIC_JOBS_FEED_URL=https://storage.googleapis.com/drybulb-jobs/datacenter_jobs_seed.json
+NEXT_PUBLIC_JOBS_FEED_URL=https://storage.googleapis.com/drybulb-jobs/latest.json
 ```
 
 Then either fetch it client-side (zero Heroku load) or via ISR in a Server Component:
