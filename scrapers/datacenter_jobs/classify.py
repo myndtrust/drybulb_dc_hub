@@ -95,11 +95,43 @@ def categorize_title(title: str) -> Category:
 # ---------------------------------------------------------------------------
 # Raw location -> normalized market
 # ---------------------------------------------------------------------------
-# Each market maps to a list of lowercase substrings to look for in the raw
-# location text. Order matters only if a city could plausibly belong to two
-# markets (none here), but we keep NoVA first as the densest hub.
+# Each market maps to lowercase substrings to look for in the raw location text.
+# ORDER MATTERS: the first market with any matching needle wins, so distinctive
+# city names are listed first and broad backstops (state names) last.
+#
+# Precision rules to avoid false positives:
+#   * Lead with collision-safe CITY names; they match all feed formats
+#     ("Santa Clara, CA", Workday "US, CA, Santa Clara", and Lever free-text).
+#   * Use a state NAME backstop only where unambiguous (arizona/oregon/ohio/etc.);
+#     never "washington" (Washington, DC) or "california" (LA/San Diego ≠ SV).
+#   * Avoid 2-letter state-code substrings that collide (", ca" matches
+#     "Toronto, Canada"). For NoVA we use ", va" (with the comma) + "virginia",
+#     NOT a bare " va" — that previously also matched " va<lley>".
 _MARKET_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
-    ("Northern Virginia", ("ashburn", "loudoun", "sterling", "virginia", " va", ",va")),
+    # ── US markets (city-name centric) ──
+    ("Silicon Valley", (
+        "san jose", "santa clara", "sunnyvale", "mountain view", "palo alto",
+        "fremont", "san francisco", "silicon valley", "milpitas",
+        "redwood city", "menlo park",
+    )),
+    ("Phoenix", ("phoenix", "mesa", "chandler", "scottsdale", "tempe", "goodyear", "arizona")),
+    ("Dallas-Fort Worth", ("dallas", "fort worth", "irving", "plano", "richardson", "garland")),
+    ("Chicago", ("chicago", "elk grove", "schaumburg", "northlake")),
+    ("Atlanta", ("atlanta", "douglasville", "lithia springs", "georgia")),
+    ("Hillsboro/Oregon", ("hillsboro", "portland, or", "oregon")),
+    ("Columbus", ("columbus, oh", "columbus, ohio", "new albany")),
+    ("Salt Lake City", ("salt lake", "west jordan", "bluffdale", "utah")),
+    ("Seattle", ("seattle", "quincy, wa", "redmond", "bellevue", "tacoma")),
+    ("Las Vegas", ("las vegas", "henderson", "reno", "nevada")),
+    ("New York/New Jersey", (
+        "new york", "nyc", "newark", "new jersey", "jersey city",
+        "secaucus", "piscataway", "weehawken",
+    )),
+    ("Northern Virginia", (
+        "ashburn", "loudoun", "sterling", "manassas", "reston", "chantilly",
+        ", va", "virginia",
+    )),
+    # ── Global ──
     ("FLAP-D", ("frankfurt", "london", "amsterdam", "paris", "dublin")),
     ("APAC/Singapore", ("singapore",)),
     ("APAC/Tokyo", ("tokyo",)),
