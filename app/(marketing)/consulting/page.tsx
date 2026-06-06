@@ -93,6 +93,8 @@ export default function ConsultingPage() {
               <Link
                 href={`/contact?engagement=${engagement}`}
                 className="text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground/70 transition-colors"
+                data-umami-event="cta-consulting-service"
+                data-umami-event-engagement={engagement}
               >
                 Discuss this engagement &rarr;
               </Link>
@@ -150,7 +152,9 @@ export default function ConsultingPage() {
           </p>
         </div>
         <Button asChild size="lg" className="shrink-0">
-          <Link href="/contact?engagement=general">Start a conversation</Link>
+          <Link href="/contact?engagement=general" data-umami-event="cta-consulting-main">
+            Start a conversation
+          </Link>
         </Button>
       </div>
     </div>

@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ENGAGEMENT_OPTIONS } from "@/lib/engagements";
 
+// Umami's tracker attaches window.umami at runtime (only in production). Typed
+// loosely so we can fire a conversion event without a global declaration file.
+type Umami = { track: (event: string, data?: Record<string, unknown>) => void };
+
 const fieldClass =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground " +
   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 " +
@@ -35,6 +39,9 @@ export function ContactForm({ defaultEngagement = "general" }: { defaultEngageme
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "Something went wrong. Please try again.");
       }
+      // Conversion event — the inquiry actually landed, not just a CTA click.
+      const umami = (window as unknown as { umami?: Umami }).umami;
+      umami?.track("contact-submit", { engagement: String(data.engagement ?? "general") });
       setStatus("success");
       form.reset();
     } catch (err) {

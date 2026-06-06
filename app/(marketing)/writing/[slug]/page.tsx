@@ -148,7 +148,13 @@ export default async function ArticlePage({ params }: Props) {
             </p>
           </div>
           <Button asChild size="lg" className="shrink-0">
-            <Link href="/consulting">Work with me</Link>
+            <Link
+              href="/consulting"
+              data-umami-event="cta-consulting-article"
+              data-umami-event-article={article.slug}
+            >
+              Work with me
+            </Link>
           </Button>
         </aside>
 

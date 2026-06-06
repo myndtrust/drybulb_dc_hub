@@ -1048,7 +1048,12 @@ export default function PueCalculatorPage() {
                     </p>
                   </div>
                   <Button asChild className="shrink-0">
-                    <Link href="/contact?engagement=sustainability">Work with me</Link>
+                    <Link
+                      href="/contact?engagement=sustainability"
+                      data-umami-event="cta-consulting-pue"
+                    >
+                      Work with me
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>
