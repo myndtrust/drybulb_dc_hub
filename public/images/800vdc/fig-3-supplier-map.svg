@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 430" role="img" aria-label="Grid to chip supplier layer map">
+  <style>
+    .L{font-family:Georgia,serif;font-size:15px;font-weight:600;fill:#16130d}
+    .m{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;fill:#16130d}
+    .ms{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px;fill:#6e6450}
+    .layer{fill:#fbf8f0;stroke:#cfc4ab}
+    .v{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10.5px;fill:#d4471d;font-weight:600}
+  </style>
+  <!-- vertical voltage spine -->
+  <line x1="60" y1="40" x2="60" y2="400" stroke="#d4471d" stroke-width="2"/>
+  <text class="v" x="14" y="58">13.8 kV</text>
+  <text class="v" x="22" y="150">800 V</text>
+  <text class="v" x="14" y="250">800 V DC</text>
+  <text class="v" x="26" y="345">6 V-&gt;&lt;1V</text>
+
+  <!-- layer 1 -->
+  <rect class="layer" x="90" y="40" width="750" height="78" rx="4"/>
+  <text class="L" x="104" y="62">1 - Grid to 800V conversion (MV)</text>
+  <text class="ms" x="104" y="80">Central rectifiers - solid-state transformers - the new contested frontier</text>
+  <text class="m" x="104" y="102">ABB - Eaton - Vertiv - Schneider - Delta ("Panama" MVDC) - Sungrow | startups: Heron - DG Matrix - Amperesand</text>
+
+  <!-- layer 2 -->
+  <rect class="layer" x="90" y="128" width="750" height="78" rx="4"/>
+  <text class="L" x="104" y="150">2 - Facility &amp; row distribution</text>
+  <text class="ms" x="104" y="168">DC busways - switchgear - DC protection - liquid-cooled bus</text>
+  <text class="m" x="104" y="190">Eaton - ABB - Vertiv - Schneider Electric - Delta</text>
+
+  <!-- layer 3 -->
+  <rect class="layer" x="90" y="216" width="750" height="86" rx="4"/>
+  <text class="L" x="104" y="238">3 - Rack power / sidecar &amp; PSUs</text>
+  <text class="ms" x="104" y="256">Power shelves - BBU/CBU storage - hot-swap - sidecar integration</text>
+  <text class="m" x="104" y="278">Delta - Flex Power - LiteOn - Megmeet - Lead Wealth - Vertiv - Eaton - Schneider/APC</text>
+
+  <!-- layer 4 -->
+  <rect class="layer" x="90" y="312" width="750" height="92" rx="4"/>
+  <text class="L" x="104" y="334">4 - On-board power semis (DC/DC + VRM)</text>
+  <text class="ms" x="104" y="352">800V to 6V bus converters - multiphase buck - GaN / SiC - hot-swap controllers</text>
+  <text class="m" x="104" y="374">TI - Navitas - Infineon - STMicro - ROHM - MPS - onsemi - Renesas - ADI - Innoscience</text>
+  <text class="ms" x="104" y="392">Winners regardless of faction -- the GPU still needs sub-1V at the die.</text>
+</svg>

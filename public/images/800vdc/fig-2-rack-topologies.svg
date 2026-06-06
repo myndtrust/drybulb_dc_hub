@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 360" role="img" aria-label="Three rack power topologies compared">
+  <style>
+    .tt{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+    .ttl{font-family:Georgia,serif;font-size:15px;font-weight:600;fill:#16130d}
+    .cap{font-size:10.5px;fill:#6e6450}
+    .v{font-size:11px;fill:#16130d}
+    .pos{stroke:#d4471d;stroke-width:3}
+    .neg{stroke:#2b5c66;stroke-width:3}
+    .ret{stroke:#6e6450;stroke-width:2;stroke-dasharray:5 4}
+    .rack{fill:#ebe4d3;stroke:#cfc4ab}
+    .load{fill:#fbf8f0;stroke:#16130d}
+  </style>
+  <!-- panel 1: 54V legacy -->
+  <g transform="translate(20,20)">
+    <text class="ttl" x="0" y="0">Legacy - 54 VDC</text>
+    <text class="tt cap" x="0" y="16">single low-V bus - huge copper</text>
+    <rect class="rack" x="0" y="28" width="240" height="250" rx="4"/>
+    <line class="pos" x1="40" y1="44" x2="40" y2="262"/>
+    <line class="ret" x1="200" y1="44" x2="200" y2="262"/>
+    <text class="tt v" x="48" y="60" fill="#d4471d">+54 V</text>
+    <text class="tt v" x="150" y="60" fill="#6e6450">RTN</text>
+    <rect x="34" y="44" width="12" height="218" fill="#d4471d" opacity="0.18"/>
+    <g>
+      <rect class="load" x="70" y="78" width="110" height="26" rx="2"/><text class="tt v" x="125" y="95" text-anchor="middle">GPU tray</text>
+      <rect class="load" x="70" y="120" width="110" height="26" rx="2"/><text class="tt v" x="125" y="137" text-anchor="middle">GPU tray</text>
+      <rect class="load" x="70" y="162" width="110" height="26" rx="2"/><text class="tt v" x="125" y="179" text-anchor="middle">GPU tray</text>
+      <rect class="load" x="70" y="204" width="110" height="26" rx="2"/><text class="tt v" x="125" y="221" text-anchor="middle">GPU tray</text>
+    </g>
+    <text class="tt cap" x="0" y="300">~2.5 kA class current</text>
+    <text class="tt cap" x="0" y="316">200 kg Cu @ 1 MW</text>
+  </g>
+  <!-- panel 2: bipolar +/-400 -->
+  <g transform="translate(310,20)">
+    <text class="ttl" x="0" y="0">OCP Diablo - +/-400 VDC</text>
+    <text class="tt cap" x="0" y="16">bipolar - 3 conductors - EV parts</text>
+    <rect class="rack" x="0" y="28" width="240" height="250" rx="4"/>
+    <line class="pos" x1="36" y1="44" x2="36" y2="262"/>
+    <line class="ret" x1="120" y1="44" x2="120" y2="262"/>
+    <line class="neg" x1="204" y1="44" x2="204" y2="262"/>
+    <text class="tt v" x="20" y="60" fill="#d4471d">+400</text>
+    <text class="tt v" x="104" y="60" fill="#6e6450">0</text>
+    <text class="tt v" x="188" y="60" fill="#2b5c66">-400</text>
+    <rect class="load" x="60" y="100" width="120" height="40" rx="2"/><text class="tt v" x="120" y="124" text-anchor="middle">load @ +400</text>
+    <rect class="load" x="60" y="170" width="120" height="40" rx="2"/><text class="tt v" x="120" y="194" text-anchor="middle">load @ -400</text>
+    <text class="tt cap" x="0" y="300">800 V rail-to-rail</text>
+    <text class="tt cap" x="0" y="316">400 V to ground</text>
+  </g>
+  <!-- panel 3: monopolar 800 -->
+  <g transform="translate(600,20)">
+    <text class="ttl" x="0" y="0">NVIDIA - 800 VDC</text>
+    <text class="tt cap" x="0" y="16">monopolar - 2 conductors</text>
+    <rect class="rack" x="0" y="28" width="240" height="250" rx="4"/>
+    <line class="pos" x1="44" y1="44" x2="44" y2="262"/>
+    <line class="ret" x1="196" y1="44" x2="196" y2="262"/>
+    <text class="tt v" x="52" y="60" fill="#d4471d">+800 V</text>
+    <text class="tt v" x="150" y="60" fill="#6e6450">RTN</text>
+    <rect class="load" x="74" y="88" width="110" height="30" rx="2"/><text class="tt v" x="129" y="108" text-anchor="middle">GPU tray</text>
+    <rect class="load" x="74" y="132" width="110" height="30" rx="2"/><text class="tt v" x="129" y="152" text-anchor="middle">GPU tray</text>
+    <rect class="load" x="74" y="176" width="110" height="30" rx="2"/><text class="tt v" x="129" y="196" text-anchor="middle">GPU tray</text>
+    <rect class="load" x="74" y="220" width="110" height="30" rx="2"/><text class="tt v" x="129" y="240" text-anchor="middle">GPU tray</text>
+    <text class="tt cap" x="0" y="300">simplest cabling</text>
+    <text class="tt cap" x="0" y="316">full 800 V insulation</text>
+  </g>
+</svg>
