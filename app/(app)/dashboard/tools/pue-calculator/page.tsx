@@ -1034,6 +1034,24 @@ export default function PueCalculatorPage() {
                 Station locations reference DOE TMY3 weather data sites.
                 PUE estimates are for planning purposes only.
               </p>
+
+              {/* Engagement CTA */}
+              <Card className="bg-muted/40">
+                <CardContent className="py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold mb-1">
+                      Need a defensible, PE-stamped assessment of these numbers?
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      I provide independent PUE, efficiency, and life-cycle analysis as a
+                      formal engineering report — for owners, operators, and lenders.
+                    </p>
+                  </div>
+                  <Button asChild className="shrink-0">
+                    <Link href="/contact?engagement=sustainability">Work with me</Link>
+                  </Button>
+                </CardContent>
+              </Card>
             </>
           )}
         </div>

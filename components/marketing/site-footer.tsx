@@ -10,6 +10,7 @@ export function SiteFooter() {
           <Link href="/writing" className="hover:text-foreground transition-colors">Blog</Link>
           <Link href="/tools" className="hover:text-foreground transition-colors">Tools</Link>
           <Link href="/jobs" className="hover:text-foreground transition-colors">Jobs</Link>
+          <Link href="/consulting" className="hover:text-foreground transition-colors">Consulting</Link>
           <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
           <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
         </nav>

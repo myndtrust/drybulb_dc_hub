@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { articles, authors } from "@/.velite";
 import { constructMetadata } from "@/lib/metadata";
 import { MdxContent } from "@/components/shared/mdx-content";
@@ -135,8 +136,24 @@ export default async function ArticlePage({ params }: Props) {
           <MdxContent code={article.body} />
         </article>
 
+        {/* Engagement CTA */}
+        <aside className="mt-16 rounded-lg bg-muted/40 border border-border/60 px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div>
+            <p className="font-semibold mb-1">
+              Facing this on a real project?
+            </p>
+            <p className="text-sm text-muted-foreground">
+              I take on select advisory engagements — technical due diligence,
+              owner&apos;s engineering, and design peer review — as a licensed PE.
+            </p>
+          </div>
+          <Button asChild size="lg" className="shrink-0">
+            <Link href="/consulting">Work with me</Link>
+          </Button>
+        </aside>
+
         {/* Footer nav */}
-        <div className="mt-16 pt-8 border-t border-border/60">
+        <div className="mt-12 pt-8 border-t border-border/60">
           <Link
             href="/writing"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"

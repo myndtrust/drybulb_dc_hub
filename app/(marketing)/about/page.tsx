@@ -208,6 +208,17 @@ export default function AboutPage() {
           is hard to find unless you already know the right people. This site is
           an attempt to change that, one article and one tool at a time.
         </p>
+        <p className="text-sm text-muted-foreground leading-relaxed mt-4">
+          Alongside the writing, the editor takes on a small number of independent
+          advisory engagements each year — technical due diligence, owner&apos;s
+          engineering, and expert work.{" "}
+          <Link
+            href="/consulting"
+            className="text-foreground underline underline-offset-4 hover:text-foreground/70 transition-colors"
+          >
+            See how that works &rarr;
+          </Link>
+        </p>
       </section>
 
       {/* CTA */}
