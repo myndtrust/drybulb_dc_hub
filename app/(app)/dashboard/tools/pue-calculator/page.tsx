@@ -33,6 +33,8 @@ import type {
   UPSType,
 } from "@/lib/pue/types";
 import { MONTH_LABELS } from "@/lib/pue/types";
+import { SavedModels } from "@/components/pue/saved-models";
+import type { SavedModelInputs } from "@/lib/pue/saved-models";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Temperature unit helpers
@@ -633,6 +635,13 @@ export default function PueCalculatorPage() {
     }));
   };
 
+  // Restore a saved model: inputs + the display unit it was saved with.
+  const handleLoadModel = (loaded: SavedModelInputs) => {
+    const { tempUnit: savedUnit, ...savedInputs } = loaded;
+    setInputs(savedInputs);
+    if (savedUnit === "C" || savedUnit === "F") setTempUnit(savedUnit);
+  };
+
   // Display values for temperature inputs
   const supplyDisplay = Math.round(displayTemp(inputs.supplyAirTemp, tempUnit));
   const airRiseDisplay = Math.round(displayDelta(inputs.temperatureRise, tempUnit));
@@ -668,6 +677,12 @@ export default function PueCalculatorPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
         {/* ── Left: Configuration Panel ── */}
         <div className="space-y-4">
+          {/* Saved models (hidden when auth isn't configured) */}
+          <SavedModels
+            currentInputs={{ ...inputs, tempUnit }}
+            onLoad={handleLoadModel}
+          />
+
           {/* Location */}
           <Card>
             <CardHeader className="pb-3">

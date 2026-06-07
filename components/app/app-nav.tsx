@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AuthButton } from "@/components/app/auth-button";
 
 export function AppNav() {
 
@@ -14,6 +15,7 @@ export function AppNav() {
           <Link href="/tools" className="hover:text-foreground transition-colors">
             Tools
           </Link>
+          <AuthButton />
         </div>
       </div>
     </header>

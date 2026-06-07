@@ -4,11 +4,14 @@ import type { NextRequest } from "next/server";
 const CANONICAL_HOST = "www.drybulb.com";
 
 /**
- * Middleware:
- *  1. Redirect non-canonical hosts (e.g. herokuapp.com) → www.drybulb.com
- *  2. Auth stub (Phase 2)
+ * Proxy (Next.js 16's renamed Middleware):
+ *  - Redirect non-canonical hosts (e.g. herokuapp.com) → www.drybulb.com
+ *
+ * Auth note: Supabase sessions are managed client-side by the browser client
+ * and written by the /auth/callback Route Handler, so no Supabase logic runs
+ * here. (Per Next 16's proxy docs, proxy must not be the session/authz layer.)
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
 
   // Redirect any non-canonical host to the canonical domain (permanent 301).
@@ -25,13 +28,6 @@ export function middleware(request: NextRequest) {
     url.protocol = "https:";
     return NextResponse.redirect(url, 301);
   }
-
-  // TODO (Phase 2): protect all (app) routes once auth is wired
-  // const isAppRoute = request.nextUrl.pathname.startsWith("/dashboard");
-  // const session = await getSession(request);
-  // if (isAppRoute && !session) {
-  //   return NextResponse.redirect(new URL("/login", request.url));
-  // }
 
   return NextResponse.next();
 }
