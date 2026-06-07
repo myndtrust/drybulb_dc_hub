@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   createClient,
   isSupabaseConfigured,
@@ -21,6 +20,7 @@ const inputClass =
   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 " +
   "focus-visible:ring-ring focus-visible:ring-offset-2";
 
+// Content-only panel (no outer card) — designed to live inside the drawer.
 export function SavedModels({
   currentInputs,
   onLoad,
@@ -64,7 +64,6 @@ export function SavedModels({
     return () => sub.subscription.unsubscribe();
   }, [refresh]);
 
-  // Hide the panel entirely if auth isn't configured (calculator stays usable).
   if (!isSupabaseConfigured || !ready) return null;
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
@@ -95,64 +94,56 @@ export function SavedModels({
 
   if (!signedIn) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Save your model</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-3">
-            Sign in to save this configuration and reload it any time.
-          </p>
-          <Button size="sm" onClick={() => signInWithGoogle()}>
-            Sign in with Google
-          </Button>
-        </CardContent>
-      </Card>
+      <div>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Sign in to save this configuration and reload it any time.
+        </p>
+        <Button size="sm" onClick={() => signInWithGoogle()}>
+          Sign in with Google
+        </Button>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Your saved models</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <form onSubmit={handleSave} className="flex gap-2">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name this model"
-            aria-label="Model name"
-            maxLength={120}
-            className={inputClass}
-          />
-          <Button type="submit" size="sm" disabled={busy || !name.trim()} className="shrink-0">
-            {busy ? "Saving…" : "Save"}
-          </Button>
-        </form>
+    <div className="space-y-4">
+      <form onSubmit={handleSave} className="flex gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name this model"
+          aria-label="Model name"
+          maxLength={120}
+          className={inputClass}
+        />
+        <Button type="submit" size="sm" disabled={busy || !name.trim()} className="shrink-0">
+          {busy ? "Saving…" : "Save"}
+        </Button>
+      </form>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {models.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No saved models yet.</p>
-        ) : (
-          <ul className="divide-y divide-border/60">
-            {models.map((m) => (
-              <li key={m.id} className="flex items-center justify-between gap-2 py-2">
-                <span className="truncate text-sm">{m.name}</span>
-                <span className="flex shrink-0 gap-2">
-                  <Button variant="outline" size="sm" onClick={() => onLoad(m.inputs)}>
-                    Load
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(m.id)}>
-                    Delete
-                  </Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+      {models.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No saved models yet.</p>
+      ) : (
+        <ul className="divide-y divide-border/60">
+          {models.map((m) => (
+            <li key={m.id} className="flex items-center justify-between gap-2 py-2">
+              <span className="truncate text-sm" title={m.name}>
+                {m.name}
+              </span>
+              <span className="flex shrink-0 gap-2">
+                <Button variant="outline" size="sm" onClick={() => onLoad(m.inputs)}>
+                  Load
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(m.id)}>
+                  Delete
+                </Button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

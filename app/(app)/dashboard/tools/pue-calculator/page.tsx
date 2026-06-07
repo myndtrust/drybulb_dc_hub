@@ -33,7 +33,7 @@ import type {
   UPSType,
 } from "@/lib/pue/types";
 import { MONTH_LABELS } from "@/lib/pue/types";
-import { SavedModels } from "@/components/pue/saved-models";
+import { SavedModelsDrawer } from "@/components/pue/saved-models-drawer";
 import type { SavedModelInputs } from "@/lib/pue/saved-models";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -671,18 +671,18 @@ export default function PueCalculatorPage() {
             equipment, and compare against industry benchmarks.
           </p>
         </div>
-        <UnitToggle unit={tempUnit} onChange={setTempUnit} />
+        <div className="flex items-center gap-3 shrink-0">
+          <SavedModelsDrawer
+            currentInputs={{ ...inputs, tempUnit }}
+            onLoad={handleLoadModel}
+          />
+          <UnitToggle unit={tempUnit} onChange={setTempUnit} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
         {/* ── Left: Configuration Panel ── */}
         <div className="space-y-4">
-          {/* Saved models (hidden when auth isn't configured) */}
-          <SavedModels
-            currentInputs={{ ...inputs, tempUnit }}
-            onLoad={handleLoadModel}
-          />
-
           {/* Location */}
           <Card>
             <CardHeader className="pb-3">
