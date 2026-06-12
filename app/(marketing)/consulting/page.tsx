@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { constructMetadata } from "@/lib/metadata";
 
 export const metadata: Metadata = constructMetadata({
-  title: "Consulting",
+  title: "Advisory Services — Drybulb",
   description:
     "Independent technical advisory for AI factories and mission-critical data centers — technical due diligence, owner's engineering, design peer review, PUE/sustainability assessment, and expert witness work, from a licensed PE and Doctor of Design.",
   canonicalPath: "/consulting",
@@ -47,7 +47,7 @@ export default function ConsultingPage() {
     <div className="container mx-auto max-w-3xl px-4 py-16">
       {/* Eyebrow */}
       <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-6">
-        Consulting
+        Advisory Services
       </p>
 
       {/* Headline */}
