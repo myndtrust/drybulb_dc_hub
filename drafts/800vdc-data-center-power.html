@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The 800VDC War — Inside the Power Architecture Fight for the AI Factory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16130d;
+    --paper:#f4efe4;
+    --paper-2:#ebe4d3;
+    --line:#cfc4ab;
+    --hot:#d4471d;        /* high-voltage amber-red */
+    --hot-2:#e8902a;      /* live conductor */
+    --cool:#2b5c66;       /* DC teal */
+    --muted:#6e6450;
+    --green:#3f6f3a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(212,71,29,.05), transparent 40%),
+      radial-gradient(circle at 88% 2%, rgba(43,92,102,.06), transparent 45%);
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:0 26px}
+  /* ---- masthead ---- */
+  header.mast{border-bottom:2px solid var(--ink);margin-top:30px}
+  .mast-row{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);padding-bottom:10px}
+  .mast-row .org{color:var(--hot);font-weight:600}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--hot);margin:30px 0 14px;font-weight:600}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(34px,6vw,62px);
+    line-height:1.02;letter-spacing:-.015em;margin:0 0 18px}
+  h1 .em{font-style:italic;font-weight:500;color:var(--hot)}
+  .deck{font-family:"Newsreader",serif;font-size:clamp(19px,2.4vw,24px);
+    line-height:1.4;color:#3a3327;font-weight:400;max-width:42ch}
+  .byline{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);margin:26px 0 0;
+    border-top:1px solid var(--line);padding-top:14px;display:flex;
+    justify-content:space-between;flex-wrap:wrap;gap:6px}
+  /* ---- body ---- */
+  article{padding:38px 0 10px}
+  article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(25px,3.6vw,34px);
+    line-height:1.1;margin:54px 0 6px;letter-spacing:-.01em}
+  article h2 .num{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--hot);
+    display:block;letter-spacing:.2em;margin-bottom:8px;font-weight:600}
+  article h3{font-family:"Fraunces",serif;font-weight:600;font-size:22px;margin:34px 0 2px}
+  article p{margin:16px 0}
+  article p.lead:first-of-type::first-letter{
+    font-family:"Fraunces",serif;font-weight:900;float:left;font-size:74px;line-height:.7;
+    padding:8px 10px 0 0;color:var(--hot)}
+  a{color:var(--hot);text-decoration:none;border-bottom:1px solid rgba(212,71,29,.35)}
+  a:hover{background:rgba(212,71,29,.08)}
+  sup.ref{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+    color:var(--hot);vertical-align:super;line-height:0}
+  sup.ref a{border:none}
+  strong{font-weight:600}
+  em{font-style:italic}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  /* pull quote */
+  blockquote{margin:34px 0;padding:6px 0 6px 26px;border-left:3px solid var(--hot);
+    font-family:"Fraunces",serif;font-style:italic;font-size:25px;line-height:1.3;color:#2b2519}
+  blockquote .cite{display:block;font-family:"IBM Plex Mono",monospace;font-style:normal;
+    font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:12px}
+  /* callout box */
+  .box{background:var(--paper-2);border:1px solid var(--line);border-radius:3px;
+    padding:20px 22px;margin:30px 0;font-size:17px}
+  .box .lbl{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--hot);font-weight:600;margin-bottom:8px}
+  /* figures */
+  figure{margin:42px 0;}
+  figure svg{width:100%;height:auto;display:block;background:#fbf8f0;
+    border:1px solid var(--line);border-radius:4px}
+  figcaption{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted);
+    margin-top:12px;line-height:1.5}
+  figcaption b{color:var(--ink);font-weight:600}
+  /* tables */
+  .tbl-wrap{overflow-x:auto;margin:32px 0}
+  table{border-collapse:collapse;width:100%;font-size:15px;
+    font-family:"Newsreader",serif}
+  caption{caption-side:top;text-align:left;font-family:"IBM Plex Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--hot);
+    font-weight:600;margin-bottom:10px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--ink)}
+  tbody tr:hover{background:rgba(212,71,29,.04)}
+  td .co{font-weight:600}
+  .tag{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.05em;
+    text-transform:uppercase;padding:2px 7px;border-radius:2px;display:inline-block;
+    white-space:nowrap}
+  .tag.nv{background:rgba(63,111,58,.14);color:var(--green)}
+  .tag.ocp{background:rgba(43,92,102,.14);color:var(--cool)}
+  .tag.both{background:rgba(212,71,29,.12);color:var(--hot)}
+  /* faction cards */
+  .factions{display:grid;grid-template-columns:1fr;gap:0;margin:34px 0;
+    border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .faction{padding:22px 24px;border-bottom:1px solid var(--line)}
+  .faction:last-child{border-bottom:none}
+  .faction h4{font-family:"Fraunces",serif;font-size:21px;margin:0 0 2px;font-weight:600}
+  .faction .sub{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--hot);margin-bottom:10px}
+  .faction p{margin:8px 0;font-size:16.5px}
+  /* refs */
+  .refs{border-top:2px solid var(--ink);margin-top:64px;padding-top:24px}
+  .refs h2{margin-top:0}
+  ol.reflist{font-family:"IBM Plex Mono",monospace;font-size:13px;line-height:1.55;
+    color:var(--muted);padding-left:30px}
+  ol.reflist li{margin:9px 0}
+  ol.reflist a{color:var(--cool);border:none;word-break:break-word}
+  .disc{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+    line-height:1.6;border-top:1px solid var(--line);margin-top:30px;padding:18px 0 60px}
+  hr.rule{border:none;border-top:1px solid var(--line);margin:46px 0}
+  @media(max-width:560px){
+    body{font-size:18px}
+    article p.lead:first-of-type::first-letter{font-size:60px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <div class="mast-row">
+    <span class="org">◢ Grid-to-Chip Research</span>
+    <span>Power &amp; Infrastructure</span>
+    <span>Vol. 1 — June 2026</span>
+  </div>
+</header>
+
+<div class="kicker">Deep Dive · AI Factory Power Distribution</div>
+<h1>The 800VDC War:<br><span class="em">one voltage, three blueprints,</span> and the fight to power the AI factory</h1>
+<p class="deck">Everyone agrees 54V is dead above a megawatt. Nobody agrees on what replaces it. Inside the monopolar-vs-bipolar split, the reference designs, and the supplier scramble from Eaton to a Tesla alum's solid-state transformer startup.</p>
+<div class="byline">
+  <span>Analyst Note · Independent</span>
+  <span>≈ 18 min read · Last updated June 3, 2026</span>
+</div>
+
+<article>
+
+<p class="lead">The most expensive constraint in artificial intelligence is no longer the GPU. It is the copper, the conversion stages, and the cubic feet of rack volume needed to feed the GPU. As NVIDIA's Jensen Huang put it onstage at his GTC Taipei keynote on the eve of Computex 2026, tokens have become <a href="https://www.crnasia.com/news/2026/components-and-peripherals/three-key-takeaways-from-nvidia-at-computex-2026">"profitable units of revenue"<sup class="ref"><a href="#r-crn">12</a></sup></a> — and the industry's response has been to build power-hungrier factories as fast as the grid will allow. The problem is that the power-delivery architecture those factories inherited was designed for a different era.</p>
+
+<p>Today's flagship racks — NVIDIA's GB200/GB300 NVL72 and the AMD/Meta open-rack systems — distribute power inside the rack at 54&nbsp;volts DC, stepped down from 415V AC at the row. That worked beautifully from roughly 50&nbsp;kW to ~130&nbsp;kW. It does not survive the trip to a megawatt. The next-generation racks now in the pipeline — NVIDIA's Vera Rubin NVL144 (≈180–220&nbsp;kW)<sup class="ref"><a href="#r-moomoo">10</a></sup> and the 600&nbsp;kW-and-climbing Kyber<sup class="ref"><a href="#r-dcd">11</a></sup> — break the 54V model on three independent physical limits at once.</p>
+
+<div class="box">
+  <div class="lbl">Why 54V dies at the megawatt</div>
+  <p style="margin-top:4px"><strong>Copper.</strong> NVIDIA's own figures put a single 1&nbsp;MW rack on 54V at <strong>up to 200&nbsp;kg of copper busbar</strong>; the rack busbars alone in a 1&nbsp;GW campus could demand on the order of 200,000&nbsp;kg of copper.<sup class="ref"><a href="#r-nvblog">1</a></sup></p>
+  <p><strong>Current &amp; contact physics.</strong> Moving ~2.5&nbsp;kA at 48V means a 0.1&nbsp;mΩ rise in a single connector's contact resistance dissipates <strong>~625&nbsp;W</strong> of localized heat — a fire-and-reliability problem hiding in a bolt.<sup class="ref"><a href="#r-reg">9</a></sup></p>
+  <p><strong>Space &amp; conversions.</strong> Powering a Kyber-class rack on 54V would consume up to 64U of power shelves — <em>leaving no room for compute</em> — while each AC/DC and DC/DC stage in the chain bleeds efficiency and adds failure points.<sup class="ref"><a href="#r-nvblog">1</a></sup></p>
+</div>
+
+<p>The fix the entire industry has converged on is to push the high-current, low-voltage conversion as close to the silicon as possible, and to distribute power around the building at far higher voltage. Raise the distribution voltage and current falls proportionally; resistive loss falls with the square of current. NVIDIA's accounting: moving the backbone from 415V&nbsp;AC to 800V&nbsp;DC lets the <strong>same conductor carry ~85% more power</strong>, cuts copper by <strong>~45%</strong>, and — by deleting in-rack AC/DC stages and the skin-effect and reactive-power penalties of AC — lifts end-to-end efficiency by up to <strong>5%</strong>, trims maintenance cost up to <strong>70%</strong>, and lowers total cost of ownership up to <strong>30%</strong>.<sup class="ref"><a href="#r-nvblog">1</a></sup> Those last numbers are vendor-supplied and should be read as directional ceilings, not guarantees — but the underlying physics is not controversial.</p>
+
+<p>What <em>is</em> controversial is the number on the busbar. And that is where the war starts.</p>
+
+<figure>
+<svg viewBox="0 0 860 470" role="img" aria-label="Comparison of legacy AC power chain versus 800VDC power chain">
+  <style>
+    .t{font-family:"IBM Plex Mono",monospace;fill:#16130d}
+    .lbl{font-size:12px}
+    .sm{font-size:10.5px;fill:#6e6450}
+    .hd{font-family:Fraunces,serif;font-size:16px;font-weight:600}
+    .box-a{fill:#ebe4d3;stroke:#cfc4ab}
+    .box-dc{fill:#dfeaec;stroke:#9bbcc1}
+    .box-loss{fill:#f6dccf;stroke:#d4471d}
+    .arr{stroke:#16130d;stroke-width:1.6;marker-end:url(#ah)}
+    .arrhot{stroke:#d4471d;stroke-width:2.4;marker-end:url(#ahh)}
+  </style>
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#16130d"/></marker>
+    <marker id="ahh" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#d4471d"/></marker>
+  </defs>
+
+  <text x="24" y="34" class="t hd">A · Legacy AC architecture — many conversions</text>
+  <!-- legacy chain -->
+  <g transform="translate(24,52)">
+    <rect class="box-a" x="0" y="0" width="92" height="48" rx="3"/>
+    <text class="t lbl" x="46" y="22" text-anchor="middle">Grid</text>
+    <text class="t sm" x="46" y="38" text-anchor="middle">13.8 kV AC</text>
+
+    <line class="arr" x1="92" y1="24" x2="128" y2="24"/>
+    <rect class="box-a" x="128" y="0" width="96" height="48" rx="3"/>
+    <text class="t lbl" x="176" y="22" text-anchor="middle">Transformer</text>
+    <text class="t sm" x="176" y="38" text-anchor="middle">→ 415 V AC</text>
+
+    <line class="arr" x1="224" y1="24" x2="260" y2="24"/>
+    <rect class="box-loss" x="260" y="0" width="84" height="48" rx="3"/>
+    <text class="t lbl" x="302" y="22" text-anchor="middle">UPS</text>
+    <text class="t sm" x="302" y="38" text-anchor="middle">AC↔DC↔AC</text>
+
+    <line class="arr" x1="344" y1="24" x2="380" y2="24"/>
+    <rect class="box-loss" x="380" y="0" width="120" height="48" rx="3"/>
+    <text class="t lbl" x="440" y="22" text-anchor="middle">Rack PSU shelf</text>
+    <text class="t sm" x="440" y="38" text-anchor="middle">AC/DC → 54 V</text>
+
+    <line class="arr" x1="500" y1="24" x2="536" y2="24"/>
+    <rect class="box-a" x="536" y="0" width="120" height="48" rx="3"/>
+    <text class="t lbl" x="596" y="22" text-anchor="middle">DC/DC</text>
+    <text class="t sm" x="596" y="38" text-anchor="middle">54 V → 12 V</text>
+
+    <line class="arr" x1="656" y1="24" x2="692" y2="24"/>
+    <rect class="box-a" x="692" y="0" width="120" height="48" rx="3"/>
+    <text class="t lbl" x="752" y="22" text-anchor="middle">VRM → GPU</text>
+    <text class="t sm" x="752" y="38" text-anchor="middle">12 V → &lt;1 V</text>
+  </g>
+  <text x="24" y="138" class="t sm">Red stages = energy lost &amp; failure points. Up to 200 kg Cu busbar per 1 MW rack at 54 V.</text>
+
+  <line x1="24" y1="158" x2="836" y2="158" stroke="#cfc4ab" stroke-dasharray="4 4"/>
+
+  <text x="24" y="194" class="t hd" fill="#d4471d">B · 800 VDC architecture — one centralized conversion</text>
+  <g transform="translate(24,212)">
+    <rect class="box-a" x="0" y="0" width="92" height="48" rx="3"/>
+    <text class="t lbl" x="46" y="22" text-anchor="middle">Grid</text>
+    <text class="t sm" x="46" y="38" text-anchor="middle">13.8 kV AC</text>
+
+    <line class="arrhot" x1="92" y1="24" x2="150" y2="24"/>
+    <rect class="box-dc" x="150" y="0" width="150" height="48" rx="3"/>
+    <text class="t lbl" x="225" y="20" text-anchor="middle">Central rectifier / SST</text>
+    <text class="t sm" x="225" y="37" text-anchor="middle">single-step → 800 V DC</text>
+
+    <line class="arrhot" x1="300" y1="24" x2="372" y2="24"/>
+    <text class="t sm" x="336" y="16" text-anchor="middle" fill="#d4471d">2-wire 800 VDC busway</text>
+    <rect class="box-dc" x="372" y="0" width="150" height="48" rx="3"/>
+    <text class="t lbl" x="447" y="20" text-anchor="middle">IT rack input</text>
+    <text class="t sm" x="447" y="37" text-anchor="middle">no rack AC/DC</text>
+
+    <line class="arr" x1="522" y1="24" x2="558" y2="24"/>
+    <rect class="box-a" x="558" y="0" width="120" height="48" rx="3"/>
+    <text class="t lbl" x="618" y="22" text-anchor="middle">DC/DC</text>
+    <text class="t sm" x="618" y="38" text-anchor="middle">800 V → 12/6 V</text>
+
+    <line class="arr" x1="678" y1="24" x2="714" y2="24"/>
+    <rect class="box-a" x="714" y="0" width="118" height="48" rx="3"/>
+    <text class="t lbl" x="773" y="22" text-anchor="middle">VRM → GPU</text>
+    <text class="t sm" x="773" y="38" text-anchor="middle">6 V → &lt;1 V</text>
+  </g>
+  <text x="24" y="300" class="t sm">Conversions collapse from ~5 to ~3. ~45% less copper, ~85% more power per conductor, up to ~5% better end-to-end efficiency.</text>
+
+  <!-- legend efficiency bar -->
+  <g transform="translate(24,330)">
+    <text class="t lbl" x="0" y="0">Relative power loss in the distribution chain (illustrative)</text>
+    <rect x="0" y="14" width="520" height="22" fill="#f6dccf" stroke="#d4471d"/>
+    <text class="t sm" x="525" y="30">Legacy AC</text>
+    <rect x="0" y="44" width="430" height="22" fill="#dfeaec" stroke="#9bbcc1"/>
+    <text class="t sm" x="525" y="60">800 VDC</text>
+  </g>
+  <text x="24" y="430" class="t sm">Source: NVIDIA 800 VDC technical blog (architecture &amp; figures). The Register (contact-resistance physics).</text>
+</svg>
+<figcaption><b>Fig. 1 — The conversion-stage argument.</b> 800VDC's case is that it deletes the in-rack AC/DC PSU shelf entirely and centralizes the grid conversion, shrinking the chain from roughly five stages to three. Loss bars are illustrative, not to scale. <span class="mono">Refs 1, 9.</span></figcaption>
+</figure>
+
+<h2><span class="num">§ 1</span>Three factions, one voltage class</h2>
+
+<p class="lead">Read the press releases and you would think the industry has happily standardized on "800V high-voltage DC." It has not. Underneath the shared marketing voltage sit two fundamentally different electrical topologies and three competing governance models. The fault line is not the headline number — it is <strong>monopolar versus bipolar</strong>, and <em>who owns the spec</em>.</p>
+
+<div class="factions">
+  <div class="faction">
+    <h4>NVIDIA — verticalized monopolar 800V</h4>
+    <div class="sub">Closed reference design · 2-wire · Kyber / Vera Rubin Ultra</div>
+    <p>NVIDIA distributes <strong>monopolar 800V</strong>: a single +800V rail and a return, isolated from protective earth. It sits <em>entirely outside</em> the open OCP power spec and ships its own reference design, recently reported at a <strong>~660&nbsp;kW</strong> sidecar, with air-cooled samples and production targeted for mid-2026 and a liquid-cooled Vera Rubin Ultra variant sampling late-2026.<sup class="ref"><a href="#r-sa">15</a></sup> Full-scale 800VDC data centers are timed to land with Kyber in <strong>2027</strong>.<sup class="ref"><a href="#r-nvblog">1</a></sup></p>
+  </div>
+  <div class="faction">
+    <h4>OCP "Mt Diablo" bloc — Google, Meta, Microsoft (+ Amazon)</h4>
+    <div class="sub">Open spec · bipolar ±400V · EV supply chain</div>
+    <p>The hyperscalers' answer is the open <strong>Diablo 400</strong> specification (v0.5+), a disaggregated "sidecar" power rack pushing in-rack distribution from 48V to <strong>±400 VDC</strong> — two 400V rails about a center reference, giving 800V rail-to-rail.<sup class="ref"><a href="#r-ocp">3</a></sup> The deliberate choice of 400V piggybacks on the <strong>electric-vehicle supply chain</strong> — connectors, contactors, switchgear already qualified at automotive volume.<sup class="ref"><a href="#r-hpcwire">4</a></sup> Scales 100&nbsp;kW → 1&nbsp;MW per rack.</p>
+  </div>
+  <div class="faction">
+    <h4>AMD — rides the open rack, no power religion</h4>
+    <div class="sub">Helios on Meta's Open Rack Wide · OCP standards</div>
+    <p>AMD has pointedly <em>not</em> picked a proprietary power fight. Its rack-scale platform <strong>Helios</strong> (72× Instinct MI450-series GPUs, 2.9 FP4 exaFLOPS) is built on Meta's new <strong>Open Rack Wide (ORW)</strong> form factor and OCP standards (DC-MHS, UALink, Ultra Ethernet).<sup class="ref"><a href="#r-amd">6</a></sup> AMD's bet is that openness — and EV-derived ±400V — wins on cost and multi-vendor supply. HPE and Celestica are first movers; availability 2026.<sup class="ref"><a href="#r-hpe">7</a></sup></p>
+  </div>
+</div>
+
+<h3>The monopolar / bipolar split that actually matters</h3>
+<p>The distinction sounds academic; it is the crux of the whole design battle. A <strong>monopolar</strong> 800V system (NVIDIA) runs one live conductor at 800V relative to return — simpler cabling and connectors, but every insulation system and protection device must withstand the full 800V. A <strong>bipolar</strong> ±400V system (Diablo) splits the load across +400V and −400V rails: any single conductor is only 400V to ground, so it can reuse the vast, mature 400V/800V EV component ecosystem and de-rate insulation, at the cost of a third conductor and more complex balancing and fault management.</p>
+
+<p>Critically, the open Diablo spec hedges: its power shelf is defined with 3-phase AC input and ±400VDC output, but explicitly carries a <strong>design option for an 800VDC two-wire output at the rectifier shelf</strong> where 800V and return are safety-isolated from PE ground.<sup class="ref"><a href="#r-ocpspec">5</a></sup> In other words, the "open" camp left itself a door into NVIDIA's monopolar world — because NVIDIA's GPUs are the load everyone is actually trying to power.</p>
+
+<figure>
+<svg viewBox="0 0 860 360" role="img" aria-label="Three rack power topologies compared">
+  <style>
+    .tt{font-family:"IBM Plex Mono",monospace}
+    .ttl{font-family:Fraunces,serif;font-size:15px;font-weight:600;fill:#16130d}
+    .cap{font-size:10.5px;fill:#6e6450}
+    .v{font-size:11px;fill:#16130d}
+    .pos{stroke:#d4471d;stroke-width:3}
+    .neg{stroke:#2b5c66;stroke-width:3}
+    .ret{stroke:#6e6450;stroke-width:2;stroke-dasharray:5 4}
+    .rack{fill:#ebe4d3;stroke:#cfc4ab}
+    .load{fill:#fbf8f0;stroke:#16130d}
+  </style>
+  <!-- panel 1: 54V legacy -->
+  <g transform="translate(20,20)">
+    <text class="ttl" x="0" y="0">Legacy · 54 VDC</text>
+    <text class="tt cap" x="0" y="16">single low-V bus · huge copper</text>
+    <rect class="rack" x="0" y="28" width="240" height="250" rx="4"/>
+    <line class="pos" x1="40" y1="44" x2="40" y2="262"/>
+    <line class="ret" x1="200" y1="44" x2="200" y2="262"/>
+    <text class="tt v" x="48" y="60" fill="#d4471d">+54 V</text>
+    <text class="tt v" x="150" y="60" fill="#6e6450">RTN</text>
+    <!-- thick busbar emphasis -->
+    <rect x="34" y="44" width="12" height="218" fill="#d4471d" opacity="0.18"/>
+    <g>
+      <rect class="load" x="70" y="78" width="110" height="26" rx="2"/><text class="tt v" x="125" y="95" text-anchor="middle">GPU tray</text>
+      <rect class="load" x="70" y="120" width="110" height="26" rx="2"/><text class="tt v" x="125" y="137" text-anchor="middle">GPU tray</text>
+      <rect class="load" x="70" y="162" width="110" height="26" rx="2"/><text class="tt v" x="125" y="179" text-anchor="middle">GPU tray</text>
+      <rect class="load" x="70" y="204" width="110" height="26" rx="2"/><text class="tt v" x="125" y="221" text-anchor="middle">GPU tray</text>
+    </g>
+    <text class="tt cap" x="0" y="300">~2.5 kA class current</text>
+    <text class="tt cap" x="0" y="316">200 kg Cu @ 1 MW</text>
+  </g>
+  <!-- panel 2: bipolar ±400 -->
+  <g transform="translate(310,20)">
+    <text class="ttl" x="0" y="0">OCP Diablo · ±400 VDC</text>
+    <text class="tt cap" x="0" y="16">bipolar · 3 conductors · EV parts</text>
+    <rect class="rack" x="0" y="28" width="240" height="250" rx="4"/>
+    <line class="pos" x1="36" y1="44" x2="36" y2="262"/>
+    <line class="ret" x1="120" y1="44" x2="120" y2="262"/>
+    <line class="neg" x1="204" y1="44" x2="204" y2="262"/>
+    <text class="tt v" x="20" y="60" fill="#d4471d">+400</text>
+    <text class="tt v" x="104" y="60" fill="#6e6450">0</text>
+    <text class="tt v" x="188" y="60" fill="#2b5c66">−400</text>
+    <rect class="load" x="60" y="100" width="120" height="40" rx="2"/><text class="tt v" x="120" y="124" text-anchor="middle">load @ +400</text>
+    <rect class="load" x="60" y="170" width="120" height="40" rx="2"/><text class="tt v" x="120" y="194" text-anchor="middle">load @ −400</text>
+    <text class="tt cap" x="0" y="300">800 V rail-to-rail</text>
+    <text class="tt cap" x="0" y="316">400 V to ground</text>
+  </g>
+  <!-- panel 3: monopolar 800 -->
+  <g transform="translate(600,20)">
+    <text class="ttl" x="0" y="0">NVIDIA · 800 VDC</text>
+    <text class="tt cap" x="0" y="16">monopolar · 2 conductors</text>
+    <rect class="rack" x="0" y="28" width="240" height="250" rx="4"/>
+    <line class="pos" x1="44" y1="44" x2="44" y2="262"/>
+    <line class="ret" x1="196" y1="44" x2="196" y2="262"/>
+    <text class="tt v" x="52" y="60" fill="#d4471d">+800 V</text>
+    <text class="tt v" x="150" y="60" fill="#6e6450">RTN</text>
+    <rect class="load" x="74" y="88" width="110" height="30" rx="2"/><text class="tt v" x="129" y="108" text-anchor="middle">GPU tray</text>
+    <rect class="load" x="74" y="132" width="110" height="30" rx="2"/><text class="tt v" x="129" y="152" text-anchor="middle">GPU tray</text>
+    <rect class="load" x="74" y="176" width="110" height="30" rx="2"/><text class="tt v" x="129" y="196" text-anchor="middle">GPU tray</text>
+    <rect class="load" x="74" y="220" width="110" height="30" rx="2"/><text class="tt v" x="129" y="240" text-anchor="middle">GPU tray</text>
+    <text class="tt cap" x="0" y="300">simplest cabling</text>
+    <text class="tt cap" x="0" y="316">full 800 V insulation</text>
+  </g>
+</svg>
+<figcaption><b>Fig. 2 — Same voltage class, different electricity.</b> The legacy 54V bus (left) collapses under megawatt current. OCP's Diablo (center) splits the load across ±400V rails to harvest the EV supply chain and keep any conductor at 400V-to-ground. NVIDIA (right) runs a single 800V rail for the simplest cabling but the strictest insulation. <span class="mono">Refs 3, 5, 15.</span></figcaption>
+</figure>
+
+<h2><span class="num">§ 2</span>The reference designs — and why "800VDC" is a fiction of uniformity</h2>
+
+<p>If there were a single 800VDC rack, this would be a procurement story. There isn't. Even where vendors share the Diablo base spec, the actual reference designs diverge sharply on power ceiling, conductor count, and where the energy storage lives. SemiAnalysis's recent teardown of the landscape captured the fragmentation well: <strong>NVIDIA outside the spec entirely</strong> at its ~660kW monopolar design, while the three Diablo co-authors pull in different directions — reported figures put Meta around 600–800&nbsp;kW, Google reallocating battery and supercap slots to push toward a ~900&nbsp;kW–1.1&nbsp;MW roofline, Amazon landing near 800&nbsp;kW on ±400V, and Microsoft moving more slowly.<sup class="ref"><a href="#r-sa">15</a></sup> Same logo on the standard; very different racks.</p>
+
+<h3>The sidecar pattern</h3>
+<p>Nearly every design shares one structural idea: <strong>disaggregation</strong>. Pull the power conversion out of the compute rack and into a dedicated "sidecar" or power rack standing beside it, so the compute rack accepts only a clean DC feed. A teardown of an APC/Schneider 800V sidecar shown at GTC 2026 illustrates the anatomy: roughly <strong>seven 3U "110 kW 800VDC power shelves"</strong> (≈6+1 redundant, enough for the original ~600kW Kyber), four 2U DC-output PDUs providing circuit protection on the 800V outputs to the compute rack, a power-management controller with manual disconnects, and five lithium-ion battery backup units.<sup class="ref"><a href="#r-gk">16</a></sup> That last item is not incidental — energy storage is now first-class architecture (see §4).</p>
+
+<h3>NVIDIA's three-stage power tree</h3>
+<p>NVIDIA's published architecture takes 13.8&nbsp;kV grid AC to 800VDC in a single step at the perimeter using industrial-grade rectifiers, distributes 800V over a two-conductor feed to the rack, then performs DC/DC down to an intermediate bus (54V/12V — and increasingly 6V) before final VRM conversion to sub-1V GPU core voltage.<sup class="ref"><a href="#r-nvblog">1</a></sup> The silicon partners' job is to make those last two conversions absurdly dense. Texas Instruments, unveiling its complete reference solution at GTC 2026, showed an <strong>800V→6V isolated bus converter at 97.6% peak efficiency and &gt;2000&nbsp;W/in³</strong>, plus a 6V→&lt;1V multiphase buck, a 30&nbsp;kW 800V AC/DC PSU, an 800V hot-swap controller, and 800V capacitor-bank units using EDLC supercaps.<sup class="ref"><a href="#r-ti">2</a></sup> TI's high-voltage GM framed it as <a href="https://www.ti.com/about-ti/newsroom/news-releases/2026/2026-03-16-ti-unveils-complete-800-vdc-power-architecture-for-future-generation-ai-data-centers-with-nvidia.html">"a fundamental rethinking of how we deliver power"<sup class="ref"><a href="#r-ti">2</a></sup></a>. Navitas showed an 800V→6V power-delivery board on its GaNFast platform; STMicroelectronics' notable contribution was the realist's caveat — 50V, 12V, and 6V intermediate buses will <em>coexist</em> depending on rack density, GPU config, and cooling.<sup class="ref"><a href="#r-emb">8</a></sup></p>
+
+<blockquote>
+  There is no one-size-fits-all 800VDC rack. Diablo 400 is a shared base; the reality on the ground is fragmented.
+  <span class="cite">— Paraphrasing the consensus from recent teardowns, ref 15</span>
+</blockquote>
+
+<h2><span class="num">§ 3</span>The supplier map: grid-to-chip, layer by layer</h2>
+
+<p class="lead">The 800VDC ecosystem splits cleanly into four layers. The strategic insight is that <em>no single vendor owns the stack</em> — and the most interesting competition is at the very top (medium-voltage conversion, where startups are attacking incumbents) and the very bottom (power semiconductors, where the GaN/SiC players win regardless of which faction prevails).</p>
+
+<figure>
+<svg viewBox="0 0 860 430" role="img" aria-label="Grid to chip supplier layer map">
+  <style>
+    .L{font-family:Fraunces,serif;font-size:15px;font-weight:600;fill:#16130d}
+    .m{font-family:"IBM Plex Mono",monospace;font-size:11px;fill:#16130d}
+    .ms{font-family:"IBM Plex Mono",monospace;font-size:10px;fill:#6e6450}
+    .layer{fill:#fbf8f0;stroke:#cfc4ab}
+    .v{font-family:"IBM Plex Mono",monospace;font-size:10.5px;fill:#d4471d;font-weight:600}
+  </style>
+  <!-- vertical voltage spine -->
+  <line x1="60" y1="40" x2="60" y2="400" stroke="#d4471d" stroke-width="2"/>
+  <text class="v" x="14" y="58">13.8 kV</text>
+  <text class="v" x="22" y="150">800 V</text>
+  <text class="v" x="14" y="250">800 V DC</text>
+  <text class="v" x="26" y="345">6 V→&lt;1V</text>
+
+  <!-- layer 1 -->
+  <rect class="layer" x="90" y="40" width="750" height="78" rx="4"/>
+  <text class="L" x="104" y="62">1 · Grid → 800V conversion (MV)</text>
+  <text class="ms" x="104" y="80">Central rectifiers · solid-state transformers · the new contested frontier</text>
+  <text class="m" x="104" y="102">ABB · Eaton · Vertiv · Schneider · Delta (“Panama” MVDC) · Sungrow ▸ startups: Heron · DG Matrix · Amperesand</text>
+
+  <!-- layer 2 -->
+  <rect class="layer" x="90" y="128" width="750" height="78" rx="4"/>
+  <text class="L" x="104" y="150">2 · Facility &amp; row distribution</text>
+  <text class="ms" x="104" y="168">DC busways · switchgear · DC protection · liquid-cooled bus</text>
+  <text class="m" x="104" y="190">Eaton · ABB · Vertiv · Schneider Electric · Delta</text>
+
+  <!-- layer 3 -->
+  <rect class="layer" x="90" y="216" width="750" height="86" rx="4"/>
+  <text class="L" x="104" y="238">3 · Rack power / sidecar &amp; PSUs</text>
+  <text class="ms" x="104" y="256">Power shelves · BBU/CBU storage · hot-swap · sidecar integration</text>
+  <text class="m" x="104" y="278">Delta · Flex Power · LiteOn · Megmeet · Lead Wealth · Vertiv · Eaton · Schneider/APC</text>
+
+  <!-- layer 4 -->
+  <rect class="layer" x="90" y="312" width="750" height="92" rx="4"/>
+  <text class="L" x="104" y="334">4 · On-board power semis (DC/DC + VRM)</text>
+  <text class="ms" x="104" y="352">800V→6V bus converters · multiphase buck · GaN / SiC · hot-swap controllers</text>
+  <text class="m" x="104" y="374">TI · Navitas · Infineon · STMicro · ROHM · MPS · onsemi · Renesas · ADI · Innoscience</text>
+  <text class="ms" x="104" y="392">Winners regardless of faction — the GPU still needs sub-1V at the die.</text>
+</svg>
+<figcaption><b>Fig. 3 — Who plays where.</b> The four-layer 800VDC stack. Incumbents (ABB, Eaton, Vertiv, Schneider) span layers 1–3; the power-semiconductor specialists own layer 4 across both factions; and the solid-state-transformer startups are attacking layer 1, the highest-margin, slowest-moving incumbent stronghold. <span class="mono">Refs 1, 5, 13, 14.</span></figcaption>
+</figure>
+
+<div class="tbl-wrap">
+<table>
+  <caption>Reference designs &amp; positioning — incumbents and system houses</caption>
+  <thead>
+    <tr><th>Supplier</th><th>What they showed</th><th>Timing</th><th>Camp</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="co">Eaton</span></td>
+      <td>800VDC reference architecture built to NVIDIA's spec; "grid-to-chip" strategy; 800V sidecar prototype shown at OCP Global Summit 2025</td>
+      <td>Announced Oct 2025<sup class="ref"><a href="#r-eaton">13</a></sup></td>
+      <td><span class="tag nv">NVIDIA-aligned</span></td>
+    </tr>
+    <tr>
+      <td><span class="co">ABB</span></td>
+      <td>Co-developing 800V DC for 1MW racks with NVIDIA: reference designs, modular MV-to-800V power blocks, integrated DC protection schemes</td>
+      <td>Announced Oct 2025<sup class="ref"><a href="#r-dcf">14</a></sup></td>
+      <td><span class="tag nv">NVIDIA-aligned</span></td>
+    </tr>
+    <tr>
+      <td><span class="co">Vertiv</span></td>
+      <td>Full 800VDC portfolio: centralized rectifiers, high-efficiency DC busways, rack-level energy storage; "unit of compute" systems strategy; leans on 20+ yrs of ±400VDC telecom DC and 4,000 field engineers</td>
+      <td>Portfolio H2/late 2026, ahead of Rubin Ultra<sup class="ref"><a href="#r-vertiv">17</a></sup></td>
+      <td><span class="tag both">AC + DC hedge</span></td>
+    </tr>
+    <tr>
+      <td><span class="co">Schneider Electric / APC</span></td>
+      <td>800V sidecar (110kW power shelves, DC-output PDUs, Li-ion BBUs) shown at GTC 2026; NVIDIA ecosystem partner</td>
+      <td>Shown GTC 2026<sup class="ref"><a href="#r-gk">16</a></sup></td>
+      <td><span class="tag nv">NVIDIA-aligned</span></td>
+    </tr>
+    <tr>
+      <td><span class="co">Delta Electronics</span></td>
+      <td>Key MGX power-module supplier; co-developed "Panama" medium-voltage DC with Alibaba; authored an early DC 800V white paper</td>
+      <td>Ongoing<sup class="ref"><a href="#r-cnesa">18</a></sup></td>
+      <td><span class="tag both">Both</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="tbl-wrap">
+<table>
+  <caption>Power semiconductors — layer 4, faction-agnostic</caption>
+  <thead><tr><th>Supplier</th><th>800VDC contribution</th></tr></thead>
+  <tbody>
+    <tr><td><span class="co">Texas Instruments</span></td><td>Complete reference: 800V→6V bus converter (97.6% pk, &gt;2000 W/in³), 6V→&lt;1V multiphase buck, 30kW 800V AC/DC PSU, 800V CBU (EDLC), 800V hot-swap controller<sup class="ref"><a href="#r-ti">2</a></sup></td></tr>
+    <tr><td><span class="co">Navitas</span></td><td>800V→6V power-delivery board on GaNFast (GaN + SiC); grid-to-GPU GaN/SiC roadmap<sup class="ref"><a href="#r-emb">8</a></sup></td></tr>
+    <tr><td><span class="co">Infineon</span></td><td>Core silicon partner from GTC 2025; rack-to-chip power optimization for the HVDC transition<sup class="ref"><a href="#r-pen">19</a></sup></td></tr>
+    <tr><td><span class="co">STMicroelectronics</span></td><td>SiC/GaN; argues 50V/12V/6V intermediate buses will coexist by rack density &amp; cooling<sup class="ref"><a href="#r-emb">8</a></sup></td></tr>
+    <tr><td><span class="co">ROHM · MPS · onsemi · Renesas · ADI · Innoscience</span></td><td>Named NVIDIA 800VDC silicon partners across GaN/SiC power stages, controllers, and conversion<sup class="ref"><a href="#r-nvblog">1</a></sup></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2><span class="num">§ 4</span>The startup wedge: solid-state transformers</h2>
+
+<p class="lead">The most disruptive bet in this space isn't a power shelf — it's deleting the hundred-year-old iron-core transformer. A clutch of startups — <strong>Heron Power, DG Matrix, and Amperesand</strong> — are riding the 800VDC wave with solid-state transformers (SSTs): wide-bandgap (SiC/GaN) power-electronic converters that replace bulky low-frequency magnetics with high-frequency switching, offering precise voltage regulation, bidirectional flow, and native DC integration.<sup class="ref"><a href="#r-pensst">20</a></sup></p>
+
+<p>The headline name is <strong>Heron Power</strong>, founded in 2025 by <strong>Drew Baglino</strong>, Tesla's former powertrain/energy SVP. Its <strong>Heron Link</strong> is a modular megawatt-scale converter that connects directly to medium voltage and deletes the legacy transformer plus several conversion stages — Baglino claims it can <a href="https://techcrunch.com/2026/02/18/heron-power-raises-140m-to-ramp-production-of-grid-altering-tech/">"remove 70% of the gear involved"<sup class="ref"><a href="#r-tc">21</a></sup></a> and quotes efficiencies of ~98.6% DC-to-MV for solar/storage and ~98.5% MV-to-rack for data centers.<sup class="ref"><a href="#r-nb">22</a></sup> In February 2026 Heron closed a <strong>$140M Series&nbsp;B</strong> co-led by a16z's American Dynamism Fund and Breakthrough Energy Ventures (~$183M total raised), to build a US factory targeting <strong>40&nbsp;GW/yr</strong> — roughly 10–15% of annual transformer supply outside China — with ~50&nbsp;GW of orders already booked and named partners including Intersect Power and Crusoe.<sup class="ref"><a href="#r-dcd2">23</a></sup> Pilot production is targeted for 2027.</p>
+
+<div class="box">
+  <div class="lbl">Why SSTs matter for 800VDC specifically</div>
+  <p style="margin-top:4px">An SST can take medium-voltage AC (or DC) and output 800VDC directly, collapsing the rectifier-plus-PSU stack in the sidecar into a single intelligent block. <strong>DG Matrix</strong>'s Interpod/Interport Cell series is being positioned as exactly this LV-input SST alternative to the conventional rectifier topology, with channels through PowerSecure (Southern Co.) and Exowatt.<sup class="ref"><a href="#r-sa">15</a></sup> The catch: SSTs are full of expensive wide-bandgap silicon and are unproven at hyperscale reliability. Incumbents counter that a "boring" rectifier you can service for 20 years is worth more than a 1% efficiency point.</p>
+</div>
+
+<p>This is the layer-1 battle in miniature: <strong>Heron / DG Matrix / Amperesand (power electronics, fast, flexible, grid-stabilizing)</strong> versus <strong>ABB / Eaton / Vertiv / Hitachi-class incumbents (iron, copper, proven serviceability, balance-sheet trust)</strong>. Note that Vertiv is explicitly hedging — supporting both AC and DC, and trading on two decades of ±400VDC telecom experience and a global service army — precisely because it expects the transition to be messy and multi-standard.<sup class="ref"><a href="#r-vertiv">17</a></sup></p>
+
+<h2><span class="num">§ 5</span>Energy storage is now part of the power architecture</h2>
+
+<p>The detail buried in every credible 800VDC reference design — and the one most relevant to anyone who has worked on data-center BESS — is that <strong>energy storage has been promoted from "backup" to "architecture."</strong> AI training workloads produce violent, synchronized, sub-second power transients as tens of thousands of GPUs step load in lockstep. NVIDIA states plainly that energy-storage solutions for load spikes and sub-second GPU power fluctuations are <em>part of</em> the 800VDC strategy, not an accessory<sup class="ref"><a href="#r-nvblog">1</a></sup>; its Vera Rubin NVL144 preview reportedly calls for on the order of <strong>20× more rack-level energy storage</strong> than today to stabilize power.<sup class="ref"><a href="#r-dcf">14</a></sup></p>
+
+<p>Concretely, that's why the sidecar teardowns show banks of Li-ion BBUs and supercapacitor CBUs sitting on the 800V bus — and why TI bothered to build an 800V capacitor-bank unit with EDLC supercells.<sup class="ref"><a href="#r-ti">2</a></sup> The storage isn't there to ride through a grid outage for minutes; it's there to absorb millisecond-to-second transients so the upstream grid (and the utility's interconnect) never sees them. Heron's pitch that fast power-electronic regulation can help prevent cascading outages — explicitly invoking the April 2025 Iberian grid collapse — is the same physics one layer up.<sup class="ref"><a href="#r-cap">24</a></sup></p>
+
+<h2><span class="num">§ 6</span>The real bottleneck: standards, safety, and the grid</h2>
+
+<p>Here is the uncomfortable truth the reference-design glossies skip. The barrier to 800VDC is not whether GaN can switch fast enough. It's that the global electrical code, century-deep, is written around AC. As one industry figure put it bluntly, electrical rules are national, <a href="https://www.datacenterknowledge.com/energy-power-supply/inside-the-push-to-bring-dc-power-to-data-centers">"very, very difficult to change"<sup class="ref"><a href="#r-dck">25</a></sup></a> precisely because they've been polished for over a hundred years. Field technicians trained on AC must be retrained for the very real arc-flash and DC-fault-clearing hazards of an 800V monopolar bus, where DC arcs do not self-extinguish at a zero-crossing the way AC does.</p>
+
+<p>That's why two standards alliances — the <strong>Current/OS Foundation</strong> and the <strong>Open Direct Current Alliance (ODCA)</strong> — signed an MoU in March 2026 to align DC-distribution work and present a coordinated front to international standards bodies.<sup class="ref"><a href="#r-dck">25</a></sup> Meanwhile OCP's "Open Data Center for AI" initiative is trying to make Diablo, the Deschutes CDU, and the rest interoperable open specs.<sup class="ref"><a href="#r-ocp">3</a></sup> Whoever wins the standards-and-safety race may matter more than whoever has the densest converter.</p>
+
+<h2><span class="num">§ 7</span>Outlook — who wins, and on what timeline</h2>
+
+<p>The honest read for 2026–2028:</p>
+
+<p><strong>NVIDIA sets the clock.</strong> Because NVIDIA's GPUs are the load that justifies the entire buildout, its monopolar 800V reference design and its 2027 Kyber/Rubin-Ultra timing effectively define when 800VDC goes mainstream. Vendors who "stay one GPU generation ahead" of NVIDIA — Vertiv's explicit strategy — win the first deployments.<sup class="ref"><a href="#r-vertiv">17</a></sup></p>
+
+<p><strong>The hyperscalers hedge with ±400V.</strong> Google, Meta, Microsoft, and Amazon will run their own fleets on EV-derived ±400V Diablo racks for cost and supply-chain leverage, while keeping the 800V two-wire option open for NVIDIA-dense zones.<sup class="ref"><a href="#r-ocpspec">5</a></sup> AMD's Helios rides this open track. Expect <em>both</em> topologies to coexist in the same campus — even the same data hall — for years.</p>
+
+<p><strong>Power semis are the safe long.</strong> TI, Navitas, Infineon, STMicro and the GaN/SiC cohort get paid no matter which faction's busbar wins, because every architecture ends at a sub-1V GPU die.<sup class="ref"><a href="#r-nvblog">1</a></sup></p>
+
+<p><strong>The wildcard is the SST.</strong> If Heron, DG Matrix, or Amperesand can prove hyperscale-grade reliability on a solid-state transformer at the medium-voltage front end, they compress layer 1 and threaten the incumbents' richest, stickiest position. If they can't — and SST reliability at GW scale is genuinely unproven — ABB and Eaton keep selling rectifiers and switchgear for a decade. The capital is betting on the former; the operators, prudently, are buying the latter first.</p>
+
+<p>The 800VDC transition is real, it is funded, and it is timed to NVIDIA's 2027 cadence. But "800VDC" is a marketing umbrella over a genuine architectural fork. For anyone deploying capacity, the engineering question is not <em>whether</em> to go high-voltage DC — that's settled — but <em>which</em> topology to standardize on, how much energy storage to bolt to the bus, and whether to trust a four-year-old startup's transformer with a gigawatt of interconnect. Those answers will be written rack by rack, campus by campus, over the next 36 months.</p>
+
+<hr class="rule">
+
+<div class="refs">
+<h2><span class="num">Sources</span>References &amp; fact-check</h2>
+<ol class="reflist">
+  <li id="r-nvblog">NVIDIA Technical Blog, "NVIDIA 800 VDC Architecture Will Power the Next Generation of AI Factories" (pub. May 2025, upd. Jan 2026) — copper/conversion figures, 85%/45%/5%/70%/30% claims, 2027 timing, partner list, storage. <a href="https://developer.nvidia.com/blog/nvidia-800-v-hvdc-architecture-will-power-the-next-generation-of-ai-factories/">developer.nvidia.com</a></li>
+  <li id="r-ti">Texas Instruments press release, "TI unveils complete 800 VDC power architecture… with NVIDIA," Mar 16 2026 — bus converter 97.6%/&gt;2000W/in³, 30kW PSU, CBU, hot-swap, GTC 2026, Soundarapandian quote. <a href="https://www.ti.com/about-ti/newsroom/news-releases/2026/2026-03-16-ti-unveils-complete-800-vdc-power-architecture-for-future-generation-ai-data-centers-with-nvidia.html">ti.com</a></li>
+  <li id="r-ocp">Open Compute Project, "Realizing the Open Data Center Ecosystem Vision," Oct 13 2025 — Mt Diablo / Diablo 400, Google-Meta-Microsoft, ±400V or 800V, Open Data Center for AI SI. <a href="https://www.opencompute.org/blog/realizing-the-open-data-center-ecosystem-vision">opencompute.org</a></li>
+  <li id="r-hpcwire">HPCwire, "OCP Launches New 'Open Data Center for AI' Strategic Initiative," Oct 14 2025 — Diablo 100kW–1MW, EV supply chain rationale for 400V. <a href="https://www.hpcwire.com/off-the-wire/ocp-launches-new-open-data-center-for-ai-strategic-initiative/">hpcwire.com</a></li>
+  <li id="r-ocpspec">OCP, "Diablo 400 Project: Rack and Power 0.5.2 Base Specification," May 2025 — 3-phase AC in / ±400VDC out, 800VDC 2-wire design option isolated from PE, HVDC output cabling. <a href="https://www.opencompute.org/documents/ocp-specification-diablo-400-v0p5p2-2025-05-30-pdf">opencompute.org (spec PDF)</a></li>
+  <li id="r-amd">AMD blog, "AMD 'Helios': Advancing Openness in AI Infrastructure Built on Meta's 2025 OCP Open Rack for AI Design," Oct 14 2025 — Helios on ORW, OCP DC-MHS/UALink/UEC, MI450, 2.9 FP4 exaFLOPS. <a href="https://amd.com/en/blogs/2025/amd-helios-ai-rack-built-on-metas-2025-ocp-design.html">amd.com</a></li>
+  <li id="r-hpe">HPE press release, "HPE accelerates AI deployments with first AMD 'Helios' AI rack-scale architecture," Dec 2 2025 — 72 MI455X GPUs, 260 TB/s, availability 2026. <a href="https://www.hpe.com/us/en/newsroom/press-release/2025/12/hpe-accelerates-ai-deployments-with-first-amd-helios-ai-rack-scale-architecture-with-open-scale-up-networking-built-with-broadcom.html">hpe.com</a></li>
+  <li id="r-emb">Embedded.com, "Nvidia GTC: More Support for 800-VDC Data Centers," Mar 18 2026 — GTC 2026 silicon (Navitas/STMicro/TI), 50/12/6V coexistence, Navitas 800V→6V PDB. <a href="https://www.embedded.com/nvidia-gtc-more-support-for-800-vdc-data-centers/">embedded.com</a></li>
+  <li id="r-reg">The Register, "Your datacenter's power architecture called. It's not happy," Mar 11 2026 — 2.5kA at 48V, 0.1mΩ → 625W; ORv3 48V context; NVIDIA 45% copper claim. <a href="https://www.theregister.com/2026/03/11/your_datacenters_power_architecture_called/">theregister.com</a></li>
+  <li id="r-moomoo">Moomoo / Computex 2026 preview, "Jensen Huang Opens the Show," late May 2026 — Rubin NVL72 ~180–220kW, Rubin TDP ~1.8kW / system ~2.3kW. <a href="https://www.moomoo.com/community/feed/computex-2026-preview-jensen-huang-opens-the-show-which-companies-116657442521097">moomoo.com</a></li>
+  <li id="r-dcd">Data Center Dynamics, "GTC: Nvidia's Jensen Huang, Ian Buck, and Charlie Boyle on rack density" — Kyber ~600kW, Rubin Ultra NVL576. <a href="https://www.datacenterdynamics.com/en/analysis/nvidia-gtc-jensen-huang-data-center-rack-density/">datacenterdynamics.com</a></li>
+  <li id="r-crn">CRN Asia, "Three key takeaways from NVIDIA at Computex 2026," June 2026 — Jensen GTC Taipei keynote, Vera Rubin full production, "tokens… profitable units of revenue." <a href="https://www.crnasia.com/news/2026/components-and-peripherals/three-key-takeaways-from-nvidia-at-computex-2026">crnasia.com</a></li>
+  <li id="r-eaton">Eaton press release, "Eaton Unveils Next-generation Architecture to Advance 800 VDC Power Infrastructure for AI Factories," Oct 13 2025 — reference architecture to NVIDIA spec, grid-to-chip, OCP Global Summit booth. <a href="https://www.eaton.com/us/en-us/company/news-insights/news-releases/2025/eaton-unveils-next-generation-architecture.html">eaton.com</a></li>
+  <li id="r-dcf">Data Center Frontier, "Preparing for 800 VDC Data Centers: ABB, Eaton Support NVIDIA's AI Infrastructure Evolution," Oct 15 2025 — ABB reference designs/modular blocks/protection, 2027 rollout, Vera Rubin 20× storage. <a href="https://www.datacenterfrontier.com/energy/article/55323139/preparing-for-800-vdc-data-centers-abb-eaton-support-nvidias-ai-infrastructure-evolution">datacenterfrontier.com</a></li>
+  <li id="r-sa">SemiAnalysis, "Inside the 800VDC Revolution – Part 1," May 2026 — fragmentation: NVIDIA ~660kW monopolar outside Diablo; Meta/Google/Amazon/Microsoft divergence; DG Matrix SST sidecar. <a href="https://newsletter.semianalysis.com/p/inside-the-800vdc-revolution-part">newsletter.semianalysis.com</a></li>
+  <li id="r-gk">Glenn K. Lockwood, "NVIDIA Kyber" garden note, Apr 2026 — APC 800V sidecar teardown (7× 3U 110kW shelves, DC-output PDUs, Li-ion BBU); Computex 2025 800VDC reveal; GTC26 vendor displays. <a href="https://www.glennklockwood.com/garden/Kyber">glennklockwood.com</a></li>
+  <li id="r-vertiv">Vertiv press releases, "Accelerates AI Infrastructure Evolution…" (May 2025) &amp; "From Vision to Readiness…" (Oct 13 2025) — 800VDC portfolio H2/late 2026, centralized rectifiers + DC busways + rack storage, 20+ yrs ±400VDC, "unit of compute," 4,000 engineers. <a href="https://www.prnewswire.com/news-releases/from-vision-to-readiness-vertiv-collaborates-with-nvidia-to-advance-800-vdc-platform-designs-to-power-the-next-generation-of-ai-factories-302582190.html">prnewswire.com</a></li>
+  <li id="r-cnesa">China Energy Storage Alliance, "NVIDIA's 800V Architecture Reshapes AI Data Centers: 31 Core Industry Chain Companies," Nov 2025 — Delta "Panama" MVDC w/ Alibaba &amp; 800V white paper; Vertiv/Eaton roles. <a href="http://en.cnesa.org/latest-news/2025/11/25/nvidias-800v-architecture-reshapes-ai-data-centers-31-core-industry-chain-companies-unveiled">en.cnesa.org</a></li>
+  <li id="r-pen">Power Electronics News, "How NVIDIA and Infineon Are Reinventing AI Data Center Architecture," May 2025 — GTC 2025 800V HVDC, Infineon role, sidecar for 576 GPUs, 200kg Cu/MW. <a href="https://www.powerelectronicsnews.com/powering-the-future-how-nvidia-and-infineon-are-reinventing-ai-data-center-architecture/">powerelectronicsnews.com</a></li>
+  <li id="r-pensst">Power Electronics News, "Solid-State Transformers in the Spotlight," Mar 25 2026 — Heron, DG Matrix, Amperesand funding; SST rationale for 800VDC. <a href="https://www.powerelectronicsnews.com/solid-state-transformers-in-the-spotlight/">powerelectronicsnews.com</a></li>
+  <li id="r-tc">TechCrunch, "Heron Power raises $140M to ramp production of grid-altering tech," Feb 18 2026 — "remove 70% of the gear," ~⅓ business is data centers, 40GW factory. <a href="https://techcrunch.com/2026/02/18/heron-power-raises-140m-to-ramp-production-of-grid-altering-tech/">techcrunch.com</a></li>
+  <li id="r-nb">NewsBytes, "Heron Power raises $140 million to revolutionize data center efficiency," Feb 18 2026 — Heron Link efficiencies 98.6% DC-MV / 98.5% MV-rack, 70% size reduction. <a href="https://www.newsbytesapp.com/news/business/heron-power-raises-140-million-to-revolutionize-data-center-efficiency/tldr">newsbytesapp.com</a></li>
+  <li id="r-dcd2">Data Center Dynamics / Transformer Magazine, Heron Power $140M Series B (Feb–Mar 2026) — a16z American Dynamism + Breakthrough Energy, $183M total, 40GW factory, 50GW orders, Intersect Power + Crusoe, Baglino ex-Tesla. <a href="https://www.datacenterdynamics.com/en/news/heron-power-raises-140m-in-series-b-funding-to-support-build-out-of-40gw-us-manufacturing-facility/">datacenterdynamics.com</a></li>
+  <li id="r-cap">Capricorn Investment Group, "Heron Power Raises $38M Series A," Oct 2025 — Heron Link deletes legacy transformer, grid-stability framing vs. 2025 Spain outage, 2026 pilot / 2027 partner installs. <a href="https://capricornllc.com/news/heron-power-raises-38m-series-a-led-by-capricorn-investment-group/">capricornllc.com</a></li>
+  <li id="r-dck">Data Center Knowledge, "Inside the Push to Bring DC Power to Data Centers," Mar 31 2026 — Current/OS + ODCA MoU (Mar 2026), Mt. Diablo ±400V from EV, "ruled by national rules… very difficult to change." <a href="https://www.datacenterknowledge.com/energy-power-supply/inside-the-push-to-bring-dc-power-to-data-centers">datacenterknowledge.com</a></li>
+</ol>
+</div>
+
+<div class="disc">
+  METHODOLOGY &amp; CAVEATS — This note synthesizes public vendor disclosures, OCP specifications, conference coverage (GTC 2025/2026, Computex 2025/2026, OCP Global Summit 2025), and trade reporting through early June 2026. Efficiency, copper-reduction, TCO, and maintenance figures are vendor-supplied directional ceilings, not independently verified field results. Per-hyperscaler power-ceiling figures (Meta/Google/Amazon/Microsoft) are reported estimates and reflect designs still in flux. Quotations are kept to source wording under fair-use length; all substantive technical claims are linked to primary or trade sources above. Not investment, legal, or engineering-sign-off advice — verify against current OCP specs and applicable electrical codes before any deployment decision.
+</div>
+
+</article>
+</div>
+</body>
+</html>

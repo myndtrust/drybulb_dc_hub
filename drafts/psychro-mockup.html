@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PUE Calculator — Psychrometric + Liquid Cooling (mockup)</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#0a0a0a; --muted:#6b7280; --muted-bg:#f4f4f5;
+    --border:#e5e7eb; --border-strong:#d4d4d8; --primary:#111113; --primary-fg:#fafafa; --ring:#94a3b8;
+    --rec:#16a34a; --a1:#0ea5e9; --a2:#8b5cf6; --a3:#f59e0b; --a4:#ef4444; --h1:#db2777;
+    --free:#16a34a; --mech:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#fafafa;color:var(--fg);
+    font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+  .crumb{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+  h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 22px;max-width:720px}
+  .banner{background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:12.5px;border-radius:8px;padding:8px 12px;margin-bottom:20px}
+
+  .card{background:var(--bg);border:1px solid var(--border);border-radius:12px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+  .left-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  .combo{position:relative;width:300px;max-width:70vw}
+  .combo-input{width:100%;height:38px;border:1px solid var(--border-strong);border-radius:8px;padding:0 34px 0 12px;font-size:14px;background:var(--bg);color:var(--fg)}
+  .combo-input:focus{outline:none;box-shadow:0 0 0 2px var(--ring)}
+  .combo-cary{position:absolute;right:10px;top:11px;color:var(--muted);pointer-events:none}
+  .combo-panel{position:absolute;z-index:30;top:42px;left:0;right:0;max-height:320px;overflow:auto;background:var(--bg);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.12);display:none}
+  .combo-panel.open{display:block}
+  .group-label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 12px 4px;position:sticky;top:0;background:var(--bg)}
+  .opt{padding:8px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+  .opt:hover,.opt.active{background:var(--muted-bg)}
+  .opt .st{color:var(--muted);font-size:12px}
+  .opt.feat .name::before{content:"★";color:#f59e0b;margin-right:6px;font-size:12px}
+  .opt.up .name::before{content:"⬆︎";color:#0ea5e9;margin-right:6px;font-size:11px}
+  .empty{padding:14px 12px;color:var(--muted);font-size:13px}
+
+  .right-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .btn-up{height:38px;border:1px solid var(--border-strong);background:var(--bg);border-radius:8px;padding:0 13px;font-size:13px;cursor:pointer;color:var(--fg);display:inline-flex;align-items:center;gap:6px}
+  .btn-up:hover{background:var(--muted-bg)}
+  .demo-tag{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:1px 5px}
+  .unit{display:inline-flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden;font-size:13px}
+  .unit button{border:0;background:var(--bg);padding:7px 11px;cursor:pointer;color:var(--fg)}
+  .unit button.on{background:var(--primary);color:var(--primary-fg)}
+
+  .tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--border);overflow:auto}
+  .tab{border:0;background:transparent;padding:12px 14px;font-size:14px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+  .tab.on{color:var(--fg);border-bottom-color:var(--primary)}
+  .tab.inert{opacity:.5;cursor:default}
+  .tab .new{font-size:9px;background:var(--primary);color:var(--primary-fg);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;letter-spacing:.04em}
+
+  .panel{padding:18px 16px}
+  .panel.hidden{display:none}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border-strong);background:var(--bg);border-radius:999px;padding:5px 11px;font-size:12.5px;cursor:pointer;user-select:none}
+  .chip .dot{width:10px;height:10px;border-radius:3px;border:2px solid currentColor}
+  .chip.off{opacity:.45}
+  .chip.off .dot{background:transparent!important}
+  .chip.sel{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+
+  .chart-row{display:grid;grid-template-columns:1fr 230px;gap:18px}
+  @media(max-width:820px){.chart-row{grid-template-columns:1fr}}
+  .canvas-box{position:relative;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg)}
+  canvas{display:block;width:100%}
+  .readout{position:absolute;top:8px;left:10px;font-size:11.5px;color:var(--muted);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:6px;padding:3px 7px;display:none}
+
+  .stats h3{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:2px 0 10px}
+  .stat{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .stat .sw{width:12px;height:12px;border-radius:3px;flex:none}
+  .stat .lbl{font-size:13px;flex:1}
+  .stat .pct{font-variant-numeric:tabular-nums;font-weight:700;font-size:15px}
+  .stat .hrs{display:block;font-size:11px;color:var(--muted);font-weight:400}
+  .bar{height:5px;border-radius:3px;background:var(--muted-bg);margin-top:5px;overflow:hidden}
+  .bar > i{display:block;height:100%}
+  .note{font-size:11px;color:var(--muted);margin-top:14px;line-height:1.5}
+
+  /* liquid controls */
+  .ctl{margin-bottom:16px}
+  .ctl-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden;font-size:13px}
+  .seg button{border:0;background:var(--bg);padding:7px 12px;cursor:pointer;color:var(--fg)}
+  .seg button.on{background:var(--primary);color:var(--primary-fg)}
+  .classchips{display:flex;flex-wrap:wrap;gap:6px}
+  .cc{border:1px solid var(--border-strong);background:var(--bg);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;text-align:center;min-width:64px}
+  .cc.on{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+  .cc small{display:block;font-size:10px;color:var(--muted)}
+  .cc.on small{color:#cfcfcf}
+  .slider{width:230px;max-width:100%}
+  .bigstat{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px}
+  .bigstat .v{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+  .bigstat .k{font-size:12px;color:var(--muted)}
+  .bigstat.free .v{color:var(--free)}
+
+  .laterbox{margin-top:18px;border:1px dashed var(--border-strong);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--muted);background:#fcfcfd}
+  .laterbox b{color:var(--fg)}
+  .mockflag{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:2px 7px;margin-left:8px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#111113;color:#fafafa;font-size:13px;padding:9px 14px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:90vw}
+  .toast.show{opacity:1}
+  .lc-grid{display:grid;grid-template-columns:260px 1fr;gap:20px}
+  @media(max-width:820px){.lc-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb">Tools / PUE Calculator <span class="mockflag">design mockup</span></div>
+  <h1>PUE Calculator</h1>
+  <p class="sub">Typical-year hourly weather drives a new <b>Psychrometric</b> tab (ASHRAE air envelopes
+    A1–A4 + H1) and a new <b>Liquid Cooling</b> tab (ASHRAE W/S water classes → free-cooling energy profile).</p>
+  <div class="banner">⚠︎ Mockup only — synthetic weather, approximate ASHRAE envelopes &amp; a simplified energy model. For design review, not engineering use.</div>
+
+  <div class="card">
+    <div class="toolbar">
+      <div class="left-tools">
+        <div class="combo">
+          <input class="combo-input" id="comboInput" placeholder="Search location…" autocomplete="off" />
+          <span class="combo-cary">▾</span>
+          <div class="combo-panel" id="comboPanel"></div>
+        </div>
+      </div>
+      <div class="right-tools">
+        <button class="btn-up" id="uploadBtn" title="Upload your own 8,760-hour weather (CSV, EPW, or Excel)">⬆︎ Upload weather <span class="demo-tag">demo</span></button>
+        <input type="file" id="fileInput" accept=".csv,.epw,.xlsx" hidden />
+        <div class="unit" id="unit">
+          <button data-u="C">°C</button>
+          <button data-u="F" class="on">°F</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button class="tab inert">Monthly PUE</button>
+      <button class="tab inert">Weather Data</button>
+      <button class="tab on" data-tab="psychro">Psychrometric <span class="new">NEW</span></button>
+      <button class="tab inert">Power Breakdown</button>
+      <button class="tab" data-tab="liquid">Liquid Cooling <span class="new">NEW</span></button>
+      <button class="tab inert">Benchmarks</button>
+    </div>
+
+    <!-- ───────── Psychrometric panel ───────── -->
+    <div class="panel" id="panel-psychro">
+      <div class="chips" id="chips"></div>
+      <div class="chart-row">
+        <div class="canvas-box">
+          <canvas id="chart"></canvas>
+          <div class="readout" id="readout"></div>
+        </div>
+        <div class="stats">
+          <h3>Hours within envelope</h3>
+          <div id="statList"></div>
+          <div class="note">Of 8,760 annual hours. RH curves &amp; envelopes at sea-level pressure
+            (ASHRAE convention); point humidity ratio uses station pressure.</div>
+        </div>
+      </div>
+      <div class="laterbox">
+        <b>Upload your own weather:</b> in the live app, signed-in users upload an 8,760-hour file
+        (<b>CSV</b>, <b>EPW</b>, or <b>Excel</b>) saved to their account under <b>“My data.”</b>
+        <i>(This demo parses CSV/EPW in-browser and doesn’t save.)</i>
+      </div>
+    </div>
+
+    <!-- ───────── Liquid Cooling panel ───────── -->
+    <div class="panel hidden" id="panel-liquid">
+      <div class="lc-grid">
+        <div>
+          <div class="ctl">
+            <div class="ctl-label">Cooling loop</div>
+            <div class="seg" id="familySeg">
+              <button data-fam="W" class="on">FWS · W-class</button>
+              <button data-fam="S">TCS · S-class</button>
+            </div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-label" id="classLabel">Facility water supply class</div>
+            <div class="classchips" id="classChips"></div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-label">Heat rejection</div>
+            <div class="seg" id="rejSeg">
+              <button data-rej="tower" class="on">Cooling tower (wet-bulb)</button>
+              <button data-rej="dry">Dry cooler (dry-bulb)</button>
+            </div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-label">Approach ΔT — <span id="approachVal" class="mono">6°C</span></div>
+            <input class="slider" id="approach" type="range" min="2" max="12" step="1" value="6" />
+          </div>
+          <div class="note">Free cooling is possible whenever (outdoor <span id="limWord">wet-bulb</span>
+            + approach) ≤ the class supply temperature — no chiller needed.</div>
+        </div>
+
+        <div>
+          <div class="chart-row">
+            <div class="canvas-box">
+              <canvas id="lcChart"></canvas>
+            </div>
+            <div class="stats">
+              <div class="bigstat free"><div class="v" id="freePct">—</div><div class="k">Free-cooling hours / yr</div></div>
+              <div class="bigstat"><div class="v" id="ppue">—</div><div class="k">Cooling pPUE (est.)</div></div>
+              <div class="stat"><span class="sw" style="background:var(--free)"></span>
+                <span class="lbl">Free cooling<span class="hrs" id="freeHrs"></span></span></div>
+              <div class="stat"><span class="sw" style="background:var(--mech)"></span>
+                <span class="lbl">Mechanical (chiller)<span class="hrs" id="mechHrs"></span></span></div>
+              <div class="note" id="energyNote"></div>
+            </div>
+          </div>
+          <div class="laterbox">
+            <b>Energy profile:</b> the chosen class + climate set how many hours run chiller-free.
+            In the live app this <b>feeds the headline PUE</b> (warmer classes like S50 / W45 free-cool
+            far more often). <b>S-classes (TCS)</b> run warmer than <b>W-classes (FWS)</b> because the
+            CDU adds approach between facility water and the chips.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ───────── Psychrometrics ─────────
+const P=101325;
+const Pws=t=>610.94*Math.exp(17.625*t/(t+243.04));
+const Wrh=(t,rh)=>{const Pv=(rh/100)*Pws(t);return 621.98*Pv/(P-Pv);};
+const Wdp=dp=>{const Pv=Pws(dp);return 621.98*Pv/(P-Pv);};
+const cToF=c=>c*1.8+32;
+// Stull (2011) wet-bulb approximation, °C
+function wetBulb(t,rh){ rh=Math.max(1,Math.min(100,rh));
+  return t*Math.atan(0.151977*Math.sqrt(rh+8.313659)) + Math.atan(t+rh) - Math.atan(rh-1.676331)
+    + 0.00391838*Math.pow(rh,1.5)*Math.atan(0.023101*rh) - 4.686035; }
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function hexToRgb(h){h=h.replace('#','');const n=parseInt(h.length===3?h.split('').map(x=>x+x).join(''):h,16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};}
+
+// ───────── ASHRAE air envelopes (approx) ─────────
+const CLASSES=[
+  {key:'rec',label:'Recommended',color:getCss('--rec'),tMin:18,tMax:27,dpMin:5.5,dpMax:15,rhMax:60,on:true},
+  {key:'a1', label:'Allowable A1',color:getCss('--a1'),tMin:15,tMax:32,dpMin:-12,rhMin:8,dpMax:27,rhMax:80,on:true},
+  {key:'a2', label:'Allowable A2',color:getCss('--a2'),tMin:10,tMax:35,dpMin:-12,rhMin:8,dpMax:27,rhMax:80,on:false},
+  {key:'a3', label:'Allowable A3',color:getCss('--a3'),tMin:5, tMax:40,dpMin:-12,rhMin:8,dpMax:27,rhMax:85,on:false},
+  {key:'a4', label:'Allowable A4',color:getCss('--a4'),tMin:5, tMax:45,dpMin:-12,rhMin:8,dpMax:27,rhMax:90,on:false},
+  {key:'h1', label:'H1 (high-density)',color:getCss('--h1'),tMin:15,tMax:25,dpMin:-12,rhMin:8,dpMax:17,rhMax:80,on:false},
+];
+const lowB=(c,t)=>{let w=Wdp(c.dpMin);if(c.rhMin)w=Math.max(w,Wrh(t,c.rhMin));return w;};
+const highB=(c,t)=>{let w=Wrh(t,c.rhMax);if(c.dpMax!=null)w=Math.min(w,Wdp(c.dpMax));return w;};
+const within=(c,t,w)=>t>=c.tMin&&t<=c.tMax&&w>=lowB(c,t)-1e-9&&w<=highB(c,t)+1e-9;
+
+// ───────── ASHRAE liquid classes ─────────
+const WCLASSES=[{k:'W17',t:17},{k:'W27',t:27},{k:'W32',t:32},{k:'W40',t:40},{k:'W45',t:45},{k:'W+',t:48}];
+const SCLASSES=[{k:'S30',t:30},{k:'S35',t:35},{k:'S40',t:40},{k:'S45',t:45},{k:'S50',t:50}];
+
+// ───────── Featured + other stations, synthetic climate ─────────
+const FEATURED=[
+  {usaf:'724050',name:'Ashburn / N. Virginia, VA',st:'VA',p:{tm:13,sa:13,da:5,rb:66,rs:-1.0}},
+  {usaf:'724945',name:'Silicon Valley (San Jose), CA',st:'CA',p:{tm:15,sa:6,da:7,rb:70,rs:-1.3}},
+  {usaf:'722780',name:'Phoenix, AZ',st:'AZ',p:{tm:24,sa:11,da:8,rb:34,rs:-0.8}},
+  {usaf:'722590',name:'Dallas–Fort Worth, TX',st:'TX',p:{tm:19,sa:12,da:6,rb:64,rs:-1.0}},
+  {usaf:'725300',name:'Chicago, IL',st:'IL',p:{tm:10,sa:15,da:5,rb:71,rs:-1.0}},
+  {usaf:'722190',name:'Atlanta, GA',st:'GA',p:{tm:17,sa:11,da:6,rb:68,rs:-1.1}},
+];
+const OTHERS=[
+  {usaf:'727810',name:'Quincy (Moses Lake), WA',st:'WA',p:{tm:11,sa:13,da:8,rb:55,rs:-1.1}},
+  {usaf:'725480',name:'Council Bluffs (Omaha), IA',st:'IA',p:{tm:11,sa:15,da:6,rb:68,rs:-1.0}},
+  {usaf:'724880',name:'Reno, NV',st:'NV',p:{tm:11,sa:12,da:10,rb:42,rs:-0.9}},
+  {usaf:'726980',name:'Portland, OR',st:'OR',p:{tm:12,sa:8,da:6,rb:74,rs:-1.2}},
+  {usaf:'725090',name:'Boston, MA',st:'MA',p:{tm:11,sa:13,da:5,rb:66,rs:-1.0}},
+  {usaf:'725650',name:'Denver, CO',st:'CO',p:{tm:10,sa:13,da:9,rb:52,rs:-0.9}},
+];
+const ALL=[...FEATURED.map(s=>({...s,feat:true})),...OTHERS.map(s=>({...s,feat:false}))];
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function genYear(prof,seed){const rnd=mulberry32(seed);const tdb=new Float32Array(8760),rh=new Float32Array(8760);
+  for(let h=0;h<8760;h++){const day=Math.floor(h/24),hod=h%24;
+    const season=prof.sa*Math.cos(2*Math.PI*(day-200)/365);const diurn=prof.da*Math.cos(2*Math.PI*(hod-15)/24);
+    const t=prof.tm+season+diurn+(rnd()-0.5)*5;
+    let r=prof.rb+prof.rs*(t-prof.tm)+(rnd()-0.5)*18-diurn*1.4;r=Math.max(6,Math.min(100,r));
+    tdb[h]=t;rh[h]=r;} return{tdb,rh};}
+
+// ───────── State ─────────
+let unit='F', station=ALL[0], data=genYear(station.p,1), uploads=[];
+let activeTab='psychro';
+let lcFamily='W', lcClass=WCLASSES[1].k, lcRej='tower', lcApproach=6;
+
+// ───────── Combobox ─────────
+const input=document.getElementById('comboInput'),panel=document.getElementById('comboPanel');
+input.value=station.name;
+function opt(s,feat){return `<div class="opt ${feat?'feat':''}" data-usaf="${s.usaf}"><span class="name">${s.name}</span><span class="st">${s.st} · ${s.usaf}</span></div>`;}
+function renderPanel(filter=''){const f=filter.trim().toLowerCase();const match=s=>!f||(s.name+' '+(s.st||'')).toLowerCase().includes(f);
+  const ups=uploads.filter(match),feats=ALL.filter(s=>s.feat&&match(s)),others=ALL.filter(s=>!s.feat&&match(s));let html='';
+  if(ups.length){html+='<div class="group-label">My data</div>';ups.forEach(s=>html+=`<div class="opt up" data-usaf="${s.usaf}"><span class="name">${s.name}</span><span class="st">uploaded</span></div>`);}
+  if(feats.length){html+='<div class="group-label">Data center markets</div>';feats.forEach(s=>html+=opt(s,true));}
+  if(others.length){html+='<div class="group-label">All stations (1,020 in production)</div>';others.forEach(s=>html+=opt(s,false));}
+  if(!ups.length&&!feats.length&&!others.length)html='<div class="empty">No match. (Production search covers all 1,020 TMY3 stations.)</div>';
+  panel.innerHTML=html;[...panel.querySelectorAll('.opt')].forEach(el=>el.onclick=()=>pick(el.dataset.usaf));}
+function pick(usaf){const up=uploads.find(s=>s.usaf===usaf);
+  if(up){station=up;data=up.data;}else{station=ALL.find(s=>s.usaf===usaf);data=genYear(station.p,hash(usaf));}
+  input.value=station.name;panel.classList.remove('open');redraw();}
+function hash(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return h>>>0;}
+input.addEventListener('focus',()=>{input.select();renderPanel('');panel.classList.add('open');});
+input.addEventListener('input',()=>{renderPanel(input.value);panel.classList.add('open');});
+document.addEventListener('click',e=>{if(!e.target.closest('.combo')){panel.classList.remove('open');input.value=station.name;}});
+
+// ───────── Unit + tabs ─────────
+document.getElementById('unit').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;unit=b.dataset.u;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x.dataset.u===unit));redraw();});
+document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||b.classList.contains('inert'))return;
+  if(b.classList.contains('inert'))return;
+  if(!b.dataset.tab){toast('Shown for context — built in the live app.');return;}
+  activeTab=b.dataset.tab;
+  [...document.querySelectorAll('.tab')].forEach(t=>t.classList.toggle('on',t===b));
+  document.getElementById('panel-psychro').classList.toggle('hidden',activeTab!=='psychro');
+  document.getElementById('panel-liquid').classList.toggle('hidden',activeTab!=='liquid');
+  resizeAll();});
+
+// ───────── Psychro chips ─────────
+const chipsEl=document.getElementById('chips');
+function renderChips(){chipsEl.innerHTML='';CLASSES.forEach(c=>{const el=document.createElement('div');
+  el.className='chip'+(c.on?'':' off');el.style.color=c.color;
+  el.innerHTML=`<span class="dot" style="background:${c.on?c.color:'transparent'}"></span><span style="color:var(--fg)">${c.label}</span>`;
+  el.onclick=()=>{c.on=!c.on;renderChips();drawPsychro();renderPsychroStats();};chipsEl.appendChild(el);});}
+
+// ───────── Psychro chart ─────────
+const canvas=document.getElementById('chart'),ctx=canvas.getContext('2d'),readout=document.getElementById('readout');
+const X={min:-15,max:48},Y={min:0,max:30},M={l:52,r:16,t:14,b:42};let plotW,plotH;
+const mapX=t=>M.l+(t-X.min)/(X.max-X.min)*plotW, mapY=w=>M.t+plotH-(w-Y.min)/(Y.max-Y.min)*plotH, dispT=t=>unit==='F'?cToF(t):t;
+function drawPsychro(){ if(!plotW)return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.fillRect(M.l,M.t,plotW,plotH);
+  ctx.font='11px ui-monospace,monospace';ctx.textBaseline='middle';
+  for(let w=0;w<=Y.max;w+=5){const y=mapY(w);ctx.strokeStyle='#eef0f2';ctx.beginPath();ctx.moveTo(M.l,y);ctx.lineTo(M.l+plotW,y);ctx.stroke();ctx.fillStyle='#9ca3af';ctx.textAlign='right';ctx.fillText(w,M.l-8,y);}
+  ctx.textAlign='center';ctx.textBaseline='top';
+  for(let t=Math.ceil(X.min);t<=X.max;t+=5){const x=mapX(t);ctx.strokeStyle='#f4f5f6';ctx.beginPath();ctx.moveTo(x,M.t);ctx.lineTo(x,M.t+plotH);ctx.stroke();ctx.fillStyle='#9ca3af';ctx.fillText(Math.round(dispT(t)),x,M.t+plotH+8);}
+  ctx.fillStyle='#6b7280';ctx.font='12px ui-sans-serif';ctx.textAlign='center';ctx.fillText('Dry-bulb temperature (°'+unit+')',M.l+plotW/2,M.t+plotH+24);
+  ctx.save();ctx.translate(14,M.t+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText('Humidity ratio (g/kg dry air)',0,0);ctx.restore();
+  ctx.strokeStyle='#d1d5db';ctx.lineWidth=1;
+  for(const rh of [10,20,30,40,50,60,70,80,90]){ctx.beginPath();let s=false;for(let t=X.min;t<=X.max;t+=0.5){const w=Wrh(t,rh);if(w>Y.max+2)break;const x=mapX(t),y=mapY(w);s?ctx.lineTo(x,y):(ctx.moveTo(x,y),s=true);}ctx.stroke();}
+  ctx.strokeStyle='#9ca3af';ctx.lineWidth=1.5;ctx.beginPath();let s2=false;for(let t=X.min;t<=X.max;t+=0.5){const w=Wrh(t,100);if(w>Y.max+4)break;const x=mapX(t),y=mapY(w);s2?ctx.lineTo(x,y):(ctx.moveTo(x,y),s2=true);}ctx.stroke();
+  const c=hexToRgb(getCss('--primary'));ctx.fillStyle=`rgba(${c.r},${c.g},${c.b},0.16)`;const N=data.tdb.length;
+  for(let i=0;i<N;i++){let t=data.tdb[i];if(t<X.min||t>X.max)continue;const w=Wrh(t,data.rh[i]);if(w<Y.min||w>Y.max)continue;ctx.fillRect(mapX(t)-1.1,mapY(w)-1.1,2.2,2.2);}
+  for(const cl of CLASSES){if(cl.on)drawEnv(cl);}
+  ctx.strokeStyle='#e5e7eb';ctx.strokeRect(M.l,M.t,plotW,plotH);
+  watermark(ctx,M.l+plotW-8,M.t+plotH-7);
+}
+function drawEnv(c){const pts=[];for(let t=c.tMin;t<=c.tMax+1e-6;t+=0.5)pts.push([t,highB(c,t)]);for(let t=c.tMax;t>=c.tMin-1e-6;t-=0.5)pts.push([t,lowB(c,t)]);
+  ctx.beginPath();pts.forEach(([t,w],i)=>{const x=mapX(t),y=mapY(Math.min(w,Y.max));i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();
+  const rgb=hexToRgb(c.color);ctx.fillStyle=`rgba(${rgb.r},${rgb.g},${rgb.b},0.08)`;ctx.fill();ctx.strokeStyle=c.color;ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle=c.color;ctx.font='600 11px ui-sans-serif';ctx.textAlign='left';ctx.textBaseline='bottom';
+  ctx.fillText(c.label.replace('Allowable ',''),mapX(c.tMin)+4,mapY(Math.min(highB(c,c.tMin),Y.max))-3);}
+canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+  if(px<M.l||px>M.l+plotW||py<M.t||py>M.t+plotH){readout.style.display='none';return;}
+  const t=X.min+(px-M.l)/plotW*(X.max-X.min),w=Y.min+(M.t+plotH-py)/plotH*(Y.max-Y.min);
+  const rh=Math.max(0,Math.min(100,100*((w/621.98)*P/(1+w/621.98))/Pws(t)));
+  readout.style.display='block';readout.innerHTML=`${Math.round(dispT(t))}°${unit} &nbsp; ${w.toFixed(1)} g/kg &nbsp; ~${Math.round(rh)}% RH`;});
+canvas.addEventListener('mouseleave',()=>readout.style.display='none');
+function renderPsychroStats(){const list=document.getElementById('statList');list.innerHTML='';const N=data.tdb.length;
+  CLASSES.forEach(c=>{if(!c.on)return;let n=0;for(let i=0;i<N;i++)if(within(c,data.tdb[i],Wrh(data.tdb[i],data.rh[i])))n++;const pct=100*n/N;
+    const row=document.createElement('div');row.className='stat';
+    row.innerHTML=`<span class="sw" style="background:${c.color}"></span><span class="lbl">${c.label}<span class="hrs">${n.toLocaleString()} h/yr</span><span class="bar"><i style="width:${pct.toFixed(1)}%;background:${c.color}"></i></span></span><span class="pct">${pct.toFixed(0)}%</span>`;
+    list.appendChild(row);});
+  if(!CLASSES.some(c=>c.on))list.innerHTML='<div class="empty" style="padding:0">Toggle an envelope to see hours within it.</div>';}
+
+// ───────── Liquid cooling ─────────
+const lcCanvas=document.getElementById('lcChart'),lcx=lcCanvas.getContext('2d');let lpW,lpH;const LM={l:46,r:16,t:14,b:40};
+function classes(){return lcFamily==='W'?WCLASSES:SCLASSES;}
+function classTemp(){const c=classes().find(x=>x.k===lcClass);return c?c.t:30;}
+function renderClassChips(){const wrap=document.getElementById('classChips');wrap.innerHTML='';
+  classes().forEach(c=>{const el=document.createElement('div');el.className='cc'+(c.k===lcClass?' on':'');
+    el.innerHTML=`${c.k}<small>≤ ${unit==='F'?Math.round(cToF(c.t))+'°F':c.t+'°C'}</small>`;
+    el.onclick=()=>{lcClass=c.k;renderClassChips();drawLiquid();renderLiquidStats();};wrap.appendChild(el);});
+  document.getElementById('classLabel').textContent=lcFamily==='W'?'Facility water supply class (FWS)':'Technology cooling supply class (TCS)';
+  document.getElementById('limWord').textContent=lcRej==='tower'?'wet-bulb':'dry-bulb';}
+function limitTemps(){const N=data.tdb.length;const a=new Float32Array(N);
+  for(let i=0;i<N;i++)a[i]=lcRej==='dry'?data.tdb[i]:wetBulb(data.tdb[i],data.rh[i]);return a;}
+function profile(){const lim=limitTemps();const N=lim.length;const supply=classTemp();let free=0;
+  const ach=new Float32Array(N);for(let i=0;i<N;i++){ach[i]=lim[i]+lcApproach;if(ach[i]<=supply)free++;}
+  const freeFrac=free/N;const PUMP=0.04,CHILL=0.28;const coolFrac=freeFrac*PUMP+(1-freeFrac)*CHILL;
+  return{N,ach,supply,free,freeFrac,coolFrac,ppue:1+coolFrac};}
+function drawLiquid(){if(!lpW)return;const pr=profile();
+  lcx.clearRect(0,0,lcCanvas.width,lcCanvas.height);lcx.fillStyle='#fff';lcx.fillRect(LM.l,LM.t,lpW,lpH);
+  const sorted=Array.from(pr.ach).sort((a,b)=>b-a);
+  const yMin=Math.min(...sorted, pr.supply)-3, yMax=Math.max(...sorted, pr.supply)+3;
+  const mx=p=>LM.l+p*lpW, my=t=>LM.t+lpH-(t-yMin)/(yMax-yMin)*lpH, dT=t=>unit==='F'?cToF(t):t;
+  // grid
+  lcx.font='11px ui-monospace,monospace';lcx.textBaseline='middle';lcx.textAlign='right';
+  const ystep=(yMax-yMin)>40?10:5;
+  for(let t=Math.ceil(yMin/ystep)*ystep;t<=yMax;t+=ystep){const y=my(t);lcx.strokeStyle='#eef0f2';lcx.beginPath();lcx.moveTo(LM.l,y);lcx.lineTo(LM.l+lpW,y);lcx.stroke();lcx.fillStyle='#9ca3af';lcx.fillText(Math.round(dT(t)),LM.l-8,y);}
+  lcx.textAlign='center';lcx.textBaseline='top';
+  for(let p=0;p<=100;p+=20){const x=mx(p/100);lcx.fillStyle='#9ca3af';lcx.fillText(p+'%',x,LM.t+lpH+7);}
+  lcx.fillStyle='#6b7280';lcx.font='12px ui-sans-serif';lcx.fillText('% of year exceeding',LM.l+lpW/2,LM.t+lpH+22);
+  lcx.save();lcx.translate(13,LM.t+lpH/2);lcx.rotate(-Math.PI/2);lcx.fillText('Achievable supply water (°'+unit+')',0,0);lcx.restore();
+  // shade free-cooling region (curve below supply line)
+  const supY=my(pr.supply);
+  lcx.fillStyle='rgba(22,163,74,0.10)';lcx.fillRect(LM.l,supY,lpW,LM.t+lpH-supY);
+  // duration curve
+  lcx.beginPath();sorted.forEach((t,i)=>{const x=mx(i/(sorted.length-1)),y=my(t);i?lcx.lineTo(x,y):lcx.moveTo(x,y);});
+  lcx.strokeStyle='#111113';lcx.lineWidth=2;lcx.stroke();
+  // supply threshold line
+  lcx.strokeStyle=getCss('--mech');lcx.setLineDash([5,4]);lcx.lineWidth=1.5;lcx.beginPath();lcx.moveTo(LM.l,supY);lcx.lineTo(LM.l+lpW,supY);lcx.stroke();lcx.setLineDash([]);
+  lcx.fillStyle=getCss('--mech');lcx.font='600 11px ui-sans-serif';lcx.textAlign='left';lcx.textBaseline='bottom';
+  lcx.fillText(`${lcClass} supply ≤ ${unit==='F'?Math.round(cToF(pr.supply))+'°F':pr.supply+'°C'}`,LM.l+6,supY-3);
+  lcx.fillStyle=getCss('--free');lcx.textBaseline='top';lcx.fillText(`free cooling — ${(pr.freeFrac*100).toFixed(0)}% of hours`,LM.l+6,supY+5);
+  lcx.strokeStyle='#e5e7eb';lcx.strokeRect(LM.l,LM.t,lpW,lpH);
+  watermark(lcx,LM.l+lpW-8,LM.t+lpH-7);
+}
+function renderLiquidStats(){const pr=profile();const freeH=Math.round(pr.freeFrac*8760),mechH=8760-freeH;
+  document.getElementById('freePct').textContent=(pr.freeFrac*100).toFixed(0)+'%';
+  document.getElementById('ppue').textContent='~'+pr.ppue.toFixed(2);
+  document.getElementById('freeHrs').textContent=freeH.toLocaleString()+' h/yr';
+  document.getElementById('mechHrs').textContent=mechH.toLocaleString()+' h/yr';
+  const mwh=(pr.coolFrac*1000*8760/1000).toFixed(0); // 1 MW IT load
+  document.getElementById('energyNote').textContent=`≈ ${mwh} MWh/yr cooling energy for a 1 MW IT load (chiller hours dominate).`;}
+
+document.getElementById('familySeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;lcFamily=b.dataset.fam;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x.dataset.fam===lcFamily));
+  lcClass=classes()[1].k;renderClassChips();drawLiquid();renderLiquidStats();});
+document.getElementById('rejSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;lcRej=b.dataset.rej;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x.dataset.rej===lcRej));renderClassChips();drawLiquid();renderLiquidStats();});
+document.getElementById('approach').addEventListener('input',e=>{lcApproach=+e.target.value;
+  document.getElementById('approachVal').textContent=lcApproach+'°C';drawLiquid();renderLiquidStats();});
+
+// ───────── Watermark + resize + redraw ─────────
+function watermark(c,x,y){c.save();c.font='600 13px ui-sans-serif,system-ui';c.textAlign='right';c.textBaseline='bottom';c.fillStyle='rgba(17,17,19,0.14)';c.fillText('drybulb.com',x,y);c.restore();}
+function sizeCanvas(cv,frac){const w=cv.parentElement.clientWidth,h=Math.max(360,Math.round(w*frac));const dpr=window.devicePixelRatio||1;
+  cv.width=w*dpr;cv.height=h*dpr;cv.style.height=h+'px';cv.getContext('2d').setTransform(dpr,0,0,dpr,0,0);return{w:w-((cv===canvas)?M.l+M.r:LM.l+LM.r),h:h-((cv===canvas)?M.t+M.b:LM.t+LM.b)};}
+function resizeAll(){ if(activeTab==='psychro'){const d=sizeCanvas(canvas,0.62);plotW=d.w;plotH=d.h;drawPsychro();renderPsychroStats();}
+  else{const d=sizeCanvas(lcCanvas,0.6);lpW=d.w;lpH=d.h;drawLiquid();renderLiquidStats();} }
+function redraw(){ if(activeTab==='psychro'){drawPsychro();renderPsychroStats();} else{drawLiquid();renderLiquidStats();} }
+
+// ───────── Upload (demo) ─────────
+const toastEl=document.getElementById('toast');let toastT;
+function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('show'),4200);}
+const uploadBtn=document.getElementById('uploadBtn'),fileInput=document.getElementById('fileInput');
+uploadBtn.onclick=()=>fileInput.click();
+fileInput.onchange=async()=>{const file=fileInput.files[0];if(!file)return;const ext=(file.name.split('.').pop()||'').toLowerCase();
+  try{ if(ext==='xlsx'){toast('Excel (.xlsx) is supported in the live app — try a CSV or EPW file in this demo.');fileInput.value='';return;}
+    const text=await file.text();const parsed=ext==='epw'?parseEPW(text):parseCSV(text);
+    if(!parsed||parsed.tdb.length<24){toast('Could not read that file. Expected hourly rows with dry-bulb temp and RH.');fileInput.value='';return;}
+    const id='upload:'+Date.now(),name=file.name.replace(/\.[^.]+$/,'');uploads.unshift({usaf:id,name,st:'My data',data:parsed});pick(id);
+    toast(`Loaded “${name}” — ${parsed.tdb.length.toLocaleString()} hours. (Demo only — the live app saves to your account.)`);
+  }catch(e){toast('Could not parse that file.');}fileInput.value='';};
+function parseCSV(text){const lines=text.split(/\r?\n/).filter(l=>l.trim().length);if(!lines.length)return null;let start=0,ti=0,ri=1;
+  if(/[a-df-z]/i.test(lines[0].replace(/e[+-]?\d/gi,''))){const cols=lines[0].toLowerCase().split(',').map(s=>s.trim());
+    const find=(...k)=>cols.findIndex(c=>k.some(x=>c.includes(x)));const t=find('dry','dbt','tdb','temp'),r=find('rh','humid');ti=t<0?0:t;ri=r<0?1:r;start=1;}
+  const tdb=[],rh=[];for(let i=start;i<lines.length;i++){const c=lines[i].split(',');const t=parseFloat(c[ti]),r=parseFloat(c[ri]);if(isNaN(t)||isNaN(r))continue;tdb.push(t);rh.push(Math.max(1,Math.min(100,r)));}
+  return{tdb:Float32Array.from(tdb),rh:Float32Array.from(rh)};}
+function parseEPW(text){const lines=text.split(/\r?\n/);const tdb=[],rh=[];for(let i=8;i<lines.length;i++){const c=lines[i].split(',');if(c.length<10)continue;const t=parseFloat(c[6]),r=parseFloat(c[8]);if(isNaN(t)||isNaN(r))continue;tdb.push(t);rh.push(Math.max(1,Math.min(100,r)));}return{tdb:Float32Array.from(tdb),rh:Float32Array.from(rh)};}
+
+// ───────── Init ─────────
+renderChips();renderClassChips();resizeAll();
+window.addEventListener('resize',resizeAll);
+</script>
+</body>
+</html>

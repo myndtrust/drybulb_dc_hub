@@ -10,7 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { STATIONS, filterStations } from "@/lib/pue/stations";
+import { fetchStationIndex, fetchStationWeather } from "@/lib/pue/tmy3";
+import { PsychrometricChart } from "@/components/pue/psychrometric-chart";
+import { LiquidCoolingTab } from "@/components/pue/liquid-cooling-tab";
 import {
   COOLING_SYSTEMS,
   DEFAULT_INPUTS,
@@ -26,10 +28,11 @@ import {
 import type {
   AnnualPUEResult,
   CoolingType,
+  HourlyWeather,
   ITPreset,
   MonthlyWeather,
   PUEInputs,
-  Station,
+  TmyStation,
   UPSType,
 } from "@/lib/pue/types";
 import { MONTH_LABELS } from "@/lib/pue/types";
@@ -126,29 +129,38 @@ function UnitToggle({
 function LocationSelect({
   value,
   onChange,
+  stations,
 }: {
   value: string;
-  onChange: (id: string) => void;
+  onChange: (usaf: string) => void;
+  stations: TmyStation[];
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selected = STATIONS.find((s) => s.id === value);
-  const filtered = useMemo(() => filterStations(query), [query]);
+  const selected = stations.find((s) => s.usaf === value);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q
+      ? stations.filter((s) => `${s.name} ${s.state}`.toLowerCase().includes(q))
+      : stations;
+  }, [query, stations]);
 
+  // Featured "Data center markets" group is pinned at the top (no query only).
   const grouped = useMemo(() => {
-    const map = new Map<string, Station[]>();
-    const sorted = query
-      ? filtered
-      : [...filtered].sort((a, b) => {
-          if (a.dcMarket && !b.dcMarket) return -1;
-          if (!a.dcMarket && b.dcMarket) return 1;
-          return a.state.localeCompare(b.state) || a.name.localeCompare(b.name);
-        });
+    const map = new Map<string, TmyStation[]>();
+    if (!query) {
+      const featured = filtered.filter((s) => s.dcMarket);
+      if (featured.length) map.set("Data center markets", featured);
+    }
+    const rest = query ? filtered : filtered.filter((s) => !s.dcMarket);
+    const sorted = [...rest].sort(
+      (a, b) => a.state.localeCompare(b.state) || a.name.localeCompare(b.name),
+    );
     for (const s of sorted) {
-      const key = s.state;
+      const key = query ? "Results" : s.state;
       const list = map.get(key) ?? [];
       list.push(s);
       map.set(key, list);
@@ -178,7 +190,7 @@ function LocationSelect({
       >
         {!open && selected ? (
           <span className="text-sm">
-            {selected.name}, {selected.stateCode}
+            {selected.name}, {selected.state}
             {selected.dcMarket && (
               <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary/60 bg-primary/5 px-1.5 py-0.5 rounded">
                 DC Market
@@ -218,17 +230,17 @@ function LocationSelect({
                 </div>
                 {stations.map((s) => (
                   <button
-                    key={s.id}
+                    key={s.usaf}
                     className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between ${
-                      s.id === value ? "bg-accent/50 font-medium" : ""
+                      s.usaf === value ? "bg-accent/50 font-medium" : ""
                     }`}
                     onClick={() => {
-                      onChange(s.id);
+                      onChange(s.usaf);
                       setQuery("");
                       setOpen(false);
                     }}
                   >
-                    <span>{s.name}</span>
+                    <span>{s.name}, {s.state}</span>
                     {s.dcMarket && (
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/50">
                         DC Market
@@ -578,34 +590,47 @@ function BenchmarkComparison({ annualPUE }: { annualPUE: number }) {
 
 export default function PueCalculatorPage() {
   const [inputs, setInputs] = useState<PUEInputs>(DEFAULT_INPUTS);
+  const [stations, setStations] = useState<TmyStation[]>([]);
   const [weather, setWeather] = useState<MonthlyWeather | null>(null);
+  const [hourly, setHourly] = useState<HourlyWeather | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"chart" | "table" | "power" | "benchmark">("chart");
+  const [activeTab, setActiveTab] = useState<
+    "chart" | "table" | "psychro" | "power" | "liquid" | "benchmark"
+  >("chart");
   const [tempUnit, setTempUnit] = useState<TempUnit>("F");
 
-  const station = STATIONS.find((s) => s.id === inputs.stationId);
+  const station = stations.find((s) => s.usaf === inputs.stationId);
   const hasLiquid = inputs.liquidCoolingPct > 0;
 
-  const fetchWeather = useCallback(async (s: Station) => {
+  // Load the TMY3 station index once; default to a featured DC market (Ashburn).
+  useEffect(() => {
+    fetchStationIndex()
+      .then((list) => {
+        setStations(list);
+        setInputs((prev) => {
+          if (list.some((s) => s.usaf === prev.stationId)) return prev;
+          const def =
+            list.find((s) => s.dcMarket && /dulles/i.test(s.name)) ??
+            list.find((s) => s.dcMarket) ??
+            list[0];
+          return def ? { ...prev, stationId: def.usaf } : prev;
+        });
+      })
+      .catch(() => setError("Couldn't load the station list."));
+  }, []);
+
+  const fetchWeather = useCallback(async (s: TmyStation) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/weather?lat=${s.lat}&lon=${s.lon}`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      setWeather({
-        T2M: data.T2M,
-        T2MWET: data.T2MWET,
-        T2MDEW: data.T2MDEW,
-        RH2M: data.RH2M,
-      });
+      const { monthly, hourly: hrly } = await fetchStationWeather(s);
+      setWeather(monthly);
+      setHourly(hrly);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch weather data");
       setWeather(null);
+      setHourly(null);
     } finally {
       setLoading(false);
     }
@@ -688,18 +713,19 @@ export default function PueCalculatorPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Location</CardTitle>
               <CardDescription>
-                Weather data sourced from NASA POWER (MERRA-2 20-year climatology)
+                TMY3 typical-year hourly weather (8,760 h) — {stations.length || "…"} US stations
               </CardDescription>
             </CardHeader>
             <CardContent>
               <LocationSelect
                 value={inputs.stationId}
                 onChange={(id) => update("stationId", id)}
+                stations={stations}
               />
               {station && (
                 <p className="mt-2 text-xs text-muted-foreground font-mono">
                   {station.lat.toFixed(2)}&deg;N, {Math.abs(station.lon).toFixed(2)}&deg;
-                  {station.lon < 0 ? "W" : "E"}
+                  {station.lon < 0 ? "W" : "E"} · {station.elevationM} m · USAF {station.usaf}
                 </p>
               )}
             </CardContent>
@@ -1007,7 +1033,9 @@ export default function PueCalculatorPage() {
                   [
                     { key: "chart", label: "Monthly PUE" },
                     { key: "table", label: "Weather Data" },
+                    { key: "psychro", label: "Psychrometric" },
                     { key: "power", label: "Power Breakdown" },
+                    { key: "liquid", label: "Liquid Cooling" },
                     { key: "benchmark", label: "Benchmarks" },
                   ] as const
                 ).map((tab) => (
@@ -1035,8 +1063,14 @@ export default function PueCalculatorPage() {
                       hasLiquid={hasLiquid}
                     />
                   )}
+                  {activeTab === "psychro" && (
+                    <PsychrometricChart hourly={hourly} unit={tempUnit} />
+                  )}
                   {activeTab === "power" && (
                     <PowerBreakdown result={result} hasLiquid={hasLiquid} />
+                  )}
+                  {activeTab === "liquid" && (
+                    <LiquidCoolingTab hourly={hourly} unit={tempUnit} />
                   )}
                   {activeTab === "benchmark" && (
                     <BenchmarkComparison annualPUE={result.annualPUE} />
@@ -1045,9 +1079,9 @@ export default function PueCalculatorPage() {
               </Card>
 
               <p className="text-[11px] text-muted-foreground/60 text-center">
-                Weather data: NASA POWER MERRA-2 20-year climatology (2001-2020).
-                Station locations reference DOE TMY3 weather data sites.
-                PUE estimates are for planning purposes only.
+                Weather: TMY3 typical-year hourly data (8,760 h) via EPW; monthly values
+                derived from the hourly series. ASHRAE 2017 psychrometrics. PUE estimates are
+                for planning purposes only.
               </p>
 
               {/* Engagement CTA */}
@@ -1055,7 +1089,7 @@ export default function PueCalculatorPage() {
                 <CardContent className="py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
                     <p className="font-semibold mb-1">
-                      Need a defensible, PE-stamped assessment of these numbers?
+                      Need a expert, PE-stamped assessment of these numbers?
                     </p>
                     <p className="text-sm text-muted-foreground">
                       I provide independent PUE, efficiency, and life-cycle analysis as a

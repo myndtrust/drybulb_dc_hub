@@ -160,3 +160,31 @@ export interface AnnualPUEResult {
   /** Annual average water flow rate (L/min) */
   waterFlowLPM: number;
 }
+
+// ── Hourly weather (TMY3, 8,760 values) ──
+
+/** 8,760 parallel hourly arrays. Units: dry-bulb °C, RH %, pressure mbar. */
+export interface HourlyWeather {
+  tdb: number[];
+  rh: number[];
+  p: number[];
+}
+
+/** Station index entry for the location picker (no weather payload). */
+export interface TmyStation {
+  usaf: string;
+  name: string;
+  state: string;
+  lat: number;
+  lon: number;
+  elevationM: number;
+  /** Featured data-center market (pinned in the picker). */
+  dcMarket?: boolean;
+}
+
+/** A full per-station weather file: index metadata + monthly + hourly. */
+export interface StationWeather extends TmyStation {
+  source: string; // e.g. "TMY3 (EPW)"
+  monthly: MonthlyWeather;
+  hourly: HourlyWeather;
+}
