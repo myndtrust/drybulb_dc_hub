@@ -5,7 +5,7 @@ const navLinks = [
   { href: "/writing", label: "Blog" },
   { href: "/tools", label: "Tools" },
   { href: "/jobs", label: "Jobs" },
-  { href: "/consulting", label: "Consulting" },
+  { href: "/consulting", label: "Advisory Services " },
   { href: "/about", label: "About" },
 ];
 
