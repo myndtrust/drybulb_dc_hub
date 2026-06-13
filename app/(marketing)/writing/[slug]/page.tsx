@@ -7,6 +7,7 @@ import { constructMetadata } from "@/lib/metadata";
 import { MdxContent } from "@/components/shared/mdx-content";
 import { JsonLd } from "@/components/shared/json-ld";
 import { siteConfig } from "@/lib/metadata";
+import { ORG_ID } from "@/lib/structured-data";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -22,10 +23,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const article = articles.find((a) => a.slug === slug);
   if (!article) return {};
+  const author = authors.find((a) => a.slug === article.author);
   return constructMetadata({
     title: article.title,
     description: article.description,
     canonicalPath: article.url,
+    image: article.ogImage,
+    type: "article",
+    publishedTime: article.publishedAt,
+    modifiedTime: article.updatedAt ?? article.publishedAt,
+    authors: author ? [author.name] : undefined,
+    tags: article.tags,
   });
 }
 
@@ -47,16 +55,13 @@ export default async function ArticlePage({ params }: Props) {
       ? {
           author: {
             "@type": "Person",
+            "@id": `${siteConfig.url}/authors/${author.slug}#person`,
             name: author.name,
             url: `${siteConfig.url}/authors/${author.slug}`,
           },
         }
       : {}),
-    publisher: {
-      "@type": "Organization",
-      name: "Drybulb",
-      url: siteConfig.url,
-    },
+    publisher: { "@id": ORG_ID },
     mainEntityOfPage: {
       "@type": "WebPage",
       "@id": `${siteConfig.url}${article.url}`,

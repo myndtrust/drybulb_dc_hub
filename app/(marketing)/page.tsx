@@ -3,9 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { constructMetadata } from "@/lib/metadata";
-import { JsonLd } from "@/components/shared/json-ld";
 import { articles } from "@/.velite";
-import { siteConfig } from "@/lib/metadata";
 
 export const metadata: Metadata = constructMetadata({
   title: "Drybulb — AI Factory Engineering, by the Engineers Who Build Them",
@@ -13,20 +11,6 @@ export const metadata: Metadata = constructMetadata({
     "Deep technical writing on AI factory design, data center power systems, liquid cooling, and high-density infrastructure — plus practical tools for the engineers who build them.",
   canonicalPath: "/",
 });
-
-const siteJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: "Drybulb",
-  url: siteConfig.url,
-  description:
-    "A resource hub covering AI factory engineering — power, cooling, networking, reliability, and sustainability — for owners, investors, and engineering teams.",
-  publisher: {
-    "@type": "Organization",
-    name: "Drybulb",
-    url: siteConfig.url,
-  },
-};
 
 export default function HomePage() {
   const published = articles
@@ -41,8 +25,6 @@ export default function HomePage() {
 
   return (
     <>
-      <JsonLd data={siteJsonLd} />
-
       {/* Hero */}
       <section className="container mx-auto max-w-5xl px-4 py-24 md:py-32">
         <div className="max-w-3xl">

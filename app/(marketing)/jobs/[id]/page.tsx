@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { constructMetadata } from "@/lib/metadata";
-import { getJob, getJobs, type JobCategory } from "@/lib/jobs";
+import { constructMetadata, siteConfig } from "@/lib/metadata";
+import { getJob, getJobs, type Job, type JobCategory } from "@/lib/jobs";
 import { jobSlug } from "@/lib/job-slug";
+import { JsonLd } from "@/components/shared/json-ld";
 
 // ISR: regenerate detail pages at most every 5 minutes alongside the feed.
 export const revalidate = 300;
@@ -53,6 +54,41 @@ const PROSE = cn(
   "[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:italic",
 );
 
+// JobPosting structured data (Google for Jobs + AI ingestion). These are
+// third-party aggregated listings, represented honestly with a link to the
+// original ATS posting. Location is best-effort from the raw location string.
+function jobPostingLd(job: Job, id: string): Record<string, unknown> {
+  const loc = job.raw_location?.trim();
+  const remote = loc ? /remote|anywhere|distributed/i.test(loc) : false;
+  const location = remote
+    ? {
+        jobLocationType: "TELECOMMUTE",
+        applicantLocationRequirements: { "@type": "Country", name: "United States" },
+      }
+    : {
+        jobLocation: {
+          "@type": "Place",
+          address: {
+            "@type": "PostalAddress",
+            ...(loc ? { addressLocality: loc } : {}),
+            addressCountry: "US",
+          },
+        },
+      };
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: job.description_html || job.description_snippet || `${job.title} at ${job.company}.`,
+    datePosted: job.scraped_at,
+    hiringOrganization: { "@type": "Organization", name: job.company },
+    directApply: false,
+    url: `${siteConfig.url}/jobs/${id}`,
+    ...location,
+  };
+}
+
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const job = await getJob(id);
@@ -68,6 +104,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-16">
+      <JsonLd data={jobPostingLd(job, id)} />
       <Link
         href="/jobs"
         className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"

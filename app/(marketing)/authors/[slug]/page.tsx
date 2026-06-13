@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { authors, articles } from "@/.velite";
 import { constructMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/shared/json-ld";
+import { personSchema } from "@/lib/structured-data";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -38,6 +40,7 @@ export default async function AuthorPage({ params }: Props) {
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-16">
+      <JsonLd data={personSchema(author)} />
       {/* Author header */}
       <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-6">
         Contributor
