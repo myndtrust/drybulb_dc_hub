@@ -12,6 +12,62 @@ export const metadata: Metadata = constructMetadata({
   canonicalPath: "/",
 });
 
+// Engineer-drawn diagrams from the articles, surfaced on the landing page as a
+// proof-of-rigor showcase. Each links to its source article.
+type Figure = {
+  src: string;
+  alt: string;
+  caption: string;
+  href: string;
+  articleTitle: string;
+};
+
+const flagshipFigure: Figure = {
+  src: "/images/800vdc/fig-1-conversion-stages.svg",
+  alt: "Legacy AC versus 800VDC data center power chains from grid to GPU, comparing the number of conversion stages.",
+  caption: "Legacy AC vs. 800VDC power chains — grid to GPU",
+  href: "/writing/800vdc-power-architecture",
+  articleTitle: "The 800VDC Rollout",
+};
+
+const selectedFigures: Figure[] = [
+  {
+    src: "/images/800vdc/fig-2-rack-topologies.svg",
+    alt: "Three data center rack power topologies compared — legacy 54V, OCP bipolar ±400V, and NVIDIA monopolar 800V.",
+    caption: "Three rack power topologies, one voltage class",
+    href: "/writing/800vdc-power-architecture",
+    articleTitle: "The 800VDC Rollout",
+  },
+  {
+    src: "/images/bess-project-specific-testing/fig-1-assurance-layers.svg",
+    alt: "Three layers of BESS assurance — product certification, vendor self-qualification, and project-specific testing — and the integration gap.",
+    caption: "Three layers of BESS assurance — and the gap",
+    href: "/writing/bess-project-specific-testing",
+    articleTitle: "Project-Specific BESS Testing",
+  },
+];
+
+function FigureCard({ figure }: { figure: Figure }) {
+  return (
+    <Link
+      href={figure.href}
+      className="group block overflow-hidden rounded-lg border border-border/60 hover:border-border transition-colors"
+    >
+      {/* Fixed light surface so the cream/ink diagrams stay crisp in any theme */}
+      <div className="bg-[#fbf8f0] p-4 sm:p-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={figure.src} alt={figure.alt} loading="lazy" className="block h-auto w-full" />
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-3">
+        <p className="text-sm text-muted-foreground">{figure.caption}</p>
+        <span className="shrink-0 font-mono text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+          {figure.articleTitle} &rarr;
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 export default function HomePage() {
   const published = articles
     .filter((a) => !a.draft)
@@ -59,6 +115,36 @@ export default function HomePage() {
             <Button asChild variant="outline" size="lg">
               <Link href="/tools">Explore tools</Link>
             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Selected figures — engineer-drawn diagrams from the writing */}
+      <section className="border-t border-border/60 py-16">
+        <div className="container mx-auto max-w-5xl px-4">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+            <div>
+              <h2 className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-2">
+                From the writing
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl">
+                Every article is built on first-principles diagrams — drawn, not stock.
+              </p>
+            </div>
+            <Link
+              href="/writing"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              Read the articles &rarr;
+            </Link>
+          </div>
+
+          <FigureCard figure={flagshipFigure} />
+
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {selectedFigures.map((figure) => (
+              <FigureCard key={figure.src} figure={figure} />
+            ))}
           </div>
         </div>
       </section>
