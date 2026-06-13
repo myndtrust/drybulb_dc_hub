@@ -1,0 +1,102 @@
+---
+title: "The AI Factory's Nervous System: The Case for Converging IT and OT"
+description: "The power and cooling are being reinvented for the AI factory; the data layer that ties them together is still treated as an afterthought. The case for converging IT and operational technology onto one open, real-time, event-driven telemetry-and-control fabric — grid to GPU."
+publishedAt: "2026-06-13"
+slug: "ai-factory-telemetry"
+tags: ["AI infrastructure", "data center operations", "telemetry", "OT/IT convergence", "digital twin", "controls"]
+draft: false
+readingTime: 10
+author: "founder"
+---
+
+<Callout variant="finding" title="Key takeaways">
+
+- **The AI factory's defining behaviors are cross-domain and fast** — a GPU power transient is simultaneously an IT, electrical, and thermal event. They can't be run by two teams watching two dashboards that reconcile next quarter.
+- **The fix is a converged IT/OT telemetry-and-control fabric** — one real-time, event-driven backbone spanning the grid connection to the silicon, not a dashboard bolted onto the old silos.
+- **The building blocks are open and already maturing** — MQTT + Sparkplug B on the OT side, DMTF Redfish telemetry and OpenTelemetry on the IT side, OpenADR for grid signals — organized as a Unified Namespace with versioned (AsyncAPI / CloudEvents) contracts.
+- **The hard parts are real engineering** — OT/IT security (IEC 62443), latency/QoS tiers, time synchronization (PTP), semantic normalization, and keeping hard real-time safety loops *local and hardwired* while the supervisory fabric stays highly available.
+- **Build it on purpose, on open standards.** It's the substrate for live digital twins, closed-loop control, grid-interactive operation, and autonomous ops — specify it early, and refuse vendor lock-in.
+
+</Callout>
+
+A traditional data center could get away with watching its building and its IT as two different worlds. Facilities ran the power and cooling on one set of systems — building management, electrical metering, SCADA — polled on the order of seconds to minutes and owned by the plant engineers. IT ran the servers on another — element managers, monitoring agents, ticketing — owned by a different team, often in a different building. The two met, if at all, in a quarterly capacity meeting. For a hall of steady 5–10 kW racks, that was fine. The AI factory breaks it.
+
+The reason is that an AI factory's defining behaviors are *cross-domain and fast*. A GPU cluster slamming from idle to full power in milliseconds is simultaneously an IT event (a scheduler dispatched a job), an electrical event (a multi-megawatt transient hitting the power chain), and a thermal event (a step change the cooling loop must answer). Battery storage [riding through a grid sag](/writing/bess-project-specific-testing) while compute keeps running is a power-systems decision made on IT-relevant timescales. Selling load flexibility back to the utility is a grid negotiation driven by the workload schedule. None of these can be managed by two teams looking at two dashboards that reconcile next quarter. They require one nervous system: a unified, real-time stream of telemetry — and control — that spans the grid connection to the silicon.
+
+This article makes a direct argument: that nervous system is **load-bearing infrastructure**, and the right way to build it is to **converge information technology (IT) and operational technology (OT) onto a single, open, event-driven fabric**. It is not a prettier dashboard bolted onto the old silos — it is an integration layer, and it should be engineered with the same deliberation an owner brings to the electrical busway or the chilled-water plant.
+
+## The divide: why IT and OT never talked
+
+The split is historical and cultural, not accidental. **Operational technology** — the power and plant systems — grew up on industrial protocols (BACnet, Modbus) and SCADA, organized by the *Purdue model* of layered, air-gapped control networks codified in ISA-95 and protected under [IEC 62443](https://www.isa.org/standards-and-publications/isa-standards/isa-iec-62443-series-of-standards)<sup>10</sup>. Its instinct is determinism, safety, and isolation; change is slow and suspicious by design. **Information technology** grew up on Ethernet, REST, and now cloud-native observability — fast-moving, software-defined, comfortable with churn. The server's own management plane standardized on DMTF's [Redfish](https://www.dmtf.org/standards/redfish)<sup>1</sup>, a vendor-agnostic RESTful API that replaced the old IPMI world.
+
+Both halves got better in isolation — and that is exactly the problem. The facility knows its kW and its supply-water temperature; it has no idea which training run caused the spike. The cluster knows its GPU utilization and inlet temperature; it has no idea the chiller plant is about to trip a stage. The data exists. It is simply trapped in separate systems, on separate timescales, owned by separate teams. For the AI factory, that fragmentation is no longer a nuisance — it is a hard ceiling on how the facility can be operated.
+
+## The shape of the fix: an event-driven telemetry fabric
+
+The architecture the industry is converging on is not a bigger database polled more often. It is an **event-driven fabric**: a publish/subscribe backbone where every system — a meter, a CDU, a BMC, a scheduler — *publishes what it knows when it changes*, and anything that needs that information subscribes to it. The lingua franca on the OT side is **MQTT**, a lightweight pub/sub protocol, increasingly carrying [Sparkplug B](https://www.emqx.com/en/blog/a-comparison-of-iiot-protocols-mqtt-sparkplug-vs-opc-ua) payloads<sup>3</sup> — a specification that adds the one thing raw MQTT lacks: *structured, self-describing, semantically typed* messages with report-by-exception, so a consumer can understand a metric without a tribal-knowledge decoder ring. Where machine-to-machine industrial semantics are needed, [OPC-UA](https://flowfuse.com/blog/2026/01/opcua-vs-mqtt/) plays the modeling role<sup>4</sup>; the two increasingly coexist rather than compete.
+
+Around that backbone sit three things that turn a message broker into an engineering system: **versioned, machine-readable contracts** — message and topic definitions in formats like [AsyncAPI](https://www.asyncapi.com/)<sup>11</sup> and JSON Schema, carried in a standard [CloudEvents](https://cloudevents.io/)<sup>12</sup> envelope, so a producer can evolve a payload without silently breaking every consumer — a **schema-agnostic broker** that handles routing, federation across sites, and quality-of-service without caring what's inside the messages, and an **authorization layer** that decides who may publish and subscribe to what. This is precisely the shape of the **open, MQTT-based AI-factory event-bus blueprints now emerging from the accelerator-platform vendors**<sup>7</sup> — reference designs that publish their topic and message *contracts* openly and lean on mature open-source messaging rather than a proprietary historian<sup>8</sup>. The detail worth internalizing is the philosophy: *standardize the contracts and the security, stay agnostic about the payloads.*
+
+Two more details earn an engineer's trust. Delivery is **at-least-once with idempotent consumers** — you design for duplicate and out-of-order messages rather than pretending exactly-once exists — with explicit backpressure so the analytics firehose can't stall the control path. And the topic tree is organized as a **Unified Namespace**: one semantically structured address space (site → hall → row → asset → metric) that becomes the single place any service looks for the current state of anything. Greenfield equipment publishes into it natively; brownfield **BACnet, Modbus, and SNMP** devices are bridged on through **edge protocol gateways** — so convergence is an integration effort, not a rip-and-replace.
+
+![The AI-factory telemetry fabric — OT and IT sources publish to a shared event bus consumed by digital twin, control, analytics, and agents.](/images/ai-factory-telemetry/fig-1-telemetry-fabric.svg)
+
+*<small>**Fig. 1 — The AI-factory telemetry fabric.** Plant (OT) and compute (IT) sources publish to a shared, schema-agnostic event bus with versioned contracts and an authorization layer; digital twins, supervisory control, analytics, and autonomous agents subscribe — and write supervisory setpoints back, while hard real-time safety loops stay local. One nervous system, grid to GPU.</small>*
+
+## Bringing IT to the table: Redfish, OpenTelemetry, and the grid
+
+Convergence is not only an OT modernization story; the IT side has to meet it. The encouraging news is that the IT half already speaks a standard built for streaming. Redfish added [telemetry streaming and eventing](https://www.dmtf.org/content/new-redfish-release-adds-openapi-30-support-telemetry) years ago<sup>2</sup>, and the data-center community has been steadily extending it from the server to the rack and the facility<sup>6</sup>. In parallel, the cloud-native observability world is reaching the other way: there is active work to pull [Redfish metrics into OpenTelemetry](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/33724)<sup>5</sup>, so server and GPU health land in the same observability plane as everything else. And at the far edge, grid-interactivity needs its own signal: standards like [OpenADR](https://www.openadr.org/)<sup>9</sup> carry demand-response events from the utility into the same fabric, so the schedule can answer a price or a curtailment signal in real time.
+
+The point of naming these is not to crown a winner. It is that the building blocks for an open, converged fabric *already exist and are maturing* — on both sides of the historical divide. Choosing them over a closed, single-vendor telemetry product is the decision that keeps an owner from being locked into one operations stack for the twenty-year life of a building.
+
+## The hard parts: what makes this real engineering
+
+Advocating convergence is not the same as pretending it is easy. Four problems separate a working fabric from a science project:
+
+**Security across the boundary.** Bridging OT and IT deletes the air gap that protected plant systems for decades. The fabric must reintroduce that protection in software — mutual TLS, per-publisher authorization, signed contracts — without recreating a silo. IEC 62443's zone-and-conduit thinking<sup>10</sup> belongs in the design from hour one, not after the first audit.
+
+**Latency and quality-of-service tiers.** A closed-loop control message that helps trim a power transient lives on a millisecond budget; a trend feeding a monthly efficiency report does not. One fabric must carry both without the analytics firehose starving the control path — which means explicit QoS tiers, and an honest decision about which loops are fast enough to close on the bus at all versus locally.
+
+**Semantic normalization.** A "temperature" from a CRAH, a cold plate, and a GPU die are three different things. Without a shared namespace and unit model — the gap Sparkplug B and OPC-UA information models exist to close — convergence produces a faster swamp, not insight.
+
+**Time, synchronized.** Correlating a power transient, a fan-speed change, and a scheduler event at millisecond resolution only works if every source agrees on the clock. That takes disciplined **time synchronization — PTP (IEEE 1588)**<sup>13</sup> across the fabric, not best-effort NTP — so events can be ordered and causally analyzed rather than merely collected.
+
+**Keep safety local — and the bus highly available.** Hard real-time control and safety interlocks do *not* belong on a best-effort pub/sub fabric; they stay **local, deterministic, and hardwired** in SIL-rated PLCs and DCS, exactly where they are today. The fabric's job is **supervisory** — coordination, cross-domain telemetry, and non-safety setpoints. That still makes it operationally critical: once supervisory coordination is driving cooling and power decisions, the fabric needs the redundancy, failure-mode analysis, and graceful degradation of any system that can take the plant down — and a defined safe state for when it is unavailable. What it must never become is the thing standing between a fault and a trip.
+
+> The data exists. It is simply trapped in separate systems, on separate timescales, owned by separate teams.
+>
+> — The core problem convergence solves
+
+## What convergence unlocks: from dashboards to autonomy
+
+The payoff is the reason to do the hard work. A converged fabric is the live feed a **physics-based digital twin** needs to stop being a pretty render and start being an operational model — calibrated continuously against the real building. It is the substrate for **supervisory closed-loop control**: cooling optimization that follows the actual heat, power-capping coordinated with the schedule, and the sequencing and situational awareness behind the millisecond hand-offs that [800VDC power chains](/writing/800vdc-power-architecture) and battery ride-through depend on — those fast loops executed locally, but orchestrated and supervised across the whole plant. It is what makes **grid-interactive operation** — selling flexibility, surviving curtailment — a controllable behavior rather than a hope. And it is the precondition for **autonomous, agentic operations**: an agent cannot safely run a facility it can only see through a quarterly report. Every one of these capabilities is downstream of the same thing — a single, trustworthy, real-time view of the whole plant.
+
+## The case, made: converge IT and OT, on open standards
+
+So the recommendation is direct. AI-factory owners and operators should treat the telemetry-and-control fabric as **first-class infrastructure** — designed and specified alongside the power and cooling, not procured as an afterthought once the building is full. They should **integrate IT and operational/plant technology onto one converged, event-driven fabric** rather than maintaining the historical silos with a dashboard stretched across them. And they should insist that fabric be built on **open contracts and vendor-neutral semantics**, with security and quality-of-service designed in — because the alternative is locking a twenty-year asset to one vendor's operations stack, and discovering the limits of that bargain exactly when the facility needs to do something new.
+
+The power architecture of the AI factory is being rebuilt in public. The storage layer is being qualified. The data layer that lets them act as one machine deserves the same engineering seriousness — and the same insistence on independence. For the controls, network, and platform engineers who will actually build it, that is the opening: not another siloed historian, but the integration layer the whole facility runs on. Build the nervous system on purpose.
+
+---
+
+## References & fact-check
+
+1. DMTF, "Redfish" standard overview — vendor-agnostic RESTful management API for servers, storage, networking, and converged infrastructure (successor to IPMI/SMASH/DASH). [dmtf.org](https://www.dmtf.org/standards/redfish)
+2. DMTF, "New Redfish Release Adds OpenAPI 3.0 Support, Telemetry" — Redfish adds telemetry streaming, eventing, and improved subscriptions for real-time monitoring. [dmtf.org](https://www.dmtf.org/content/new-redfish-release-adds-openapi-30-support-telemetry)
+3. EMQ, "A Comparison of IIoT Protocols: MQTT Sparkplug vs OPC-UA" — Sparkplug B adds structured, semantically typed payloads and report-by-exception over MQTT to bridge the OT/IT gap. [emqx.com](https://www.emqx.com/en/blog/a-comparison-of-iiot-protocols-mqtt-sparkplug-vs-opc-ua)
+4. FlowFuse, "MQTT vs OPC UA" — OPC-UA's information-modeling role for machine-to-machine semantics and its coexistence with MQTT in modern OT architectures. [flowfuse.com](https://flowfuse.com/blog/2026/01/opcua-vs-mqtt/)
+5. OpenTelemetry Collector Contrib, "New component: Redfish receiver proposal" (Issue #33724) — work to ingest Redfish hardware telemetry into the OpenTelemetry pipeline. [github.com](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/33724)
+6. DMTF, "Data Center Enablement with Redfish," OCP Global Summit 2025 — extending Redfish-based management from server to rack and facility. [dmtf.org (PDF)](https://www.dmtf.org/sites/default/files/OCP_Summit_2025-Data_Center_Enablement_with_Redfish.pdf)
+7. Data Center Frontier, "NVIDIA and Partners Define a Repeatable Blueprint for AI Factory Data Centers," 2026 — industry reporting on open, reference AI-factory designs including an operational event-bus / digital-twin layer. [datacenterfrontier.com](https://www.datacenterfrontier.com/design/article/55338673/nvidia-and-partners-define-a-repeatable-blueprint-for-ai-factory-data-centers)
+8. Synadia, "How an AI Factory Event Bus Is Built on NATS," 2026 — engineering account of an open MQTT/NATS event-bus reference implementation for facility/IT telemetry and control. [synadia.com](https://www.synadia.com/blog/nvidia-built-its-ai-factory-event-bus-on-nats)
+9. OpenADR Alliance — open standard for automated demand-response signaling between utilities/grid operators and facilities. [openadr.org](https://www.openadr.org/)
+10. ISA/IEC 62443 series — cybersecurity for industrial automation and control systems (zones and conduits; the Purdue/ISA-95 reference model). [isa.org](https://www.isa.org/standards-and-publications/isa-standards/isa-iec-62443-series-of-standards)
+11. AsyncAPI — open specification for defining event-driven / message-based API contracts (channels, messages, and payload schemas). [asyncapi.com](https://www.asyncapi.com/)
+12. CloudEvents (CNCF) — vendor-neutral specification for describing event data in a common envelope across systems and transports. [cloudevents.io](https://cloudevents.io/)
+13. IEEE 1588 — Precision Time Protocol (PTP) for sub-microsecond clock synchronization of networked devices. [standards.ieee.org](https://standards.ieee.org/ieee/1588/4355/)
+
+---
+
+*Methodology & caveats — This note synthesizes public technical standards (DMTF Redfish and its telemetry model; MQTT Sparkplug B; OPC-UA; OpenTelemetry; OpenADR; ISA/IEC 62443) and industry reporting on emerging AI-factory reference architectures, through June 2026. It describes the converging direction of those efforts at an architectural level; it is not an endorsement of, and does not reproduce the internals of, any specific vendor product or repository. Independent commentary for planning purposes — not a substitute for a project-specific controls, networking, or OT-security design, nor for the governing editions of the standards referenced as adopted on your project.*
+
+*Drybulb publishes deep technical writing on AI factory and data center engineering. Questions or topics you'd like to see covered? [Get in touch](/contact).*
