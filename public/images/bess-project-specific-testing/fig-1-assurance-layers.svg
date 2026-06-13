@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 300" role="img" aria-label="Three layers of BESS assurance and the integration gap">
+  <style>
+    .t{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:#16130d}
+    .hd{font-family:Georgia,serif;font-weight:600}
+    .sm{font-size:11px;fill:#6e6450}
+  </style>
+  <rect width="860" height="300" fill="#fbf8f0"/>
+  <rect x="40" y="30" width="500" height="50" rx="3" fill="#ebe4d3" stroke="#cfc4ab"/>
+  <text class="t hd" x="56" y="55" font-size="16">Layer 1 — Product certification</text>
+  <text class="t sm" x="56" y="72">UL 9540 / 9540A · NFPA 855 · IEEE 1547 / 2800 — a representative configuration</text>
+
+  <rect x="40" y="100" width="500" height="50" rx="3" fill="#dfeaec" stroke="#9bbcc1"/>
+  <text class="t hd" x="56" y="125" font-size="16" fill="#2b5c66">Layer 2 — Vendor self-qualification</text>
+  <text class="t sm" x="56" y="142">NVIDIA 12-test framework · EMT model at SCR 2.0, X/R 2–10 — at the AC terminals</text>
+
+  <rect x="40" y="170" width="500" height="50" rx="3" fill="#f6dccf" stroke="#d4471d"/>
+  <text class="t hd" x="56" y="195" font-size="16" fill="#d4471d">Layer 3 — Project-specific testing</text>
+  <text class="t sm" x="56" y="212">This battery · this grid (real SCR / impedance) · this load · this layout</text>
+
+  <line x1="560" y1="30" x2="560" y2="220" stroke="#16130d" stroke-dasharray="3 4"/>
+  <text class="t" x="575" y="50" font-size="13" font-weight="600">The integration gap</text>
+  <text class="t sm" x="575" y="70">Certifications &amp; self-</text>
+  <text class="t sm" x="575" y="86">qualification stop at the</text>
+  <text class="t sm" x="575" y="102">AC terminals. The site —</text>
+  <text class="t sm" x="575" y="118">transformers, relays,</text>
+  <text class="t sm" x="575" y="134">generators, controls —</text>
+  <text class="t sm" x="575" y="150">is unqualified until</text>
+  <text class="t sm" x="575" y="166">someone tests it.</text>
+  <text class="t" x="575" y="200" font-size="13" font-weight="600" fill="#d4471d">↓ that someone</text>
+  <text class="t sm" x="575" y="216">is the owner's engineer.</text>
+</svg>
