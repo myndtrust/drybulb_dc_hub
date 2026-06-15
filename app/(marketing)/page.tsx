@@ -237,7 +237,8 @@ export default function HomePage() {
               <h2 className="text-2xl font-bold mb-2">Engineering tools</h2>
               <p className="text-sm text-muted-foreground max-w-xl">
                 Free, open tools for data center and AI infrastructure
-                engineers. Starting with a PUE calculator — more on the way.
+                engineers — a climate-based PUE calculator and a build-cost
+                model, with more on the way.
               </p>
             </div>
             <Link
@@ -247,18 +248,42 @@ export default function HomePage() {
               Browse all tools →
             </Link>
           </div>
-          <div className="rounded-lg border border-border/60 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-base font-semibold">PUE Calculator</h3>
-              <Badge variant="outline" className="text-xs font-mono">
-                Beta
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Estimate Power Usage Effectiveness from IT load, cooling, and
-              overhead inputs. Compare against industry benchmarks for
-              traditional and AI-dense facilities.
-            </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Link
+              href="/dashboard/tools/pue-calculator"
+              className="block rounded-lg border border-border/60 p-6 hover:border-border transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="text-base font-semibold">PUE Calculator</h3>
+                <Badge variant="outline" className="text-xs font-mono">
+                  Beta
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Estimate Power Usage Effectiveness from IT load, cooling, and
+                overhead inputs. Compare against industry benchmarks for
+                traditional and AI-dense facilities.
+              </p>
+            </Link>
+            <Link
+              href="/dashboard/tools/cost-model"
+              className="block rounded-lg border border-border/60 p-6 hover:border-border transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="text-base font-semibold">Data Center Cost Model</h3>
+                <Badge variant="outline" className="text-xs font-mono">
+                  Beta
+                </Badge>
+                <Badge variant="outline" className="text-xs font-mono">
+                  Members
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Model the all-in cost to build and run AI-factory capacity —
+                facility capex by discipline, grid vs. on-site gas, annual opex,
+                and levelized $/MWh.
+              </p>
+            </Link>
           </div>
         </div>
       </section>

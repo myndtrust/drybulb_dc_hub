@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { constructMetadata } from "@/lib/metadata";
 import { tools } from "@/.velite";
+import { isPremium } from "@/lib/entitlements";
 
 export const metadata: Metadata = constructMetadata({
   title: "Tools",
@@ -15,6 +16,13 @@ const statusLabels: Record<string, { label: string; variant: "outline" | "defaul
   live: { label: "Live", variant: "default" },
   beta: { label: "Beta", variant: "outline" },
   "coming-soon": { label: "Coming soon", variant: "outline" },
+};
+
+// Explicit display order for the gallery; anything unlisted falls to the end.
+const TOOL_ORDER = ["pue-calculator", "cost-model"];
+const orderRank = (slug: string) => {
+  const i = TOOL_ORDER.indexOf(slug);
+  return i === -1 ? Number.MAX_SAFE_INTEGER : i;
 };
 
 export default function ToolsIndexPage() {
@@ -33,7 +41,9 @@ export default function ToolsIndexPage() {
       </p>
 
       <div className="space-y-4">
-        {tools.map((tool) => {
+        {[...tools]
+          .sort((a, b) => orderRank(a.slug) - orderRank(b.slug))
+          .map((tool) => {
           const status = statusLabels[tool.status] ?? statusLabels["coming-soon"];
           const isClickable = !!tool.appPath;
 
@@ -44,6 +54,11 @@ export default function ToolsIndexPage() {
                 <Badge variant={status.variant} className="text-xs font-mono">
                   {status.label}
                 </Badge>
+                {isPremium(tool.slug) && (
+                  <Badge variant="outline" className="text-xs font-mono">
+                    Members
+                  </Badge>
+                )}
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {tool.summary}

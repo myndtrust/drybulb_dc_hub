@@ -1,6 +1,5 @@
 import type {
   AnnualPUEResult,
-  CoolingSystem,
   MonthKey,
   MonthlyPUEResult,
   MonthlyWeather,
@@ -8,128 +7,17 @@ import type {
 } from "./types";
 import { MONTH_KEYS as MONTHS } from "./types";
 import { COOLING_SYSTEMS, UPS_CONFIGS } from "./equipment-defaults";
+import {
+  airAuxiliaryFraction,
+  airEffectiveCOP,
+  isAirEconomizing,
+  LIQUID_PUMP_FRACTION,
+  liquidCOP,
+  waterFlowLPM,
+} from "./cooling";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Water properties
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Specific heat of water kJ/(kg·°C) */
-const CP_WATER = 4.186;
-
-/**
- * Calculate coolant flow rate in L/min.
- *   Q (kW) = ṁ (kg/s) × Cp × ΔT
- *   ṁ (kg/s) = Q / (Cp × ΔT)
- *   L/min   = ṁ × 60  (density ≈ 1 kg/L for water)
- */
-function waterFlowLPM(heatKW: number, deltaTc: number): number {
-  if (deltaTc <= 0) return 0;
-  return (heatKW / (CP_WATER * deltaTc)) * 60;
-}
-
-/** L/min → US gal/min */
-export const lpmToGPM = (lpm: number) => lpm / 3.785;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Air-side COP model
-// ─────────────────────────────────────────────────────────────────────────────
-
-function supplyAirCOPFactor(
-  supplyAirTemp: number,
-  refSupplyAirTemp: number
-): number {
-  const delta = supplyAirTemp - refSupplyAirTemp;
-  if (delta >= 0) return 1 + 0.015 * delta;
-  return 1 + 0.025 * delta;
-}
-
-function airEffectiveCOP(
-  system: CoolingSystem,
-  outdoorTemp: number,
-  supplyAirTemp: number,
-  economizing: boolean
-): number {
-  if (economizing) return 20.0;
-
-  const oatDelta = outdoorTemp - system.designOAT;
-  const oatFactor = 1 - system.copDegradationPerC * oatDelta;
-  const satFactor = supplyAirCOPFactor(supplyAirTemp, system.refSupplyAirTemp);
-
-  const cop = system.ratedCOP * oatFactor * satFactor;
-  return Math.max(1.5, Math.min(cop, system.ratedCOP * 1.6));
-}
-
-function isAirEconomizing(
-  system: CoolingSystem,
-  dryBulbC: number,
-  wetBulbC: number,
-  supplyAirTemp: number
-): boolean {
-  const refTemp = system.usesWetBulb ? wetBulbC : dryBulbC;
-  return refTemp <= supplyAirTemp - 2;
-}
-
-function airAuxiliaryFraction(
-  system: CoolingSystem,
-  supplyAirTemp: number,
-  returnAirTemp: number
-): number {
-  const actualDeltaT = Math.max(returnAirTemp - supplyAirTemp, 3);
-  return system.auxiliaryFraction * (system.refDeltaT / actualDeltaT);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Liquid-side COP model
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Dry-cooler approach temperature.  A dry cooler can reject heat when the
- * water outlet temperature exceeds outdoor dry-bulb by at least this margin.
- */
-const DRY_COOLER_APPROACH_C = 5;
-
-/** COP of a dry cooler (fans + pumps only — no compressor). */
-const DRY_COOLER_COP = 20.0;
-
-/** Pump power as fraction of liquid heat load (CDU + piping). */
-const LIQUID_PUMP_FRACTION = 0.02;
-
-/**
- * Calculate liquid-side cooling COP.
- *
- * The water outlet temperature (inlet + rise) determines whether a dry cooler
- * alone can reject the heat, or whether a chiller must trim the loop.
- *
- *  - If T_outlet > OAT + approach → dry cooler only (COP ≈ 20)
- *  - If OAT + approach > T_outlet → chiller-assisted; COP degrades as the
- *    gap grows because the chiller must make up a larger fraction of the
- *    heat rejection.
- */
-function liquidCOP(
-  waterOutletC: number,
-  oatDryBulbC: number
-): { cop: number; freeCooling: boolean } {
-  const dryLimit = oatDryBulbC + DRY_COOLER_APPROACH_C;
-
-  if (waterOutletC >= dryLimit) {
-    // Full free cooling — dry cooler handles all heat
-    return { cop: DRY_COOLER_COP, freeCooling: true };
-  }
-
-  // Chiller-assisted: the fraction of heat the chiller must handle grows
-  // as outdoor temp rises above the free-cooling threshold.
-  // chillerFraction = how much of the gap the chiller must bridge.
-  const gap = dryLimit - waterOutletC; // positive °C the chiller must overcome
-  // Chiller COP for liquid loops is typically 5–8 (water-to-water, small lift)
-  const chillerCOP = Math.max(4.0, 8.0 - 0.3 * gap);
-  // Blend: part of heat goes through dry cooler at high COP, rest through chiller.
-  // As gap grows → more chiller, lower blended COP.
-  const chillerFraction = Math.min(1.0, gap / 15); // fully chiller-dependent at 15 °C gap
-  const blendedCOP =
-    1 / (chillerFraction / chillerCOP + (1 - chillerFraction) / DRY_COOLER_COP);
-
-  return { cop: blendedCOP, freeCooling: false };
-}
+// Re-export so existing importers (`@/lib/pue/calculations`) keep working.
+export { lpmToGPM } from "./cooling";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly PUE
