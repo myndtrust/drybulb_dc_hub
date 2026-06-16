@@ -19,8 +19,18 @@ import type {
   SynthModel,
 } from "@/lib/energy/types";
 import { generateProfile } from "@/lib/energy/profile";
+import { defaultCategoryMode, defaultComponentCosts } from "./catalog";
 
 export type { PowerSource, PriceMode } from "@/lib/energy/types";
+
+// ── Itemized BOM (per-category) ──────────────────────────────────────────────
+/** How a per-component cost is expressed. $/W of IT, $/MW of IT, or absolute $. */
+export type CostUnit = "perW" | "perMW" | "total";
+export type CategoryMode = "lump" | "itemized";
+export interface ComponentCost {
+  value: number;
+  unit: CostUnit;
+}
 
 // ── Facility capex build-up (curated, theme-legible data palette) ────────────
 export interface CapexLineItem {
@@ -84,6 +94,11 @@ export interface LocationConfig {
 
   ai: { gpus: number; otherAI: number };
   gpuRefreshYears: number;
+
+  /** Per-category cost mode: "lump" (the $/W slider) or "itemized" (sum of BOM). */
+  categoryMode: Record<string, CategoryMode>;
+  /** Per-component costs for itemized categories (keyed by catalog component key). */
+  componentCosts: Record<string, ComponentCost>;
 
   powerSource: PowerSource;
   priceMode: PriceMode;
@@ -187,6 +202,8 @@ export function makeLocation(name: string, stationId: string | null = null): Loc
     },
     ai: { gpus: 30, otherAI: 10 },
     gpuRefreshYears: 0,
+    categoryMode: defaultCategoryMode(),
+    componentCosts: defaultComponentCosts(),
     powerSource: "gas",
     priceMode: "flat",
     gridPricePerKWh: 0.07,

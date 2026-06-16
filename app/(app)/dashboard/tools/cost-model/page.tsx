@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  categoryPerW,
   computePortfolio,
   fmtPerMWh,
   fmtPerW,
@@ -28,11 +29,20 @@ import {
   makeLocation,
   powerLineLabel,
   SOURCE_NOTES,
+  type CategoryMode,
+  type ComponentCost,
   type CostInputs,
+  type CostUnit,
   type LocationConfig,
   type PowerSource,
   type PriceMode,
 } from "@/lib/cost/types";
+import {
+  getCategory,
+  getComponent,
+  type CatalogComponent,
+  type CatalogProduct,
+} from "@/lib/cost/catalog";
 import type {
   DemandSource,
   Distribution,
@@ -175,6 +185,234 @@ const FACILITY_HINTS: Record<string, string> = {
   mechanical: "Cooling plant, CDUs, pumps.",
   softCosts: "Design, permitting, fees, financing.",
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Itemized BOM (per-category capex) + products pop-up
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UNIT_OPTS: { value: CostUnit; label: string }[] = [
+  { value: "perW", label: "$/W" },
+  { value: "perMW", label: "$/MW" },
+  { value: "total", label: "$ total" },
+];
+
+function ConfidenceBadge({ confidence }: { confidence?: "sourced" | "estimate" }) {
+  const sourced = confidence === "sourced";
+  return (
+    <span
+      className={`rounded px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
+        sourced
+          ? "border border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300"
+          : "border bg-secondary text-muted-foreground"
+      }`}
+    >
+      {sourced ? "sourced" : "estimate"}
+    </span>
+  );
+}
+
+/** One BOM line: name + value + unit select, then confidence / lead / ref / products. */
+function BomRow({
+  comp, cost, onChange, onProducts,
+}: {
+  comp: CatalogComponent;
+  cost: ComponentCost;
+  onChange: (c: ComponentCost) => void;
+  onProducts: () => void;
+}) {
+  const lead = comp.leadTimeWeeks
+    ? `⏱ ${comp.leadTimeWeeks} wk`
+    : comp.leadTimeMonths
+      ? `⏱ ${comp.leadTimeMonths} mo`
+      : null;
+  return (
+    <div className="space-y-1.5 border-b pb-2 last:border-b-0 last:pb-0">
+      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+        <span className="text-[12.5px] font-medium">{comp.label}</span>
+        <input
+          type="number" value={cost.value} step={0.01} min={0}
+          onChange={(e) => onChange({ ...cost, value: parseFloat(e.target.value) || 0 })}
+          className="w-[72px] rounded-md border border-input bg-background px-2 py-1 text-right font-mono text-xs tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <select
+          value={cost.unit}
+          onChange={(e) => onChange({ ...cost, unit: e.target.value as CostUnit })}
+          className="rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {UNIT_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+        <ConfidenceBadge confidence={comp.confidence} />
+        {lead && <span className="text-orange-700 dark:text-orange-400">{lead}</span>}
+        {comp.priceRef && <span>ref ≈ {comp.priceRef}</span>}
+        {comp.products.length > 0 && (
+          <button
+            onClick={onProducts}
+            className="ml-auto rounded-md border bg-background px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            ⊞ Products ({comp.products.length})
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Compact per-category segmented toggle: Lump sum | Itemized. */
+function ModeSeg({ mode, onChange }: { mode: CategoryMode; onChange: (m: CategoryMode) => void }) {
+  return (
+    <div className="inline-flex rounded-md bg-muted p-0.5 text-[11px]">
+      {([["lump", "Lump sum"], ["itemized", "Itemized"]] as const).map(([k, l]) => (
+        <button
+          key={k}
+          onClick={() => onChange(k)}
+          className={`rounded-[5px] px-2.5 py-1 transition-colors ${
+            mode === k
+              ? "bg-background font-semibold text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A single capex category: lump-sum slider OR itemized BOM, with its own toggle. */
+function CategoryCapex({
+  loc, catKey, label, hint, min, max, step, lumpValue,
+  onLump, onMode, onComponent, onProducts,
+}: {
+  loc: LocationConfig;
+  catKey: string;
+  label: string;
+  hint?: string;
+  min: number; max: number; step: number;
+  lumpValue: number;
+  onLump: (v: number) => void;
+  onMode: (m: CategoryMode) => void;
+  onComponent: (compKey: string, c: ComponentCost) => void;
+  onProducts: (compKey: string) => void;
+}) {
+  const cat = getCategory(catKey);
+  const mode: CategoryMode = loc.categoryMode?.[catKey] ?? "lump";
+  const capacityW = loc.capacityMW * 1e6;
+  const itemized = mode === "itemized" && !!cat;
+  const effective = categoryPerW(loc, catKey, capacityW);
+
+  return (
+    <div className="space-y-2">
+      {itemized ? (
+        <div>
+          <div className="mb-1.5 flex items-baseline justify-between gap-2">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              {label}
+              <span className="rounded border border-orange-300 bg-orange-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-orange-800 dark:border-orange-900 dark:bg-orange-950/60 dark:text-orange-300">
+                itemized
+              </span>
+            </span>
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+              {fmtPerW(effective)} <span className="text-muted-foreground/60">sum</span>
+            </span>
+          </div>
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <div className="mb-2 flex items-baseline justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
+              <span>Bill of materials</span><span>$/W · unit · products</span>
+            </div>
+            <div className="space-y-2">
+              {(cat?.components ?? []).map((comp) => {
+                const cost: ComponentCost =
+                  loc.componentCosts?.[comp.key] ?? { value: comp.defaultPerW, unit: "perW" };
+                return (
+                  <BomRow
+                    key={comp.key} comp={comp} cost={cost}
+                    onChange={(c) => onComponent(comp.key, c)}
+                    onProducts={() => onProducts(comp.key)}
+                  />
+                );
+              })}
+            </div>
+            <div className="mt-2 flex items-baseline justify-between border-t pt-2 text-[12.5px] font-semibold">
+              <span>Category total</span>
+              <span className="font-mono tabular-nums">{fmtPerW(effective)}</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <SliderInput
+          label={label} value={lumpValue} onChange={onLump}
+          min={min} max={max} step={step} display={fmtPerW(lumpValue)} hint={hint}
+        />
+      )}
+      {cat && <ModeSeg mode={mode} onChange={onMode} />}
+    </div>
+  );
+}
+
+/** Pop-up listing alternative products for a BOM component, with literature links. */
+function ProductsModal({ componentKey, onClose }: { componentKey: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const entry = getComponent(componentKey);
+  if (!entry) return null;
+  const { category, component } = entry;
+
+  // Future: outbound click / ad-referral tracking hook.
+  const trackOutbound = (p: CatalogProduct) => {
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line no-console
+      console.log("outbound-click", { product: `${p.vendor} ${p.model}`, href: p.url });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-5" onClick={onClose}>
+      <div
+        className="max-h-[80vh] w-full max-w-lg overflow-auto rounded-xl border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
+          <div>
+            <div className="text-[15px] font-semibold">{component.label}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{category.label} · alternative products</div>
+          </div>
+          <button onClick={onClose} className="text-xl leading-none text-muted-foreground transition-colors hover:text-foreground">×</button>
+        </div>
+        <div className="px-5 py-1">
+          {component.products.map((p, i) => (
+            <div key={i} className="flex items-start justify-between gap-3 border-b py-3 last:border-b-0">
+              <div className="min-w-0">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{p.vendor}</div>
+                <div className="text-sm font-semibold">{p.model}</div>
+                {p.spec && <div className="mt-0.5 text-xs text-muted-foreground">{p.spec}</div>}
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                {p.price && <span className="font-mono text-xs tabular-nums">{p.price}</span>}
+                <a
+                  href={p.url} target="_blank" rel="noopener noreferrer"
+                  data-track="outbound" data-product={`${p.vendor} ${p.model}`}
+                  onClick={() => trackOutbound(p)}
+                  className="rounded-md border bg-background px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
+                >
+                  Literature ↗
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="px-5 pb-4 pt-1 text-[11px] text-muted-foreground">
+          Prices are planning-grade references; confidence varies by line. Links open vendor product literature.
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Result primitives
@@ -595,6 +833,7 @@ function CostModelTool() {
   const [schedServiceId, setSchedServiceId] = useState<string | null>(null);
   const [schedWeek, setSchedWeek] = useState(0); // 0..51
   const [tempUnit, setTempUnit] = useState<"C" | "F">("F");
+  const [productsKey, setProductsKey] = useState<string | null>(null);
 
   const [stations, setStations] = useState<TmyStation[]>([]);
   const [weatherMap, setWeatherMap] = useState<Map<string, HourlyWeather | null>>(new Map());
@@ -650,6 +889,10 @@ function CostModelTool() {
     activeLoc && patchLoc(activeLoc.id, { cooling: { ...activeLoc.cooling, ...patch } });
   const setPowerSource = (src: PowerSource) =>
     activeLoc && patchLoc(activeLoc.id, { powerSource: src, facility: { ...activeLoc.facility, power: DEFAULT_POWER_CAPEX[src] } });
+  const setCategoryMode = (catKey: string, mode: CategoryMode) =>
+    activeLoc && patchLoc(activeLoc.id, { categoryMode: { ...(activeLoc.categoryMode ?? {}), [catKey]: mode } });
+  const setComponentCost = (compKey: string, c: ComponentCost) =>
+    activeLoc && patchLoc(activeLoc.id, { componentCosts: { ...(activeLoc.componentCosts ?? {}), [compKey]: c } });
 
   const addLocation = () => {
     const loc = makeLocation(`Site ${inputs.locations.length + 1}`);
@@ -952,15 +1195,19 @@ function CostModelTool() {
                     </div>
                     <div className={cardBd}>
                       {FACILITY_LINE_ITEMS.map((li) => (
-                        <SliderInput key={li.key} label={li.label}
-                          value={activeLoc.facility[li.key as keyof LocationConfig["facility"]]}
-                          onChange={(v) => updFacility(li.key as keyof LocationConfig["facility"], v)}
-                          min={0} max={8} step={0.1}
-                          display={fmtPerW(activeLoc.facility[li.key as keyof LocationConfig["facility"]])}
-                          hint={FACILITY_HINTS[li.key]} />
+                        <CategoryCapex key={li.key} loc={activeLoc} catKey={li.key}
+                          label={li.label} hint={FACILITY_HINTS[li.key]} min={0} max={8} step={0.1}
+                          lumpValue={activeLoc.facility[li.key as keyof LocationConfig["facility"]]}
+                          onLump={(v) => updFacility(li.key as keyof LocationConfig["facility"], v)}
+                          onMode={(m) => setCategoryMode(li.key, m)}
+                          onComponent={setComponentCost} onProducts={setProductsKey} />
                       ))}
-                      <SliderInput label={powerLineLabel(activeLoc.powerSource)} value={activeLoc.facility.power}
-                        onChange={(v) => updFacility("power", v)} min={0} max={6} step={0.1} display={fmtPerW(activeLoc.facility.power)} />
+                      <CategoryCapex loc={activeLoc} catKey="power"
+                        label={powerLineLabel(activeLoc.powerSource)} min={0} max={6} step={0.1}
+                        lumpValue={activeLoc.facility.power}
+                        onLump={(v) => updFacility("power", v)}
+                        onMode={(m) => setCategoryMode("power", m)}
+                        onComponent={setComponentCost} onProducts={setProductsKey} />
                     </div>
                   </div>
 
@@ -969,13 +1216,21 @@ function CostModelTool() {
                     <div className={cardHd}>
                       <div className="flex items-center justify-between">
                         <div className="text-[15px] font-semibold">AI infrastructure capex</div>
-                        <span className="rounded-md bg-secondary px-2 py-0.5 font-mono text-xs tabular-nums">{fmtPerW(activeLoc.ai.gpus + activeLoc.ai.otherAI)}</span>
+                        <span className="rounded-md bg-secondary px-2 py-0.5 font-mono text-xs tabular-nums">{fmtPerW(activeResult.aiCapex / activeResult.capacityW)}</span>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">The compute payload, same $/W basis</div>
                     </div>
                     <div className={cardBd}>
-                      <SliderInput label="GPUs / accelerators" value={activeLoc.ai.gpus} onChange={(v) => updAI("gpus", v)} min={0} max={60} step={1} display={fmtPerW(activeLoc.ai.gpus)} hint="Accelerator hardware per watt of IT." />
-                      <SliderInput label="Other AI infrastructure" value={activeLoc.ai.otherAI} onChange={(v) => updAI("otherAI", v)} min={0} max={30} step={0.5} display={fmtPerW(activeLoc.ai.otherAI)} hint="Networking, storage, head nodes." />
+                      <CategoryCapex loc={activeLoc} catKey="gpus" label="GPUs / accelerators"
+                        hint="Accelerator hardware per watt of IT." min={0} max={60} step={1}
+                        lumpValue={activeLoc.ai.gpus} onLump={(v) => updAI("gpus", v)}
+                        onMode={(m) => setCategoryMode("gpus", m)}
+                        onComponent={setComponentCost} onProducts={setProductsKey} />
+                      <CategoryCapex loc={activeLoc} catKey="otherAI" label="Other AI infrastructure"
+                        hint="Networking, storage, head nodes." min={0} max={30} step={0.5}
+                        lumpValue={activeLoc.ai.otherAI} onLump={(v) => updAI("otherAI", v)}
+                        onMode={(m) => setCategoryMode("otherAI", m)}
+                        onComponent={setComponentCost} onProducts={setProductsKey} />
                       <SliderInput label="GPU refresh interval" value={activeLoc.gpuRefreshYears} onChange={(v) => upd({ gpuRefreshYears: v })} min={0} max={10} step={1}
                         display={activeLoc.gpuRefreshYears === 0 ? "never" : `every ${activeLoc.gpuRefreshYears} yr`} hint="Re-spend GPU capex every N years (0 = none)." />
                     </div>
@@ -1273,6 +1528,7 @@ function CostModelTool() {
                 <div className="space-y-2 border-t pt-3 text-xs text-muted-foreground">
                   <p><strong className="text-foreground">Scope.</strong> Capex builds up the facility plus AI infrastructure. Energy is integrated hourly over the city&apos;s weather through the PUE cooling engine; differentiated services drive the IT load and revenue. Returns use simple payback and ROI.</p>
                   <p><strong className="text-foreground">Methodology.</strong> Patterned on a public Crusoe presentation (illustrative) and Andrew McCalip&apos;s open-source (MIT) model. Independent Drybulb reimplementation; orbital-solar comparison in development.</p>
+                  <p><strong className="text-foreground">Itemized pricing.</strong> Each capex category can be itemized into its bill of materials. Category totals are well-anchored to published build benchmarks; the per-line $/W splits are proportional estimates unless flagged <em>sourced</em> (vendor / market-referenced). Example products and reference prices are planning-grade and vendor-dependent — confirm against live quotes. Equipment data lives in a maintainable catalog (<span className="font-mono">data/equipment-catalog.json</span>); a future supplier integration will replace estimates with quotes.</p>
                 </div>
               </CardContent></Card>
             )}
@@ -1293,6 +1549,8 @@ function CostModelTool() {
           </div>
         </div>
       ) : null}
+
+      {productsKey && <ProductsModal componentKey={productsKey} onClose={() => setProductsKey(null)} />}
     </div>
   );
 }

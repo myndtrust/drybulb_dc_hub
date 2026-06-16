@@ -15,9 +15,53 @@ import {
   FACILITY_LINE_ITEMS,
   POWER_LINE_ITEM,
   powerLineLabel,
+  type ComponentCost,
   type CostInputs,
   type LocationConfig,
 } from "./types";
+import { AI_CATEGORIES, FACILITY_CATEGORIES, getCategory } from "./catalog";
+
+// ── Itemized BOM → $/W ───────────────────────────────────────────────────────
+
+/** One component cost converted to $/W of critical IT. */
+export function componentCostPerW(cc: ComponentCost | undefined, capacityW: number): number {
+  if (!cc) return 0;
+  switch (cc.unit) {
+    case "perW":
+      return cc.value;
+    case "perMW":
+      return cc.value / 1e6;
+    case "total":
+      return capacityW > 0 ? cc.value / capacityW : 0;
+    default:
+      return 0;
+  }
+}
+
+/** The lump-sum $/W slider value for a category (from facility/ai). */
+function lumpPerW(loc: LocationConfig, catKey: string): number {
+  if (loc.facility && catKey in loc.facility) {
+    return loc.facility[catKey as keyof LocationConfig["facility"]] as number;
+  }
+  if (catKey === "gpus") return loc.ai.gpus;
+  if (catKey === "otherAI") return loc.ai.otherAI;
+  return 0;
+}
+
+/** Effective $/W for a category: the BOM sum when itemized, else the slider. */
+export function categoryPerW(loc: LocationConfig, catKey: string, capacityW: number): number {
+  const cat = getCategory(catKey);
+  const mode = loc.categoryMode?.[catKey] ?? "lump";
+  if (cat && mode === "itemized") {
+    let perW = 0;
+    for (const comp of cat.components) {
+      const cc = loc.componentCosts?.[comp.key];
+      perW += cc ? componentCostPerW(cc, capacityW) : comp.defaultPerW;
+    }
+    return perW;
+  }
+  return lumpPerW(loc, catKey);
+}
 
 export interface CapexSegment {
   key: string;
@@ -86,10 +130,10 @@ export function computeCost(
 ): CostResult {
   const capacityW = loc.capacityMW * 1e6;
 
-  const f = loc.facility;
-  const facilityPerW =
-    f.labor + f.materials + f.tenantFitout + f.electrical + f.mechanical + f.softCosts + f.power;
-  const aiPerW = loc.ai.gpus + loc.ai.otherAI;
+  // Each category resolves to an effective $/W: the itemized BOM sum when the
+  // category is in "Itemized" mode, otherwise its lump-sum slider value.
+  const facilityPerW = FACILITY_CATEGORIES.reduce((a, c) => a + categoryPerW(loc, c.key, capacityW), 0);
+  const aiPerW = AI_CATEGORIES.reduce((a, c) => a + categoryPerW(loc, c.key, capacityW), 0);
 
   const facilityCapex = facilityPerW * capacityW;
   const aiCapex = aiPerW * capacityW;
@@ -99,19 +143,19 @@ export function computeCost(
     ...FACILITY_LINE_ITEMS.map((li) => ({
       key: li.key,
       label: li.label,
-      amount: (f[li.key as keyof typeof f] as number) * capacityW,
+      amount: categoryPerW(loc, li.key, capacityW) * capacityW,
       color: li.color,
     })),
     {
       key: POWER_LINE_ITEM.key,
       label: powerLineLabel(loc.powerSource),
-      amount: f.power * capacityW,
+      amount: categoryPerW(loc, "power", capacityW) * capacityW,
       color: POWER_LINE_ITEM.color,
     },
     ...AI_LINE_ITEMS.map((li) => ({
       key: li.key,
       label: li.label,
-      amount: (loc.ai[li.key as keyof typeof loc.ai] as number) * capacityW,
+      amount: categoryPerW(loc, li.key, capacityW) * capacityW,
       color: li.color,
     })),
   ].filter((s) => s.amount > 0);
@@ -140,7 +184,9 @@ export function computeCost(
   let lifetimeProfit = 0;
   for (let y = 1; y <= loc.analysisYears; y++) {
     const refresh =
-      loc.gpuRefreshYears > 0 && y % loc.gpuRefreshYears === 0 ? loc.ai.gpus * capacityW : 0;
+      loc.gpuRefreshYears > 0 && y % loc.gpuRefreshYears === 0
+        ? categoryPerW(loc, "gpus", capacityW) * capacityW
+        : 0;
     const net = annualProfit - refresh;
     lifetimeProfit += annualProfit;
     const prev = cumulative;
