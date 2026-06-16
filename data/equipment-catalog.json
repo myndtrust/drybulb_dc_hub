@@ -1,0 +1,352 @@
+{
+  "$schema": "./equipment-catalog.schema.md",
+  "version": 1,
+  "updated": "2026-06-16",
+  "note": "Single source of truth for the Data Center Cost Model. Edit this file (or use scripts/equipment_catalog.py), then run `python scripts/equipment_catalog.py build` to regenerate lib/cost/catalog.gen.ts. defaultPerW is $/W of critical IT; component defaults should sum to the category default. confidence: 'sourced' = vendor/market-referenced, 'estimate' = proportional split. kind: 'equipment' has products[]; 'service'/'labor' may have none. product url should point to the specific product/range page, not the vendor homepage.",
+  "categories": [
+    {
+      "key": "electrical", "label": "Electrical equipment", "group": "facility",
+      "color": "bg-sky-500", "defaultPerW": 1.80, "sharePct": "40-45%",
+      "includes": "MV switchgear, transformers, standby generators, UPS & batteries, ATS/paralleling gear, PDUs/RPPs, busway",
+      "components": [
+        {
+          "key": "switchgear", "label": "Substation + MV switchgear", "kind": "equipment",
+          "defaultPerW": 0.40, "confidence": "sourced", "priceRef": "$3-8M lineup",
+          "leadTimeWeeks": 50, "risk": "high",
+          "products": [
+            { "vendor": "ABB", "model": "UniGear ZS1", "spec": "AIS MV switchgear, up to 24 kV", "price": "$3-8M lineup", "url": "https://new.abb.com/medium-voltage/switchgear/air-insulated/iec-and-other-standards/unigear-zs1-portfolio" },
+            { "vendor": "Siemens", "model": "NXAIR", "spec": "Air-insulated MV switchgear, up to 17.5 kV", "price": "", "url": "https://www.siemens.com/global/en/products/energy/medium-voltage/systems/nxair.html" },
+            { "vendor": "Eaton", "model": "Power Xpert XGIS", "spec": "Gas-insulated compact MV switchgear, up to 38 kV", "price": "", "url": "https://www.eaton.com/us/en-us/catalog/medium-voltage-power-distribution-control-systems/power-xpert-xgis-gas-insulated-medium-voltage-switchgear.html" },
+            { "vendor": "Schneider Electric", "model": "PIX / PremSet", "spec": "AIS / shielded solid-insulation MV", "price": "", "url": "https://www.se.com/us/en/product-range/61426-pix-12/" }
+          ]
+        },
+        {
+          "key": "generators", "label": "Standby generators + fuel", "kind": "equipment",
+          "defaultPerW": 0.45, "confidence": "sourced", "priceRef": "$125-800/kW genset; ~$1000/kW installed (NREL)",
+          "leadTimeMonths": 18, "risk": "high",
+          "products": [
+            { "vendor": "Caterpillar", "model": "3516C HD", "spec": "2,500 kW / 3,125 kVA, Tier 4 diesel", "price": "~$125-800/kW", "url": "https://www.cat.com/en_US/products/new/power-systems/electric-power/diesel-generator-sets/18500392.html" },
+            { "vendor": "Cummins", "model": "C2250 D6A (QSK60)", "spec": "2,250 kVA standby diesel", "price": "", "url": "https://www.cummins.com/generators/c2250d6a" },
+            { "vendor": "MTU / Rolls-Royce", "model": "Series 4000 (20V4000 DS2500)", "spec": "~2,500 kW genset", "price": "", "url": "https://www.mtu-solutions.com/eu/en/applications/power-generation/power-generation-products/diesel-generator-sets/series/4000.html" },
+            { "vendor": "Kohler", "model": "KD2500", "spec": "2,500 kW diesel genset, 60 Hz", "price": "", "url": "https://www.powersystems.rehlko.com/product/kd2500" }
+          ]
+        },
+        {
+          "key": "ups", "label": "UPS + LFP batteries", "kind": "equipment",
+          "defaultPerW": 0.36, "confidence": "sourced", "priceRef": "$150-300/kW", "risk": "med",
+          "products": [
+            { "vendor": "Vertiv", "model": "Liebert EXL S1", "spec": "250-1,200 kVA, transformer-free, <=99% eco", "price": "~$150-300/kW", "url": "https://www.vertiv.com/en-us/products-catalog/critical-power/uninterruptible-power-supplies-ups/liebert-exl-s1/" },
+            { "vendor": "Schneider Electric", "model": "Galaxy VX", "spec": "Modular 3-phase UPS, 500-1,500 kVA", "price": "", "url": "https://www.se.com/us/en/product-range/63732-galaxy-vx/" },
+            { "vendor": "Eaton", "model": "Power Xpert 9395P", "spec": "High-efficiency large UPS, 250-1,200 kVA", "price": "", "url": "https://www.eaton.com/us/en-us/catalog/backup-power-ups-surge-it-power-distribution/power-xpert-9395p-high-performance-ups.html" },
+            { "vendor": "ABB", "model": "DPA 250 S4", "spec": "Modular UPS, 50-1,500 kW", "price": "", "url": "https://new.abb.com/ups/systems/three-phase-ups/dpa-250-s4" }
+          ]
+        },
+        {
+          "key": "transformers", "label": "HV substation transformers", "kind": "equipment",
+          "defaultPerW": 0.28, "confidence": "estimate", "priceRef": "long-lead bottleneck",
+          "leadTimeMonths": 21, "risk": "high",
+          "products": [
+            { "vendor": "Hitachi Energy", "model": "Power transformers", "spec": "Liquid-filled step-down 115/230 kV -> MV", "price": "", "url": "https://www.hitachienergy.com/products-and-solutions/transformers/power-transformers" },
+            { "vendor": "Schneider Electric", "model": "Trihal", "spec": "Cast-resin dry-type, up to 15 MVA / 36 kV", "price": "", "url": "https://www.se.com/ww/en/work/products/product-launch/trihal-transformers/" },
+            { "vendor": "Eaton (Cooper)", "model": "Pad-mount transformer", "spec": "2.5 MVA class", "price": "", "url": "https://www.eaton.com/us/en-us/products/medium-voltage-power-distribution-control-systems/transformers.html" },
+            { "vendor": "Virginia Transformer", "model": "Medium/Large power", "spec": "Made-to-order", "price": "", "url": "https://vatransformer.com/products/" }
+          ]
+        },
+        {
+          "key": "lv", "label": "LV switchboards / panelboards", "kind": "equipment",
+          "defaultPerW": 0.18, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Schneider Electric", "model": "Square D I-Line", "spec": "LV switchboard 415/480 V", "price": "", "url": "https://www.se.com/us/en/product-range/2306-i-line-panelboards/" },
+            { "vendor": "Eaton", "model": "Pow-R-Line", "spec": "Switchboards / panelboards", "price": "", "url": "https://www.eaton.com/us/en-us/catalog/low-voltage-power-distribution-controls-systems/pow-r-line-switchboards.html" },
+            { "vendor": "ABB", "model": "MNS", "spec": "LV switchgear", "price": "", "url": "https://new.abb.com/low-voltage/products/switchgear/mns-system" }
+          ]
+        },
+        {
+          "key": "busway", "label": "Busway", "kind": "equipment",
+          "defaultPerW": 0.13, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Starline", "model": "Track Busway", "spec": "Overhead plug-in busway, 40-1,250 A", "price": "", "url": "https://starlinepower.com/products/busway/track-busway" },
+            { "vendor": "Schneider Electric", "model": "Canalis", "spec": "Busbar trunking", "price": "", "url": "https://www.se.com/us/en/product-range/934-canalis/" },
+            { "vendor": "Eaton", "model": "Pow-R-Way III", "spec": "Feeder/plug-in busway", "price": "", "url": "https://www.eaton.com/us/en-us/catalog/low-voltage-power-distribution-controls-systems/pow-r-way-iii-busway.html" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "mechanical", "label": "Mechanical equipment", "group": "facility",
+      "color": "bg-teal-600", "defaultPerW": 1.70, "sharePct": "15-20%",
+      "includes": "Chillers, cooling towers, CRAH, CDUs (liquid cooling), cold plates, pumps & piping, BMS",
+      "components": [
+        {
+          "key": "chillers", "label": "Chillers + cooling towers", "kind": "equipment",
+          "defaultPerW": 0.55, "confidence": "sourced", "priceRef": "$450/ton (>150t) to $1,300-1,500/ton (100t)", "risk": "med",
+          "products": [
+            { "vendor": "Trane", "model": "Sintesis RTAF", "spec": "Air-cooled screw chiller, 300-1,600 kW", "price": "~$450-1,500/ton", "url": "https://www.trane.com/commercial/north-america/us/en/products-systems/chillers/air-cooled-chillers/sintesis.html" },
+            { "vendor": "Carrier", "model": "AquaForce 30XV", "spec": "Air-cooled VSD chiller, 140-500 tons", "price": "", "url": "https://www.carrier.com/commercial/en/us/products/chillers-components/air-cooled-chillers/30xv/" },
+            { "vendor": "York (Johnson Controls)", "model": "YVAA", "spec": "Air-cooled VSD screw chiller, 200-500 tons", "price": "", "url": "https://www.york.com/commercial-equipment/chilled-water-systems/air-cooled-chillers/yvaa_ch/yvaa-variable-speed-drive-screw-chiller" },
+            { "vendor": "Vertiv", "model": "Liebert AFC", "spec": "Free-cooling chiller", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/thermal-management/outdoor-cooling/vertiv-liebert-afc-from-500-to-1700-kw/" }
+          ]
+        },
+        {
+          "key": "cdus", "label": "CDUs + process piping", "kind": "equipment",
+          "defaultPerW": 0.45, "confidence": "sourced", "priceRef": "$12-35k/unit (100-500 kW) => $24-350/kW; loop $1,000-2,000/kW",
+          "risk": "high",
+          "products": [
+            { "vendor": "Vertiv", "model": "Liebert XDU 1350", "spec": "Liquid-to-liquid CDU, up to 1.35 MW", "price": "~$24-350/kW", "url": "https://www.vertiv.com/en-us/products-catalog/thermal-management/high-density-solutions/liebert-xdu1350-coolant-distribution-unit/" },
+            { "vendor": "Motivair", "model": "MCDU", "spec": "L2L / L2A CDU, 105 kW-2.5 MW", "price": "", "url": "https://www.motivaircorp.com/products/CDU/" },
+            { "vendor": "CoolIT Systems", "model": "CHx1000", "spec": "Liquid-to-liquid CDU, 1,000 kW", "price": "", "url": "https://www.coolitsystems.com/chx1000/" },
+            { "vendor": "Boyd", "model": "CDU", "spec": "Coolant distribution unit", "price": "", "url": "https://www.boydcorp.com/thermal/liquid-cooling-systems/coolant-distribution-units.html" }
+          ]
+        },
+        {
+          "key": "d2c", "label": "Direct-to-chip cold plates / manifolds / QDs / fluid", "kind": "equipment",
+          "defaultPerW": 0.30, "confidence": "estimate", "risk": "high",
+          "products": [
+            { "vendor": "CoolIT Systems", "model": "Cold plates + manifolds", "spec": "Copper D2C cold plates", "price": "", "url": "https://www.coolitsystems.com/cold-plates/" },
+            { "vendor": "Boyd", "model": "Liquid cold plates", "spec": "D2C cold plates", "price": "", "url": "https://www.boydcorp.com/thermal/liquid-cooling-systems/cold-plates.html" },
+            { "vendor": "Staubli", "model": "UQD couplings", "spec": "Blind-mate, non-drip quick disconnects", "price": "", "url": "https://www.staubli.com/us/en/fluid-connectors/products/quick-and-dry-disconnect-couplings/thermal-management/uqd-universal-quick-disconnect.html" },
+            { "vendor": "Parker", "model": "Manifolds / couplings", "spec": "Rack manifold + QDs", "price": "", "url": "https://www.parker.com/us/en/markets/data-centers.html" }
+          ]
+        },
+        {
+          "key": "crah", "label": "CRAH / fan-wall", "kind": "equipment",
+          "defaultPerW": 0.20, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Vertiv", "model": "Liebert PCW", "spec": "Chilled-water perimeter CRAH", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/thermal-management/room-cooling/liebert-pcw-chilled-water-cooling-system/" },
+            { "vendor": "Stulz", "model": "CyberAir 3PRO CW", "spec": "Precision chilled-water CRAH", "price": "", "url": "https://www.stulz.com/products/detail/cyberair-3pro-cw/" },
+            { "vendor": "Munters", "model": "Fan-wall AHU", "spec": "Fan-wall air handler", "price": "", "url": "https://www.munters.com/en-us/data-centers/" }
+          ]
+        },
+        {
+          "key": "rdhx", "label": "Rear-door heat exchangers", "kind": "equipment",
+          "defaultPerW": 0.10, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "nVent", "model": "RackChiller RDHx", "spec": "Passive/active rear-door HX", "price": "", "url": "https://www.nvent.com/en-us/data-solutions/products/enc21130-805" },
+            { "vendor": "Motivair", "model": "ChilledDoor", "spec": "Active rear-door HX, up to 75 kW/rack", "price": "", "url": "https://www.motivaircorp.com/products/chilleddoor/" },
+            { "vendor": "Vertiv", "model": "Liebert DCD", "spec": "Rear-door cooling", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/thermal-management/high-density-solutions/vertiv-liebert-dcd-rear-door-cooling/" }
+          ]
+        },
+        {
+          "key": "bms", "label": "BMS + leak / IoT sensors", "kind": "equipment",
+          "defaultPerW": 0.10, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Schneider Electric", "model": "EcoStruxure Building", "spec": "BMS controls", "price": "", "url": "https://www.se.com/us/en/work/solutions/for-business/buildings/building-management/" },
+            { "vendor": "Honeywell", "model": "Niagara / EBI", "spec": "BMS + analytics", "price": "", "url": "https://buildings.honeywell.com/us/en/products/by-category/building-management-systems" },
+            { "vendor": "Siemens", "model": "Desigo", "spec": "BMS controls", "price": "", "url": "https://www.siemens.com/global/en/products/buildings/automation/desigo.html" },
+            { "vendor": "RLE Technologies", "model": "SeaHawk", "spec": "Leak-detection sensing cable", "price": "", "url": "https://www.rletech.com/product-category/leak-detection/" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "materials", "label": "Materials", "group": "facility",
+      "color": "bg-amber-600", "defaultPerW": 3.90, "sharePct": "15-20%",
+      "includes": "Powered-shell structure & envelope: slab, structural steel, cladding/roof",
+      "components": [
+        { "key": "slab", "label": "Reinforced slab / foundation", "kind": "construction", "defaultPerW": 1.60, "confidence": "estimate", "risk": "low", "products": [] },
+        { "key": "steel", "label": "Structural steel", "kind": "construction", "defaultPerW": 1.50, "confidence": "estimate", "risk": "low", "products": [] },
+        { "key": "envelope", "label": "Envelope / shell", "kind": "construction", "defaultPerW": 0.80, "confidence": "estimate", "risk": "low", "products": [] }
+      ]
+    },
+    {
+      "key": "labor", "label": "Labor", "group": "facility",
+      "color": "bg-slate-600", "defaultPerW": 4.70, "sharePct": "",
+      "includes": "Construction trades across disciplines",
+      "components": [
+        { "key": "civil", "label": "Civil / structural", "kind": "labor", "defaultPerW": 1.60, "confidence": "estimate", "risk": "low", "products": [] },
+        { "key": "mep-install", "label": "MEP install", "kind": "labor", "defaultPerW": 2.20, "confidence": "estimate", "risk": "med", "products": [] },
+        { "key": "fitout-install", "label": "Fit-out / IT install", "kind": "labor", "defaultPerW": 0.60, "confidence": "estimate", "risk": "low", "products": [] },
+        { "key": "commissioning-labor", "label": "Commissioning", "kind": "labor", "defaultPerW": 0.30, "confidence": "estimate", "risk": "low", "products": [] }
+      ]
+    },
+    {
+      "key": "tenantFitout", "label": "Tenant fit-out", "group": "facility",
+      "color": "bg-orange-500", "defaultPerW": 2.60, "sharePct": "20-25%",
+      "includes": "Racks, structured cabling, containment, security, fire, lighting, finishes",
+      "components": [
+        {
+          "key": "racks", "label": "Racks", "kind": "equipment", "defaultPerW": 0.70, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Schneider Electric", "model": "APC NetShelter SX", "spec": "Server rack enclosure", "price": "", "url": "https://www.se.com/us/en/product-range/61821-apc-netshelter-sx-enclosures/" },
+            { "vendor": "Rittal", "model": "VX IT", "spec": "Server/network rack", "price": "", "url": "https://www.rittal.com/vx-it/" },
+            { "vendor": "Vertiv", "model": "VR rack", "spec": "Server rack/cabinet", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/racks-integrated-cabinets-and-enclosures/racks/vertiv-vr-rack/" }
+          ]
+        },
+        {
+          "key": "cabling", "label": "Structured cabling", "kind": "equipment", "defaultPerW": 0.60, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "CommScope", "model": "SYSTIMAX", "spec": "Structured cabling system", "price": "", "url": "https://www.commscope.com/systimax/" },
+            { "vendor": "Corning", "model": "EDGE8", "spec": "Base-8 preterminated fiber trunks / MPO", "price": "", "url": "https://www.corning.com/data-center/worldwide/en/home/solutions/edge8.html" },
+            { "vendor": "Panduit", "model": "QuickNet", "spec": "Pre-term cabling", "price": "", "url": "https://www.panduit.com/en/products/network-infrastructure/copper-systems/quicknet.html" }
+          ]
+        },
+        {
+          "key": "containment", "label": "Aisle containment", "kind": "equipment", "defaultPerW": 0.40, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Vertiv", "model": "Containment", "spec": "Hot/cold-aisle containment", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/racks-integrated-cabinets-and-enclosures/aisle-containment/" },
+            { "vendor": "Upsite Technologies", "model": "AisleLok", "spec": "Modular containment", "price": "", "url": "https://www.upsite.com/products/aislelok/" },
+            { "vendor": "Subzero Engineering", "model": "PolarPlex", "spec": "Containment system", "price": "", "url": "https://subzeroeng.com/data-center-containment/" }
+          ]
+        },
+        {
+          "key": "security", "label": "Access control / CCTV / biometric", "kind": "equipment", "defaultPerW": 0.30, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Genetec", "model": "Security Center", "spec": "Access control + VMS", "price": "", "url": "https://www.genetec.com/products/unified-security/security-center" },
+            { "vendor": "HID Global", "model": "Readers / controllers", "spec": "Biometric / card access", "price": "", "url": "https://www.hidglobal.com/products/readers" },
+            { "vendor": "Honeywell (Lenel)", "model": "OnGuard", "spec": "Access control", "price": "", "url": "https://www.lenels2.com/en/products/access-control-systems/onguard.html" }
+          ]
+        },
+        {
+          "key": "fire", "label": "VESDA + clean-agent suppression", "kind": "equipment", "defaultPerW": 0.40, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Honeywell (Xtralis)", "model": "VESDA", "spec": "Very-early smoke detection", "price": "", "url": "https://buildings.honeywell.com/us/en/brands/our-brands/xtralis/products/vesda-aspirating-smoke-detectors" },
+            { "vendor": "Fike", "model": "Clean-agent suppression", "spec": "Inert/clean-agent system", "price": "", "url": "https://www.fike.com/products/clean-agent-fire-suppression/" },
+            { "vendor": "Kidde", "model": "ECARO-25", "spec": "Clean-agent suppression", "price": "", "url": "https://www.kidde-fenwal.com/Public/Engineered-Systems/ECARO-25" }
+          ]
+        },
+        {
+          "key": "leak", "label": "Leak detection", "kind": "equipment", "defaultPerW": 0.10, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "TTK", "model": "Leak-detection cable", "spec": "Under-piping sensing cable", "price": "", "url": "https://www.ttkonline.com/en/water-leak-detection-products/" },
+            { "vendor": "RLE Technologies", "model": "SeaHawk", "spec": "Leak detection", "price": "", "url": "https://www.rletech.com/product-category/leak-detection/" },
+            { "vendor": "nVent Raychem", "model": "TraceTek", "spec": "Leak sensing", "price": "", "url": "https://www.nvent.com/en-us/raychem/tracetek-leak-detection-systems" }
+          ]
+        },
+        { "key": "finishes", "label": "Lighting / finishes", "kind": "construction", "defaultPerW": 0.10, "confidence": "estimate", "risk": "low", "products": [] }
+      ]
+    },
+    {
+      "key": "softCosts", "label": "Soft costs", "group": "facility",
+      "color": "bg-zinc-500", "defaultPerW": 1.50, "sharePct": "",
+      "includes": "Design/engineering, permitting, commissioning & Tier verification, DCIM software, contingency, owner's costs",
+      "components": [
+        { "key": "design", "label": "Design / engineering", "kind": "service", "defaultPerW": 0.50, "confidence": "estimate", "risk": "low", "products": [] },
+        { "key": "permitting", "label": "Permitting", "kind": "service", "defaultPerW": 0.20, "confidence": "estimate", "risk": "med", "products": [] },
+        { "key": "commissioning-tier", "label": "Commissioning / Tier verification", "kind": "service", "defaultPerW": 0.30, "confidence": "estimate", "risk": "low", "products": [] },
+        {
+          "key": "dcim", "label": "DCIM / energy-management software", "kind": "software", "defaultPerW": 0.20, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "Schneider Electric", "model": "EcoStruxure IT", "spec": "DCIM platform", "price": "", "url": "https://www.se.com/us/en/work/software/data-center-infrastructure-management-dcim/" },
+            { "vendor": "Vertiv", "model": "Environet Alert", "spec": "DCIM / monitoring", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/monitoring-control-and-management/dcim-monitoring-software/vertiv-environet-alert/" },
+            { "vendor": "Nlyte", "model": "Nlyte DCIM", "spec": "DCIM software", "price": "", "url": "https://www.nlyte.com/products/" },
+            { "vendor": "Sunbird", "model": "dcTrack", "spec": "DCIM software", "price": "", "url": "https://www.sunbirddcim.com/dctrack" }
+          ]
+        },
+        { "key": "contingency", "label": "Contingency / owner's costs", "kind": "service", "defaultPerW": 0.30, "confidence": "estimate", "risk": "low", "products": [] }
+      ]
+    },
+    {
+      "key": "power", "label": "Power (gas plant / grid)", "group": "facility",
+      "color": "bg-stone-500", "defaultPerW": 3.00, "sharePct": "",
+      "includes": "Behind-the-meter gas turbines + BOP, or grid interconnection/substation",
+      "components": [
+        {
+          "key": "turbines", "label": "Gas turbines / gensets", "kind": "equipment", "defaultPerW": 2.20, "confidence": "estimate", "risk": "high",
+          "leadTimeMonths": 24,
+          "products": [
+            { "vendor": "GE Vernova", "model": "LM6000", "spec": "Aeroderivative gas turbine, 44-56 MW", "price": "", "url": "https://www.gevernova.com/gas-power/products/gas-turbines/lm6000" },
+            { "vendor": "Solar Turbines", "model": "Titan 250", "spec": "Industrial gas turbine, ~24 MW", "price": "", "url": "https://www.solarturbines.com/en_US/products/power-generation-packages/titan-250.html" },
+            { "vendor": "Siemens Energy", "model": "SGT-A65", "spec": "Aeroderivative gas turbine, 58-71 MW", "price": "", "url": "https://www.siemens-energy.com/global/en/home/products-services/product/sgt-a65.html" },
+            { "vendor": "Caterpillar", "model": "G3520", "spec": "Reciprocating gas genset", "price": "", "url": "https://www.cat.com/en_US/products/new/power-systems/electric-power/gas-generator-sets/18486649.html" }
+          ]
+        },
+        { "key": "fuel-bop", "label": "Fuel + balance of plant", "kind": "construction", "defaultPerW": 0.50, "confidence": "estimate", "risk": "med", "products": [] },
+        { "key": "interconnect", "label": "Interconnect / controls", "kind": "service", "defaultPerW": 0.30, "confidence": "estimate", "risk": "med", "products": [] }
+      ]
+    },
+    {
+      "key": "gpus", "label": "GPUs / accelerators", "group": "ai",
+      "color": "bg-emerald-600", "defaultPerW": 30.0, "sharePct": "",
+      "includes": "Accelerator nodes, host CPU + memory, in-rack power/cooling",
+      "components": [
+        {
+          "key": "accel", "label": "Accelerator nodes", "kind": "equipment", "defaultPerW": 26.0, "confidence": "sourced",
+          "priceRef": "$2.8-3.4M/rack => ~$23-28/W", "risk": "high",
+          "products": [
+            { "vendor": "NVIDIA", "model": "GB200 NVL72", "spec": "72 Blackwell GPU, ~120 kW, liquid-cooled", "price": "$2.8-3.4M/rack => ~$25/W", "url": "https://www.nvidia.com/en-us/data-center/gb200-nvl72/" },
+            { "vendor": "NVIDIA", "model": "GB300 NVL72", "spec": "72 Blackwell Ultra GPU, rack-scale", "price": "", "url": "https://www.nvidia.com/en-us/data-center/gb300-nvl72/" },
+            { "vendor": "NVIDIA", "model": "HGX B200", "spec": "8-GPU baseboard, air/liquid", "price": "", "url": "https://www.nvidia.com/en-us/data-center/hgx/" },
+            { "vendor": "AMD", "model": "Instinct MI300X platform", "spec": "8x MI300X OAM", "price": "", "url": "https://www.amd.com/en/products/accelerators/instinct/mi300/platform.html" }
+          ]
+        },
+        {
+          "key": "host", "label": "Host CPU + system memory", "kind": "equipment", "defaultPerW": 3.0, "confidence": "estimate", "risk": "med",
+          "products": [
+            { "vendor": "NVIDIA", "model": "Grace CPU", "spec": "ARM, coherent with Blackwell", "price": "", "url": "https://www.nvidia.com/en-us/data-center/grace-cpu/" },
+            { "vendor": "AMD", "model": "EPYC 9005 (Turin)", "spec": "x86 server CPU", "price": "", "url": "https://www.amd.com/en/products/processors/server/epyc/9005-series.html" },
+            { "vendor": "Intel", "model": "Xeon 6", "spec": "x86 server CPU", "price": "", "url": "https://www.intel.com/content/www/us/en/products/details/processors/xeon/xeon6-processors.html" }
+          ]
+        },
+        {
+          "key": "rpdu", "label": "In-rack busbar / manifold + rPDU", "kind": "equipment", "defaultPerW": 1.0, "confidence": "estimate", "risk": "med",
+          "products": [
+            { "vendor": "Vertiv", "model": "Geist Switched rPDU", "spec": "3-phase 415/480 V, intelligent rPDU", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/critical-power/power-distribution/vertiv-geist-switched-rack-pdu/" },
+            { "vendor": "Server Technology", "model": "PRO4X rPDU", "spec": "High-density rack PDU", "price": "", "url": "https://www.servertech.com/products/pro4x" },
+            { "vendor": "nVent", "model": "Busbar / D2C manifold", "spec": "Rack power + manifold", "price": "", "url": "https://www.nvent.com/en-us/data-solutions/products" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "otherAI", "label": "Other AI infrastructure", "group": "ai",
+      "color": "bg-violet-500", "defaultPerW": 10.0, "sharePct": "",
+      "includes": "Backend fabric switches, optics, DPUs, cabling, NVMe-oF storage, mgmt network + sensors",
+      "components": [
+        {
+          "key": "switches", "label": "Backend fabric switches", "kind": "equipment", "defaultPerW": 4.0, "confidence": "sourced",
+          "priceRef": "~$39,034/switch", "risk": "med",
+          "products": [
+            { "vendor": "NVIDIA", "model": "Quantum-2 QM9700", "spec": "64x400 Gb/s NDR InfiniBand, 1U", "price": "~$39,034/switch", "url": "https://www.nvidia.com/en-us/networking/quantum2/" },
+            { "vendor": "NVIDIA", "model": "Spectrum-X SN5600", "spec": "64x800GbE, 51.2 Tb/s RoCE", "price": "", "url": "https://www.nvidia.com/en-us/networking/spectrum-x/" },
+            { "vendor": "Arista", "model": "7800R3 / 7800R4", "spec": "800G AI spine Ethernet", "price": "", "url": "https://www.arista.com/en/products/7800r3-series" },
+            { "vendor": "Cisco", "model": "Nexus 9364E-SG2", "spec": "800G data-center switch", "price": "", "url": "https://www.cisco.com/site/us/en/products/networking/cloud-networking-switches/nexus-9000-switches/index.html" }
+          ]
+        },
+        {
+          "key": "optics", "label": "800G optics", "kind": "equipment", "defaultPerW": 2.0, "confidence": "sourced",
+          "priceRef": "$0.9-2.0k each", "risk": "high",
+          "products": [
+            { "vendor": "NVIDIA", "model": "MMA4Z00-NS", "spec": "800G OSFP 2xSR4, 50 m", "price": "~$0.9-2.0k ea", "url": "https://www.nvidia.com/en-us/networking/interconnect/" },
+            { "vendor": "FS", "model": "800G OSFP 2xFR4", "spec": "NDR, 2 km SMF", "price": "$1,119-1,319", "url": "https://www.fs.com/products/140416.html" },
+            { "vendor": "Coherent", "model": "800G OSFP-DD", "spec": "DR8 / 2xFR4", "price": "", "url": "https://www.coherent.com/networking/datacom-transceivers" },
+            { "vendor": "InnoLight", "model": "800G OSFP", "spec": "SR8 / DR8", "price": "", "url": "https://www.innolight.com/products/" }
+          ]
+        },
+        {
+          "key": "dpu", "label": "SmartNICs / DPUs", "kind": "equipment", "defaultPerW": 1.5, "confidence": "estimate", "risk": "med",
+          "products": [
+            { "vendor": "NVIDIA", "model": "BlueField-3 DPU", "spec": "400 Gb/s offload", "price": "", "url": "https://www.nvidia.com/en-us/networking/products/data-processing-unit/" },
+            { "vendor": "NVIDIA", "model": "ConnectX-7", "spec": "400 Gb/s NIC", "price": "", "url": "https://www.nvidia.com/en-us/networking/ethernet-adapters/" },
+            { "vendor": "AMD", "model": "Pensando DPU", "spec": "Programmable DPU", "price": "", "url": "https://www.amd.com/en/products/accelerators/pensando.html" }
+          ]
+        },
+        {
+          "key": "cabling-ai", "label": "AOC / DAC / MPO cabling", "kind": "equipment", "defaultPerW": 1.0, "confidence": "estimate", "risk": "med",
+          "products": [
+            { "vendor": "FS", "model": "AOC / DAC / MPO", "spec": "InfiniBand/Ethernet cabling", "price": "", "url": "https://www.fs.com/c/dac-aoc-cables-1129" },
+            { "vendor": "Amphenol", "model": "DAC / AOC", "spec": "High-density cabling", "price": "", "url": "https://www.amphenol-cs.com/products/cable-assemblies.html" },
+            { "vendor": "Corning", "model": "MPO fiber trunks", "spec": "Single/multi-mode trunks", "price": "", "url": "https://www.corning.com/optical-communications/worldwide/en/home/products/indoor-preterminated-systems/edge8-hardware.html" }
+          ]
+        },
+        {
+          "key": "storage", "label": "All-flash NVMe-oF storage", "kind": "equipment", "defaultPerW": 1.0, "confidence": "sourced",
+          "priceRef": "$90-150/usable TB (2026 NAND spike)", "risk": "med",
+          "products": [
+            { "vendor": "VAST Data", "model": "VAST Data Platform", "spec": "DASE NVMe-oF all-flash", "price": "~$90-150/usable TB", "url": "https://www.vastdata.com/platform/overview" },
+            { "vendor": "WEKA", "model": "WEKApod", "spec": "Parallel NVMe FS appliance", "price": "", "url": "https://www.weka.io/data-platform/environment/wekapod/" },
+            { "vendor": "Pure Storage", "model": "FlashBlade//E", "spec": "All-flash scale-out", "price": "", "url": "https://www.purestorage.com/products/unstructured-data-storage/flashblade-e.html" },
+            { "vendor": "DDN", "model": "AI400X2", "spec": "NVMe parallel appliance", "price": "", "url": "https://www.ddn.com/products/a3i-ai400x2/" }
+          ]
+        },
+        {
+          "key": "mgmt", "label": "Mgmt network + sensors", "kind": "equipment", "defaultPerW": 0.5, "confidence": "estimate", "risk": "low",
+          "products": [
+            { "vendor": "NVIDIA", "model": "SN2000 / SN3000", "spec": "10/25/100G mgmt Ethernet", "price": "", "url": "https://www.nvidia.com/en-us/networking/ethernet-switching/" },
+            { "vendor": "Cisco", "model": "Nexus mgmt", "spec": "OOB mgmt switch", "price": "", "url": "https://www.cisco.com/site/us/en/products/networking/cloud-networking-switches/nexus-9000-switches/index.html" },
+            { "vendor": "Vertiv", "model": "Geist sensors", "spec": "Environmental IoT sensors", "price": "", "url": "https://www.vertiv.com/en-us/products-catalog/monitoring-control-and-management/sensors/" }
+          ]
+        }
+      ]
+    }
+  ]
+}
