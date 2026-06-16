@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cost Model — itemized BOM + products pop-up (mockup)</title>
+<style>
+  :root{
+    --background:#ffffff; --foreground:#1a1a1a; --card:#ffffff; --muted-bg:#f6f6f6; --secondary:#f1f1f1;
+    --muted-fg:#737373; --muted-fg2:#a3a3a3; --border:#e7e7e7; --border2:#dddddd; --ring:#b4b4b4;
+    --primary:#1a1a1a; --primary-fg:#fafafa; --destructive:#cc3333; --good:#15803d; --link:#2563eb; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--background);color:var(--foreground);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5}
+  .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:600px;margin:0 auto;padding:30px 22px 90px}
+  .crumbs{font-size:12px;color:var(--muted-fg);margin-bottom:14px}
+  .note{font-size:11.5px;color:var(--muted-fg)}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 1px 2px rgba(16,16,16,.04);margin-bottom:18px}
+  .hd{padding:16px 16px 8px}
+  .hd .row{display:flex;align-items:center;justify-content:space-between}
+  .title{font-size:15px;font-weight:600}
+  .chip{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:12px;background:var(--secondary);padding:2px 8px;border-radius:6px}
+  .desc{margin-top:4px;font-size:12px;color:var(--muted-fg)}
+  .bd{padding:4px 16px 16px;display:flex;flex-direction:column;gap:16px}
+
+  .fld .lbl{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:13px;font-weight:500;align-items:baseline}
+  .val{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--muted-fg);font-size:12px}
+  input[type=range]{width:100%;accent-color:var(--primary);height:6px;border-radius:999px}
+  input[type=range].dim{opacity:.4}
+  .hint{margin-top:4px;font-size:11.5px;color:var(--muted-fg)}
+
+  .seg{display:inline-flex;background:var(--muted-bg);border-radius:8px;padding:2px;font-size:13px;margin-top:6px}
+  .seg button{border:0;background:transparent;color:var(--muted-fg);padding:3px 11px;border-radius:6px;cursor:pointer;font-weight:520;font-size:11px}
+  .seg button.on{background:var(--card);color:var(--foreground);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+  .bom{margin-top:8px;border:1px solid var(--border);border-radius:9px;background:var(--muted-bg);padding:10px 11px;display:flex;flex-direction:column;gap:9px}
+  .bomhdr{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em}
+  .line{display:flex;flex-direction:column;gap:5px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .line:last-of-type{border-bottom:0;padding-bottom:0}
+  .linetop{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+  .nm{font-size:12.5px;font-weight:520}
+  .num{width:64px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:12.5px;text-align:right}
+  select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:12px}
+  .meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--muted-fg)}
+  .cbadge{font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-radius:5px;padding:1px 6px;font-weight:650}
+  .cbadge.sourced{background:#dcfce7;color:#166534;border:1px solid #b7e4c7}
+  .cbadge.est{background:var(--secondary);color:var(--muted-fg);border:1px solid var(--border2)}
+  .prodbtn{font-size:11px;border:1px solid var(--border2);border-radius:6px;padding:3px 9px;background:var(--card);cursor:pointer;color:var(--foreground);font-weight:540}
+  .prodbtn:hover{background:var(--muted-bg)}
+  .risk{color:#9a3412}
+  .bomsum{display:flex;justify-content:space-between;border-top:1px solid var(--border2);padding-top:8px;font-size:12.5px;font-weight:600}
+  .ibadge{font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-radius:5px;padding:1px 5px;font-weight:650;background:#fde7d7;color:#9a3412;border:1px solid #f6c89f}
+  .mockbadge{position:fixed;right:14px;bottom:14px;background:var(--foreground);color:var(--primary-fg);font-size:11px;padding:6px 11px;border-radius:20px;opacity:.92}
+
+  /* products modal */
+  .overlay{position:fixed;inset:0;background:rgba(16,16,16,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+  .overlay.open{display:flex}
+  .modal{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:520px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .modal .mh{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 18px 10px;border-bottom:1px solid var(--border)}
+  .modal .mt{font-size:15px;font-weight:600}
+  .modal .ms{font-size:12px;color:var(--muted-fg);margin-top:2px}
+  .modal .mx{border:0;background:none;font-size:20px;color:var(--muted-fg);cursor:pointer;line-height:1}
+  .modal .mb{padding:8px 18px 16px}
+  .prod{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--border)}
+  .prod:last-child{border-bottom:0}
+  .prod .pl{min-width:0}
+  .prod .pv{font-size:11px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em}
+  .prod .pm{font-size:13.5px;font-weight:600;margin-top:1px}
+  .prod .pspec{font-size:12px;color:var(--muted-fg);margin-top:2px}
+  .prod .pr{text-align:right;white-space:nowrap;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+  .prod .pprice{font-family:ui-monospace,monospace;font-size:12px;color:var(--foreground)}
+  .lit{font-size:12px;color:var(--link);text-decoration:none;border:1px solid var(--border);border-radius:7px;padding:4px 9px;background:var(--card)}
+  .lit:hover{background:var(--muted-bg);text-decoration:underline}
+  .modal .mf{font-size:11px;color:var(--muted-fg);padding:0 18px 16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumbs mono">Tools / Data Center Cost Model · Build cost tab</div>
+
+  <p class="note" style="margin-bottom:16px">Each category toggles <b>Lump sum | Itemized</b> on its own.
+  Itemized lines show a $/W value + confidence; the specific equipment is <b>not listed inline</b> — click
+  <b>“⊞ Products”</b> to open a pop-up of alternative products with <b>links to product literature</b>.
+  (Literature links are tagged for future <b>outbound-click / ad tracking</b>.)</p>
+
+  <!-- FACILITIES CAPEX -->
+  <div class="card">
+    <div class="hd">
+      <div class="row"><span class="title">Facilities capex build-up</span><span class="chip" style="color:var(--primary)">$19.20/W</span></div>
+      <div class="desc">$/W of critical IT ($1/W = $1M/MW).</div>
+    </div>
+    <div class="bd">
+
+      <!-- ELECTRICAL — itemized -->
+      <div class="fld">
+        <div class="lbl"><span>Electrical equipment <span class="ibadge">itemized</span></span><span class="val">$1.80/W (sum)</span></div>
+        <input type="range" class="dim" value="23" disabled />
+        <div class="hint">Utility-to-rack power chain · ≈40–45% of build.</div>
+        <div class="seg"><button>Lump sum</button><button class="on">Itemized</button></div>
+
+        <div class="bom">
+          <div class="bomhdr"><span>Bill of materials</span><span>$/W · unit · products</span></div>
+
+          <div class="line">
+            <div class="linetop"><span class="nm">Substation + MV switchgear</span><input class="num" value="0.40"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge sourced">sourced</span><span class="risk">⏱ 40–60 wk</span><span>ref ≈ $3–8M lineup</span><button class="prodbtn" onclick="openProducts('switchgear')">⊞ Products (4)</button></div>
+          </div>
+
+          <div class="line">
+            <div class="linetop"><span class="nm">Standby generators + fuel</span><input class="num" value="0.45"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge sourced">sourced</span><span class="risk">⏱ long-lead</span><span>ref ≈ $125–800/kW</span><button class="prodbtn" onclick="openProducts('generators')">⊞ Products (4)</button></div>
+          </div>
+
+          <div class="line">
+            <div class="linetop"><span class="nm">UPS + LFP batteries</span><input class="num" value="0.36"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge sourced">sourced</span><span>ref ≈ $150–300/kW</span><button class="prodbtn" onclick="openProducts('ups')">⊞ Products (4)</button></div>
+          </div>
+
+          <div class="line">
+            <div class="linetop"><span class="nm">HV substation transformers</span><input class="num" value="0.28"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge est">estimate</span><span class="risk">⏱ ~18–24 mo</span><button class="prodbtn" onclick="openProducts('transformers')">⊞ Products (4)</button></div>
+          </div>
+
+          <div class="line">
+            <div class="linetop"><span class="nm">LV switchboards / panelboards</span><input class="num" value="0.18"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge est">estimate</span><button class="prodbtn" onclick="openProducts('lv')">⊞ Products (3)</button></div>
+          </div>
+
+          <div class="line">
+            <div class="linetop"><span class="nm">Busway</span><input class="num" value="0.13"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge est">estimate</span><button class="prodbtn" onclick="openProducts('busway')">⊞ Products (3)</button></div>
+          </div>
+
+          <div class="bomsum"><span>Category total</span><span class="mono">$1.80/W</span></div>
+        </div>
+      </div>
+
+      <!-- collapsed (lump sum) -->
+      <div class="fld">
+        <div class="lbl"><span>Mechanical equipment</span><span class="val">$1.70/W</span></div>
+        <input type="range" value="21" />
+        <div class="hint">Chillers, towers, CRAH, CDUs, cold plates · ≈15–20%.</div>
+        <div class="seg"><button class="on">Lump sum</button><button>Itemized</button></div>
+      </div>
+      <div class="fld"><div class="lbl"><span>Labor</span><span class="val">$4.70/W</span></div><input type="range" value="59" /><div class="seg"><button class="on">Lump sum</button><button>Itemized</button></div></div>
+      <div class="fld"><div class="lbl"><span>Materials</span><span class="val">$3.90/W</span></div><input type="range" value="49" /><div class="seg"><button class="on">Lump sum</button><button>Itemized</button></div></div>
+      <div class="fld"><div class="lbl"><span>Tenant fit-out</span><span class="val">$2.60/W</span></div><input type="range" value="33" /><div class="seg"><button class="on">Lump sum</button><button>Itemized</button></div></div>
+      <div class="fld"><div class="lbl"><span>Soft costs</span><span class="val">$1.50/W</span></div><input type="range" value="19" /><div class="seg"><button class="on">Lump sum</button><button>Itemized</button></div></div>
+      <div class="fld"><div class="lbl"><span>Gas plant (behind-the-meter)</span><span class="val">$3.00/W</span></div><input type="range" value="50" /><div class="seg"><button class="on">Lump sum</button><button>Itemized</button></div></div>
+    </div>
+  </div>
+
+  <!-- AI CAPEX -->
+  <div class="card">
+    <div class="hd">
+      <div class="row"><span class="title">AI infrastructure capex</span><span class="chip">$40.00/W</span></div>
+      <div class="desc">The compute payload.</div>
+    </div>
+    <div class="bd">
+      <div class="fld">
+        <div class="lbl"><span>GPUs / accelerators <span class="ibadge">itemized</span></span><span class="val">$30.0/W (sum)</span></div>
+        <input type="range" class="dim" value="50" disabled />
+        <div class="hint">Accelerator hardware per watt of IT.</div>
+        <div class="seg"><button>Lump sum</button><button class="on">Itemized</button></div>
+        <div class="bom">
+          <div class="bomhdr"><span>Bill of materials</span><span>$/W · unit · products</span></div>
+          <div class="line">
+            <div class="linetop"><span class="nm">Accelerator nodes</span><input class="num" value="26.0"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge sourced">sourced</span><span>ref ≈ $23–28/W</span><button class="prodbtn" onclick="openProducts('accel')">⊞ Products (4)</button></div>
+          </div>
+          <div class="line">
+            <div class="linetop"><span class="nm">Host CPU + system memory</span><input class="num" value="3.0"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge est">estimate</span><button class="prodbtn" onclick="openProducts('host')">⊞ Products (3)</button></div>
+          </div>
+          <div class="line">
+            <div class="linetop"><span class="nm">In-rack busbar / manifold + rPDU</span><input class="num" value="1.0"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge est">estimate</span><button class="prodbtn" onclick="openProducts('rpdu')">⊞ Products (3)</button></div>
+          </div>
+          <div class="bomsum"><span>Category total</span><span class="mono">$30.0/W</span></div>
+        </div>
+      </div>
+
+      <div class="fld">
+        <div class="lbl"><span>Other AI infrastructure <span class="ibadge">itemized</span></span><span class="val">$10.0/W (sum)</span></div>
+        <input type="range" class="dim" value="33" disabled />
+        <div class="hint">Networking, storage, head nodes · gating: optics.</div>
+        <div class="seg"><button>Lump sum</button><button class="on">Itemized</button></div>
+        <div class="bom">
+          <div class="bomhdr"><span>Bill of materials</span><span>$/W · unit · products</span></div>
+          <div class="line">
+            <div class="linetop"><span class="nm">Backend fabric switches</span><input class="num" value="4.0"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge sourced">sourced</span><span>ref ≈ $39k/switch</span><button class="prodbtn" onclick="openProducts('switches')">⊞ Products (4)</button></div>
+          </div>
+          <div class="line">
+            <div class="linetop"><span class="nm">800G optics</span><input class="num" value="2.0"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge sourced">sourced</span><span class="risk">gating</span><span>ref ≈ $0.9–2k ea</span><button class="prodbtn" onclick="openProducts('optics')">⊞ Products (4)</button></div>
+          </div>
+          <div class="line">
+            <div class="linetop"><span class="nm">All-flash NVMe-oF storage</span><input class="num" value="1.0"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge sourced">sourced</span><span>ref ≈ $90–150/TB</span><button class="prodbtn" onclick="openProducts('storage')">⊞ Products (4)</button></div>
+          </div>
+          <div class="line">
+            <div class="linetop"><span class="nm">SmartNICs / DPUs</span><input class="num" value="1.5"/><select><option>$/W</option><option>$</option><option>$/MW</option></select></div>
+            <div class="meta"><span class="cbadge est">estimate</span><button class="prodbtn" onclick="openProducts('dpu')">⊞ Products (3)</button></div>
+          </div>
+          <div class="bomsum"><span>Category total</span><span class="mono">$10.0/W</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">Pop-up lists curated alternatives + literature links per line item. The single
+  selected/representative product feeds the price; suppliers later auto-fill live quotes.</p>
+</div>
+
+<!-- PRODUCTS MODAL -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="mh">
+      <div><div class="mt" id="m-title">Products</div><div class="ms" id="m-sub"></div></div>
+      <button class="mx" onclick="closeModal()">×</button>
+    </div>
+    <div class="mb" id="m-body"></div>
+    <div class="mf">“Literature” links open the manufacturer's spec sheet in a new tab. Clicks are tagged
+      <span class="mono">data-track="outbound"</span> for future ad / referral analytics.</div>
+  </div>
+</div>
+
+<div class="mockbadge">MOCK-UP — not the live tool</div>
+
+<script>
+const PRODUCTS = {
+  switchgear:{title:"Medium-voltage switchgear",sub:"Substation + MV distribution · ~13.8 kV",items:[
+    {v:"ABB",m:"UniGear ZS1",s:"Air-insulated MV switchgear, up to 24 kV",p:"$3–8M lineup",u:"https://new.abb.com/medium-voltage/switchgear/air-insulated/iec-and-other-standards/unigear-zs1-portfolio"},
+    {v:"Siemens",m:"NXAIR",s:"Air-insulated MV switchgear, up to 17.5 kV",p:"—",u:"https://www.siemens.com/global/en/products/energy/medium-voltage/systems/nxair.html"},
+    {v:"Eaton",m:"Power Xpert XGIS",s:"Gas-insulated compact MV switchgear, up to 38 kV",p:"—",u:"https://www.eaton.com/us/en-us/catalog/medium-voltage-power-distribution-control-systems/power-xpert-xgis-gas-insulated-medium-voltage-switchgear.html"},
+    {v:"Schneider Electric",m:"PIX / PremSet",s:"AIS / shielded solid-insulation MV",p:"—",u:"https://www.se.com/us/en/product-range/61426-pix-12/"}]},
+  generators:{title:"Standby diesel generators",sub:"~2.5 MW, Tier 4 · backup power",items:[
+    {v:"Caterpillar",m:"3516C HD",s:"2,500 kW / 3,125 kVA, Tier 4",p:"~$125–800/kW",u:"https://www.cat.com/en_US/products/new/power-systems/electric-power/diesel-generator-sets/18500392.html"},
+    {v:"Cummins",m:"C2250 D6A (QSK60)",s:"2,250 kVA standby diesel",p:"—",u:"https://www.cummins.com/generators/c2250d6a"},
+    {v:"MTU / Rolls-Royce",m:"Series 4000 (20V4000 DS2500)",s:"~2,500 kW genset",p:"—",u:"https://www.mtu-solutions.com/eu/en/applications/power-generation/power-generation-products/diesel-generator-sets/series/4000.html"},
+    {v:"Kohler",m:"KD2500",s:"2,500 kW diesel genset, 60 Hz",p:"—",u:"https://www.powersystems.rehlko.com/product/kd2500"}]},
+  ups:{title:"UPS + Li-ion battery",sub:"Static UPS · short-runtime LFP",items:[
+    {v:"Vertiv",m:"Liebert EXL S1",s:"250–1,200 kVA, transformer-free, ≤99% eco",p:"~$150–300/kW",u:"https://www.vertiv.com/en-us/products-catalog/critical-power/uninterruptible-power-supplies-ups/liebert-exl-s1/"},
+    {v:"Schneider Electric",m:"Galaxy VX",s:"Modular 3-phase UPS, 500–1,500 kVA",p:"—",u:"https://www.se.com/us/en/product-range/63732-galaxy-vx/"},
+    {v:"Eaton",m:"Power Xpert 9395P",s:"High-efficiency large UPS, 250–1,200 kVA",p:"—",u:"https://www.eaton.com/us/en-us/catalog/backup-power-ups-surge-it-power-distribution/power-xpert-9395p-high-performance-ups.html"},
+    {v:"ABB",m:"DPA 250 S4",s:"Modular UPS, 50–1,500 kW",p:"—",u:"https://new.abb.com/ups/systems/three-phase-ups/dpa-250-s4"}]},
+  transformers:{title:"HV / step-down transformers",sub:"115/230 kV → MV · long-lead",items:[
+    {v:"Hitachi Energy",m:"Power transformers",s:"Liquid-filled step-down",p:"~18–24 mo lead",u:"https://www.hitachienergy.com/products-and-solutions/transformers/power-transformers"},
+    {v:"Schneider Electric",m:"Trihal",s:"Cast-resin dry-type, up to 15 MVA / 36 kV",p:"—",u:"https://www.se.com/ww/en/work/products/product-launch/trihal-transformers/"},
+    {v:"Eaton (Cooper)",m:"Pad-mount transformer",s:"2.5 MVA class",p:"—",u:"https://www.eaton.com/us/en-us/products/medium-voltage-power-distribution-control-systems/transformers.html"},
+    {v:"Virginia Transformer",m:"Medium/Large power",s:"Made-to-order",p:"—",u:"https://vatransformer.com/products/"}]},
+  lv:{title:"LV switchboards / panelboards",sub:"415/480 V distribution",items:[
+    {v:"Schneider Electric",m:"Square D I-Line",s:"LV switchboard",p:"—",u:"https://www.se.com/us/en/product-range/2306-i-line-panelboards/"},
+    {v:"Eaton",m:"Pow-R-Line",s:"Switchboards / panelboards",p:"—",u:"https://www.eaton.com/us/en-us/catalog/low-voltage-power-distribution-controls-systems/pow-r-line-switchboards.html"},
+    {v:"ABB",m:"MNS",s:"LV switchgear",p:"—",u:"https://new.abb.com/low-voltage/products/switchgear/mns-system"}]},
+  busway:{title:"Overhead busway",sub:"High-amp track busway",items:[
+    {v:"Starline",m:"Track Busway",s:"Overhead plug-in busway, 40–1,250 A",p:"—",u:"https://starlinepower.com/products/busway/track-busway"},
+    {v:"Schneider Electric",m:"Canalis",s:"Busbar trunking",p:"—",u:"https://www.se.com/us/en/product-range/934-canalis/"},
+    {v:"Eaton",m:"Pow-R-Way III",s:"Feeder/plug-in busway",p:"—",u:"https://www.eaton.com/us/en-us/catalog/low-voltage-power-distribution-controls-systems/pow-r-way-iii-busway.html"}]},
+  accel:{title:"AI accelerator nodes",sub:"Rack-scale GPU systems",items:[
+    {v:"NVIDIA",m:"GB200 NVL72",s:"72 Blackwell GPU, ~120 kW, liquid-cooled",p:"$2.8–3.4M/rack ⇒ ~$25/W",u:"https://www.nvidia.com/en-us/data-center/gb200-nvl72/"},
+    {v:"NVIDIA",m:"GB300 NVL72",s:"72 Blackwell Ultra GPU, rack-scale",p:"—",u:"https://www.nvidia.com/en-us/data-center/gb300-nvl72/"},
+    {v:"NVIDIA",m:"HGX B200",s:"8-GPU air/liquid baseboard",p:"—",u:"https://www.nvidia.com/en-us/data-center/hgx/"},
+    {v:"AMD",m:"Instinct MI300X platform",s:"8× MI300X OAM",p:"—",u:"https://www.amd.com/en/products/accelerators/instinct/mi300/platform.html"}]},
+  host:{title:"Host CPU + memory",sub:"Head nodes / DDR",items:[
+    {v:"NVIDIA",m:"Grace CPU",s:"ARM, coherent w/ Blackwell",p:"—",u:"https://www.nvidia.com/en-us/data-center/grace-cpu/"},
+    {v:"AMD",m:"EPYC 9005 (Turin)",s:"x86 server CPU",p:"—",u:"https://www.amd.com/en/products/processors/server/epyc/9005-series.html"},
+    {v:"Intel",m:"Xeon 6",s:"x86 server CPU",p:"—",u:"https://www.intel.com/content/www/us/en/products/details/processors/xeon/xeon6-processors.html"}]},
+  rpdu:{title:"In-rack power + manifold",sub:"rPDU / busbar / D2C manifold",items:[
+    {v:"Vertiv",m:"Geist Switched rPDU",s:"3-phase 415/480 V, intelligent rPDU",p:"—",u:"https://www.vertiv.com/en-us/products-catalog/critical-power/power-distribution/vertiv-geist-switched-rack-pdu/"},
+    {v:"Server Technology",m:"PRO4X rPDU",s:"High-density rack PDU",p:"—",u:"https://www.servertech.com/products/pro4x"},
+    {v:"nVent",m:"D2C manifold / busbar",s:"Liquid-cooling rack manifold",p:"—",u:"https://www.nvent.com/en-us/data-solutions/products"}]},
+  switches:{title:"Backend fabric switches",sub:"InfiniBand / RoCE, 400–800 Gb/s",items:[
+    {v:"NVIDIA",m:"Quantum-2 QM9700",s:"64×400 Gb/s NDR InfiniBand, 1U",p:"~$39,034/switch",u:"https://www.nvidia.com/en-us/networking/quantum2/"},
+    {v:"NVIDIA",m:"Spectrum-X SN5600",s:"64×800GbE, 51.2 Tb/s RoCE",p:"—",u:"https://www.nvidia.com/en-us/networking/spectrum-x/"},
+    {v:"Arista",m:"7800R3 / 7800R4",s:"800G AI spine Ethernet",p:"—",u:"https://www.arista.com/en/products/7800r3-series"},
+    {v:"Cisco",m:"Nexus 9364E-SG2",s:"800G data-center switch",p:"—",u:"https://www.cisco.com/site/us/en/products/networking/cloud-networking-switches/nexus-9000-switches/index.html"}]},
+  optics:{title:"800G optical transceivers",sub:"OSFP NDR · gating component",items:[
+    {v:"NVIDIA",m:"MMA4Z00-NS",s:"800G OSFP 2×SR4, 50 m",p:"~$0.9–2.0k ea",u:"https://www.nvidia.com/en-us/networking/interconnect/"},
+    {v:"FS",m:"800G OSFP 2×FR4",s:"NDR, 2 km SMF",p:"$1,119–1,319",u:"https://www.fs.com/products/140416.html"},
+    {v:"Coherent",m:"800G OSFP-DD",s:"DR8 / 2×FR4",p:"—",u:"https://www.coherent.com/networking/datacom-transceivers"},
+    {v:"InnoLight",m:"800G OSFP",s:"SR8 / DR8",p:"—",u:"https://www.innolight.com/products/"}]},
+  storage:{title:"All-flash NVMe-oF storage",sub:"AI checkpoint / ingest tier",items:[
+    {v:"VAST Data",m:"VAST Data Platform",s:"DASE NVMe-oF, all-flash",p:"~$90–150/usable TB",u:"https://www.vastdata.com/platform/overview"},
+    {v:"WEKA",m:"WEKApod",s:"Parallel NVMe FS appliance",p:"—",u:"https://www.weka.io/data-platform/environment/wekapod/"},
+    {v:"Pure Storage",m:"FlashBlade//E",s:"All-flash scale-out",p:"—",u:"https://www.purestorage.com/products/unstructured-data-storage/flashblade-e.html"},
+    {v:"DDN",m:"AI400X2",s:"NVMe parallel appliance",p:"—",u:"https://www.ddn.com/products/a3i-ai400x2/"}]},
+  dpu:{title:"SmartNICs / DPUs",sub:"Per compute node",items:[
+    {v:"NVIDIA",m:"BlueField-3 DPU",s:"400 Gb/s offload",p:"—",u:"https://www.nvidia.com/en-us/networking/products/data-processing-unit/"},
+    {v:"NVIDIA",m:"ConnectX-7",s:"400 Gb/s NIC",p:"—",u:"https://www.nvidia.com/en-us/networking/ethernet-adapters/"},
+    {v:"AMD",m:"Pensando DPU",s:"Programmable DPU",p:"—",u:"https://www.amd.com/en/products/accelerators/pensando.html"}]},
+};
+function openProducts(key){
+  const d=PRODUCTS[key]; if(!d) return;
+  document.getElementById('m-title').textContent=d.title;
+  document.getElementById('m-sub').textContent=d.sub;
+  document.getElementById('m-body').innerHTML=d.items.map(it=>`
+    <div class="prod">
+      <div class="pl"><div class="pv">${it.v}</div><div class="pm">${it.m}</div><div class="pspec">${it.s}</div></div>
+      <div class="pr"><span class="pprice">${it.p||''}</span>
+        <a class="lit" href="${it.u}" target="_blank" rel="noopener" data-track="outbound" data-product="${it.v} ${it.m}">Literature ↗</a></div>
+    </div>`).join('');
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+// future: outbound click tracking hook (here: console only)
+document.addEventListener('click',e=>{const a=e.target.closest('a[data-track=outbound]');
+  if(a)console.log('outbound-click',{product:a.dataset.product,href:a.href});});
+</script>
+</body>
+</html>

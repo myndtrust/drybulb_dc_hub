@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The AI Factory's Nervous System — The Case for Converging IT and OT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16130d; --paper:#f4efe4; --paper-2:#ebe4d3; --line:#cfc4ab;
+    --hot:#d4471d; --hot-2:#e8902a; --cool:#2b5c66; --muted:#6e6450; --green:#3f6f3a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.62;-webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(212,71,29,.05), transparent 40%),
+      radial-gradient(circle at 88% 2%, rgba(43,92,102,.06), transparent 45%);}
+  .wrap{max-width:860px;margin:0 auto;padding:0 26px}
+  header.mast{border-bottom:2px solid var(--ink);margin-top:30px}
+  .mast-row{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);padding-bottom:10px}
+  .mast-row .org{color:var(--hot);font-weight:600}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--hot);margin:30px 0 14px;font-weight:600}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(34px,6vw,60px);
+    line-height:1.03;letter-spacing:-.015em;margin:0 0 18px}
+  h1 .em{font-style:italic;font-weight:500;color:var(--hot)}
+  .deck{font-family:"Newsreader",serif;font-size:clamp(19px,2.4vw,24px);line-height:1.4;
+    color:#3a3327;font-weight:400;max-width:46ch}
+  .byline{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);margin:26px 0 0;border-top:1px solid var(--line);
+    padding-top:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+  article{padding:38px 0 10px}
+  article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(25px,3.6vw,34px);
+    line-height:1.1;margin:54px 0 6px;letter-spacing:-.01em}
+  article h2 .num{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--hot);
+    display:block;letter-spacing:.2em;margin-bottom:8px;font-weight:600}
+  article p{margin:16px 0}
+  article p.lead:first-of-type::first-letter{font-family:"Fraunces",serif;font-weight:900;float:left;
+    font-size:74px;line-height:.7;padding:8px 10px 0 0;color:var(--hot)}
+  a{color:var(--hot);text-decoration:none;border-bottom:1px solid rgba(212,71,29,.35)}
+  a:hover{background:rgba(212,71,29,.08)}
+  sup.ref{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:var(--hot);
+    vertical-align:super;line-height:0}
+  sup.ref a{border:none}
+  strong{font-weight:600} em{font-style:italic}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  blockquote{margin:34px 0;padding:6px 0 6px 26px;border-left:3px solid var(--hot);
+    font-family:"Fraunces",serif;font-style:italic;font-size:25px;line-height:1.3;color:#2b2519}
+  blockquote .cite{display:block;font-family:"IBM Plex Mono",monospace;font-style:normal;font-size:12px;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:12px}
+  .box{background:var(--paper-2);border:1px solid var(--line);border-radius:3px;padding:20px 22px;
+    margin:30px 0;font-size:17px}
+  .box .lbl{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--hot);font-weight:600;margin-bottom:8px}
+  .box p{margin:8px 0;line-height:1.5}
+  figure{margin:42px 0}
+  figure svg{width:100%;height:auto;display:block;background:#fbf8f0;border:1px solid var(--line);border-radius:4px}
+  figcaption{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+  figcaption b{color:var(--ink);font-weight:600}
+  .refs{border-top:2px solid var(--ink);margin-top:64px;padding-top:24px}
+  .refs h2{margin-top:0}
+  ol.reflist{font-family:"IBM Plex Mono",monospace;font-size:13px;line-height:1.55;color:var(--muted);padding-left:30px}
+  ol.reflist li{margin:9px 0}
+  ol.reflist a{color:var(--cool);border:none;word-break:break-word}
+  .disc{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);line-height:1.6;
+    border-top:1px solid var(--line);margin-top:30px;padding:18px 0 60px}
+  @media(max-width:560px){ body{font-size:18px} article p.lead:first-of-type::first-letter{font-size:60px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <div class="mast-row">
+    <span class="org">◢ Grid-to-Chip Research</span>
+    <span>Operations &amp; Controls</span>
+    <span>Vol. 1 — June 2026</span>
+  </div>
+</header>
+
+<div class="kicker">Deep Dive · AI Factory Telemetry &amp; Controls</div>
+<h1>The AI Factory's <span class="em">Nervous System</span>: the case for converging IT and OT</h1>
+<p class="deck">The power and cooling are being reinvented for the AI factory. The data layer that ties them together — a single, real-time fabric spanning grid to GPU — is the piece most owners are still treating as an afterthought. It shouldn't be.</p>
+<div class="byline">
+  <span>Analyst Note · Independent</span>
+  <span>≈ 10 min read · June 2026</span>
+</div>
+
+<article>
+
+<p class="lead">A traditional data center could get away with watching its building and its IT as two different worlds. Facilities ran the power and cooling on one set of systems — building management, electrical metering, SCADA — polled on the order of seconds to minutes and owned by the plant engineers. IT ran the servers on another — element managers, monitoring agents, ticketing — owned by a different team, often in a different building. The two met, if at all, in a quarterly capacity meeting. For a hall of steady 5–10&nbsp;kW racks, that was fine. The AI factory breaks it.</p>
+
+<p>The reason is that an AI factory's defining behaviors are <em>cross-domain and fast</em>. A GPU cluster slamming from idle to full power in milliseconds is simultaneously an IT event (a scheduler dispatched a job) and an electrical event (a multi-megawatt transient hitting the power chain) and a thermal event (a step change the cooling loop must answer). Battery storage <a href="/writing/bess-project-specific-testing">riding through a grid sag</a> while compute keeps running is a power-systems decision made on IT-relevant timescales. Selling load flexibility back to the utility is a grid negotiation driven by the workload schedule. None of these can be managed by two teams looking at two dashboards that reconcile next quarter. They require one nervous system: a unified, real-time stream of telemetry — and control — that spans the grid connection to the silicon.</p>
+
+<p>This article makes a direct argument: that nervous system is <strong>load-bearing infrastructure</strong>, and the right way to build it is to <strong>converge information technology (IT) and operational technology (OT) onto a single, open, event-driven fabric</strong>. It is not a prettier dashboard bolted onto the old silos — it is an integration layer, and it should be engineered with the same deliberation an owner brings to the electrical busway or the chilled-water plant.</p>
+
+<h2><span class="num">01 — The Divide</span>Why IT and OT never talked</h2>
+
+<p>The split is historical and cultural, not accidental. <strong>Operational technology</strong> — the power and plant systems — grew up on industrial protocols (BACnet, Modbus) and SCADA, organized by the <em>Purdue model</em> of layered, air-gapped control networks codified in ISA-95 and protected under <a href="https://www.isa.org/standards-and-publications/isa-standards/isa-iec-62443-series-of-standards">IEC&nbsp;62443</a>.<sup class="ref"><a href="#r-62443">10</a></sup> Its instinct is determinism, safety, and isolation; change is slow and suspicious by design. <strong>Information technology</strong> grew up on Ethernet, REST, and now cloud-native observability — fast-moving, software-defined, comfortable with churn. The server's own management plane standardized on DMTF's <a href="https://www.dmtf.org/standards/redfish">Redfish</a>,<sup class="ref"><a href="#r-redfish">1</a></sup> a vendor-agnostic RESTful API that replaced the old IPMI world.</p>
+
+<p>Both halves got better in isolation — and that is exactly the problem. The facility knows its kW and its supply-water temperature; it has no idea which training run caused the spike. The cluster knows its GPU utilization and inlet temperature; it has no idea the chiller plant is about to trip a stage. The data exists. It is simply trapped in separate systems, on separate timescales, owned by separate teams. For the AI factory, that fragmentation is no longer a nuisance — it is a hard ceiling on how the facility can be operated.</p>
+
+<h2><span class="num">02 — The Shape of the Fix</span>An event-driven telemetry fabric</h2>
+
+<p>The architecture the industry is converging on is not a bigger database polled more often. It is an <strong>event-driven fabric</strong>: a publish/subscribe backbone where every system — a meter, a CDU, a BMC, a scheduler — <em>publishes what it knows when it changes</em>, and anything that needs that information subscribes to it. The lingua franca on the OT side is <strong>MQTT</strong>, a lightweight pub/sub protocol, increasingly carrying <a href="https://www.emqx.com/en/blog/a-comparison-of-iiot-protocols-mqtt-sparkplug-vs-opc-ua">Sparkplug&nbsp;B</a> payloads<sup class="ref"><a href="#r-sparkplug">3</a></sup> — a specification that adds the one thing raw MQTT lacks: <em>structured, self-describing, semantically typed</em> messages with report-by-exception, so a consumer can understand a metric without a tribal-knowledge decoder ring. Where machine-to-machine industrial semantics are needed, <a href="https://flowfuse.com/blog/2026/01/opcua-vs-mqtt/">OPC-UA</a> plays the modeling role;<sup class="ref"><a href="#r-opcua">4</a></sup> the two increasingly coexist rather than compete.</p>
+
+<p>Around that backbone sit three things that turn a message broker into an engineering system: <strong>versioned, machine-readable contracts</strong> — message and topic definitions in formats like <a href="https://www.asyncapi.com/">AsyncAPI</a><sup class="ref"><a href="#r-asyncapi">11</a></sup> and JSON Schema, carried in a standard <a href="https://cloudevents.io/">CloudEvents</a><sup class="ref"><a href="#r-cloudevents">12</a></sup> envelope, so a producer can evolve a payload without silently breaking every consumer — a <strong>schema-agnostic broker</strong> that handles routing, federation across sites, and quality-of-service without caring what's inside the messages, and an <strong>authorization layer</strong> that decides who may publish and subscribe to what. This is precisely the shape of the <strong>open, MQTT-based AI-factory event-bus blueprints now emerging from the accelerator-platform vendors</strong><sup class="ref"><a href="#r-dcf">7</a></sup> — reference designs that publish their topic and message <em>contracts</em> openly and lean on mature open-source messaging rather than a proprietary historian.<sup class="ref"><a href="#r-synadia">8</a></sup> The detail worth internalizing is the philosophy: <em>standardize the contracts and the security, stay agnostic about the payloads.</em></p>
+
+<p>Two more details earn an engineer's trust. Delivery is <strong>at-least-once with idempotent consumers</strong> — you design for duplicate and out-of-order messages rather than pretending exactly-once exists — with explicit backpressure so the analytics firehose can't stall the control path. And the topic tree is organized as a <strong>Unified Namespace</strong>: one semantically structured address space (site → hall → row → asset → metric) that becomes the single place any service looks for the current state of anything. Greenfield equipment publishes into it natively; brownfield <strong>BACnet, Modbus, and SNMP</strong> devices are bridged on through <strong>edge protocol gateways</strong> — so convergence is an integration effort, not a rip-and-replace.</p>
+
+<figure>
+<svg viewBox="0 0 860 470" role="img" aria-label="The AI-factory telemetry fabric: OT and IT sources publish to an event bus consumed by digital twin, control, analytics and agents">
+  <style>
+    .t{font-family:"IBM Plex Mono",monospace;fill:#16130d}
+    .lbl{font-size:12px} .sm{font-size:10px;fill:#6e6450}
+    .hd{font-family:Fraunces,serif;font-size:14px;font-weight:600}
+    .ot{fill:#ebe4d3;stroke:#cfc4ab} .it{fill:#dfeaec;stroke:#9bbcc1}
+    .bus{fill:#f6dccf;stroke:#d4471d} .con{fill:#e7eee2;stroke:#9bb39a}
+    .arr{stroke:#16130d;stroke-width:1.4;marker-end:url(#ah)}
+    .arrhot{stroke:#d4471d;stroke-width:2;marker-end:url(#ahh)}
+  </style>
+  <defs>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#16130d"/></marker>
+    <marker id="ahh" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d4471d"/></marker>
+  </defs>
+
+  <!-- column headers -->
+  <text class="t hd" x="20" y="26">Operational + IT sources</text>
+  <text class="t hd" x="372" y="26" fill="#d4471d">Event bus</text>
+  <text class="t hd" x="700" y="26">Consumers</text>
+
+  <!-- OT sources -->
+  <text class="t sm" x="20" y="52" fill="#6e6450">OT — plant</text>
+  <rect class="ot" x="20" y="60" width="190" height="40" rx="3"/><text class="t lbl" x="115" y="84" text-anchor="middle">Grid intake / EPMS</text>
+  <rect class="ot" x="20" y="108" width="190" height="40" rx="3"/><text class="t lbl" x="115" y="132" text-anchor="middle">BMS · cooling / CDU</text>
+  <rect class="ot" x="20" y="156" width="190" height="40" rx="3"/><text class="t lbl" x="115" y="180" text-anchor="middle">BESS · switchgear</text>
+  <!-- IT sources -->
+  <text class="t sm" x="20" y="232" fill="#6e6450">IT — compute</text>
+  <rect class="it" x="20" y="240" width="190" height="40" rx="3"/><text class="t lbl" x="115" y="264" text-anchor="middle">BMC / Redfish</text>
+  <rect class="it" x="20" y="288" width="190" height="40" rx="3"/><text class="t lbl" x="115" y="312" text-anchor="middle">GPU / DPU telemetry</text>
+  <rect class="it" x="20" y="336" width="190" height="40" rx="3"/><text class="t lbl" x="115" y="360" text-anchor="middle">Schedulers / orchestration</text>
+
+  <!-- bus -->
+  <rect class="bus" x="330" y="60" width="160" height="316" rx="4"/>
+  <text class="t lbl" x="410" y="120" text-anchor="middle" font-weight="600">EVENT BUS</text>
+  <text class="t sm" x="410" y="150" text-anchor="middle">pub / sub (MQTT)</text>
+  <text class="t sm" x="410" y="170" text-anchor="middle">versioned contracts</text>
+  <text class="t sm" x="410" y="190" text-anchor="middle">semantic payloads</text>
+  <text class="t sm" x="410" y="210" text-anchor="middle">authz · mTLS / OAuth</text>
+  <text class="t sm" x="410" y="230" text-anchor="middle">QoS tiers</text>
+  <text class="t sm" x="410" y="250" text-anchor="middle">site federation</text>
+
+  <!-- consumers -->
+  <rect class="con" x="640" y="60" width="200" height="40" rx="3"/><text class="t lbl" x="740" y="84" text-anchor="middle">Physics digital twin</text>
+  <rect class="con" x="640" y="116" width="200" height="40" rx="3"/><text class="t lbl" x="740" y="140" text-anchor="middle">Closed-loop control</text>
+  <rect class="con" x="640" y="172" width="200" height="40" rx="3"/><text class="t lbl" x="740" y="196" text-anchor="middle">Analytics / observability</text>
+  <rect class="con" x="640" y="228" width="200" height="40" rx="3"/><text class="t lbl" x="740" y="252" text-anchor="middle">Autonomous agents</text>
+
+  <!-- arrows sources -> bus -->
+  <line class="arr" x1="210" y1="80"  x2="330" y2="120"/>
+  <line class="arr" x1="210" y1="128" x2="330" y2="150"/>
+  <line class="arr" x1="210" y1="176" x2="330" y2="190"/>
+  <line class="arr" x1="210" y1="260" x2="330" y2="240"/>
+  <line class="arr" x1="210" y1="308" x2="330" y2="280"/>
+  <line class="arr" x1="210" y1="356" x2="330" y2="320"/>
+  <!-- arrows bus -> consumers (telemetry out) + control back (hot) -->
+  <line class="arr" x1="490" y1="120" x2="640" y2="80"/>
+  <line class="arr" x1="490" y1="150" x2="640" y2="136"/>
+  <line class="arr" x1="490" y1="200" x2="640" y2="192"/>
+  <line class="arrhot" x1="640" y1="248" x2="492" y2="300"/>
+  <text class="t sm" x="556" y="300" fill="#d4471d">control ↩</text>
+
+  <text class="t sm" x="20" y="420">Sources publish state on change; the bus routes/secures it; consumers subscribe — and agents/control publish commands back.</text>
+  <text class="t sm" x="20" y="440" fill="#6e6450">Standardize the contracts and the security; stay agnostic about the payloads.</text>
+</svg>
+<figcaption><b>Fig. 1 — The AI-factory telemetry fabric.</b> Plant (OT) and compute (IT) sources publish to a shared, schema-agnostic event bus with versioned contracts and an authorization layer; digital twins, supervisory control, analytics, and autonomous agents subscribe — and write supervisory setpoints back, while hard real-time safety loops stay local. One nervous system, grid to GPU.</figcaption>
+</figure>
+
+<h2><span class="num">03 — Bringing IT to the Table</span>Redfish, OpenTelemetry, and the grid</h2>
+
+<p>Convergence is not only an OT modernization story; the IT side has to meet it. The encouraging news is that the IT half already speaks a standard built for streaming. Redfish added <a href="https://www.dmtf.org/content/new-redfish-release-adds-openapi-30-support-telemetry">telemetry streaming and eventing</a> years ago,<sup class="ref"><a href="#r-redfish-tel">2</a></sup> and the data-center community has been steadily extending it from the server to the rack and the facility.<sup class="ref"><a href="#r-ocp">6</a></sup> In parallel, the cloud-native observability world is reaching the other way: there is active work to pull <a href="https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/33724">Redfish metrics into OpenTelemetry</a>,<sup class="ref"><a href="#r-otel">5</a></sup> so server and GPU health land in the same observability plane as everything else. And at the far edge, grid-interactivity needs its own signal: standards like <a href="https://www.openadr.org/">OpenADR</a><sup class="ref"><a href="#r-openadr">9</a></sup> carry demand-response events from the utility into the same fabric, so the schedule can answer a price or a curtailment signal in real time.</p>
+
+<p>The point of naming these is not to crown a winner. It is that the building blocks for an open, converged fabric <em>already exist and are maturing</em> — on both sides of the historical divide. Choosing them over a closed, single-vendor telemetry product is the decision that keeps an owner from being locked into one operations stack for the twenty-year life of a building.</p>
+
+<h2><span class="num">04 — The Hard Parts</span>What makes this real engineering</h2>
+
+<p>Advocating convergence is not the same as pretending it is easy. Four problems separate a working fabric from a science project:</p>
+
+<p><strong>Security across the boundary.</strong> Bridging OT and IT deletes the air gap that protected plant systems for decades. The fabric must reintroduce that protection in software — mutual TLS, per-publisher authorization, signed contracts — without recreating a silo. IEC&nbsp;62443's zone-and-conduit thinking<sup class="ref"><a href="#r-62443">10</a></sup> belongs in the design from hour one, not after the first audit.</p>
+
+<p><strong>Latency and quality-of-service tiers.</strong> A closed-loop control message that helps trim a power transient lives on a millisecond budget; a trend feeding a monthly efficiency report does not. One fabric must carry both without the analytics firehose starving the control path — which means explicit QoS tiers, and an honest decision about which loops are fast enough to close on the bus at all versus locally.</p>
+
+<p><strong>Semantic normalization.</strong> A "temperature" from a CRAH, a cold plate, and a GPU die are three different things. Without a shared namespace and unit model — the gap Sparkplug&nbsp;B and OPC-UA information models exist to close — convergence produces a faster swamp, not insight.</p>
+
+<p><strong>Time, synchronized.</strong> Correlating a power transient, a fan-speed change, and a scheduler event at millisecond resolution only works if every source agrees on the clock. That takes disciplined <strong>time synchronization — PTP (IEEE&nbsp;1588)</strong><sup class="ref"><a href="#r-ptp">13</a></sup> across the fabric, not best-effort NTP — so events can be ordered and causally analyzed rather than merely collected.</p>
+
+<p><strong>Keep safety local — and the bus highly available.</strong> Hard real-time control and safety interlocks do <em>not</em> belong on a best-effort pub/sub fabric; they stay <strong>local, deterministic, and hardwired</strong> in SIL-rated PLCs and DCS, exactly where they are today. The fabric's job is <strong>supervisory</strong> — coordination, cross-domain telemetry, and non-safety setpoints. That still makes it operationally critical: once supervisory coordination is driving cooling and power decisions, the fabric needs the redundancy, failure-mode analysis, and graceful degradation of any system that can take the plant down — and a defined safe state for when it is unavailable. What it must never become is the thing standing between a fault and a trip.</p>
+
+<blockquote>
+  The data exists. It is simply trapped in separate systems, on separate timescales, owned by separate teams.
+  <span class="cite">The core problem convergence solves</span>
+</blockquote>
+
+<h2><span class="num">05 — What Convergence Unlocks</span>From dashboards to autonomy</h2>
+
+<p>The payoff is the reason to do the hard work. A converged fabric is the live feed a <strong>physics-based digital twin</strong> needs to stop being a pretty render and start being an operational model — calibrated continuously against the real building. It is the substrate for <strong>supervisory closed-loop control</strong>: cooling optimization that follows the actual heat, power-capping coordinated with the schedule, and the sequencing and situational awareness behind the millisecond hand-offs that <a href="/writing/800vdc-power-architecture">800VDC power chains</a> and battery ride-through depend on — those fast loops executed locally, but orchestrated and supervised across the whole plant. It is what makes <strong>grid-interactive operation</strong> — selling flexibility, surviving curtailment — a controllable behavior rather than a hope. And it is the precondition for <strong>autonomous, agentic operations</strong>: an agent cannot safely run a facility it can only see through a quarterly report. Every one of these capabilities is downstream of the same thing — a single, trustworthy, real-time view of the whole plant.</p>
+
+<h2><span class="num">06 — The Case, Made</span>Converge IT and OT, on open standards</h2>
+
+<p>So the recommendation is direct. AI-factory owners and operators should treat the telemetry-and-control fabric as <strong>first-class infrastructure</strong> — designed and specified alongside the power and cooling, not procured as an afterthought once the building is full. They should <strong>integrate IT and operational/plant technology onto one converged, event-driven fabric</strong> rather than maintaining the historical silos with a dashboard stretched across them. And they should insist that fabric be built on <strong>open contracts and vendor-neutral semantics</strong>, with security and quality-of-service designed in — because the alternative is locking a twenty-year asset to one vendor's operations stack, and discovering the limits of that bargain exactly when the facility needs to do something new.</p>
+
+<p>The power architecture of the AI factory is being rebuilt in public. The storage layer is being qualified. The data layer that lets them act as one machine deserves the same engineering seriousness — and the same insistence on independence. For the controls, network, and platform engineers who will actually build it, that is the opening: not another siloed historian, but the integration layer the whole facility runs on. Build the nervous system on purpose.</p>
+
+</article>
+
+<div class="refs">
+<h2>References &amp; fact-check</h2>
+<ol class="reflist">
+  <li id="r-redfish">DMTF, "Redfish" standard overview — vendor-agnostic RESTful management API for servers, storage, networking and converged infrastructure (successor to IPMI/SMASH/DASH). <a href="https://www.dmtf.org/standards/redfish">dmtf.org</a></li>
+  <li id="r-redfish-tel">DMTF, "New Redfish Release Adds OpenAPI 3.0 Support, Telemetry" — Redfish adds telemetry streaming, eventing, and improved subscriptions for real-time monitoring. <a href="https://www.dmtf.org/content/new-redfish-release-adds-openapi-30-support-telemetry">dmtf.org</a></li>
+  <li id="r-sparkplug">EMQ, "A Comparison of IIoT Protocols: MQTT Sparkplug vs OPC-UA" — Sparkplug B adds structured, semantically typed payloads and report-by-exception over MQTT to bridge the OT/IT gap. <a href="https://www.emqx.com/en/blog/a-comparison-of-iiot-protocols-mqtt-sparkplug-vs-opc-ua">emqx.com</a></li>
+  <li id="r-opcua">FlowFuse, "MQTT vs OPC UA" — OPC-UA's information-modeling role for machine-to-machine semantics and its coexistence with MQTT in modern OT architectures. <a href="https://flowfuse.com/blog/2026/01/opcua-vs-mqtt/">flowfuse.com</a></li>
+  <li id="r-otel">OpenTelemetry Collector Contrib, "New component: Redfish receiver proposal" (Issue #33724) — work to ingest Redfish hardware telemetry into the OpenTelemetry pipeline. <a href="https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/33724">github.com</a></li>
+  <li id="r-ocp">DMTF, "Data Center Enablement with Redfish," OCP Global Summit 2025 — extending Redfish-based management from server to rack and facility. <a href="https://www.dmtf.org/sites/default/files/OCP_Summit_2025-Data_Center_Enablement_with_Redfish.pdf">dmtf.org (PDF)</a></li>
+  <li id="r-dcf">Data Center Frontier, "NVIDIA and Partners Define a Repeatable Blueprint for AI Factory Data Centers," 2026 — industry reporting on open, reference AI-factory designs incl. an operational event-bus / digital-twin layer. <a href="https://www.datacenterfrontier.com/design/article/55338673/nvidia-and-partners-define-a-repeatable-blueprint-for-ai-factory-data-centers">datacenterfrontier.com</a></li>
+  <li id="r-synadia">Synadia, "How an AI Factory Event Bus Is Built on NATS," 2026 — engineering account of an open MQTT/NATS event-bus reference implementation for facility/IT telemetry and control. <a href="https://www.synadia.com/blog/nvidia-built-its-ai-factory-event-bus-on-nats">synadia.com</a></li>
+  <li id="r-openadr">OpenADR Alliance — open standard for automated demand-response signaling between utilities/grid operators and facilities. <a href="https://www.openadr.org/">openadr.org</a></li>
+  <li id="r-62443">ISA/IEC 62443 series — cybersecurity for industrial automation and control systems (zones and conduits; the Purdue/ISA-95 reference model). <a href="https://www.isa.org/standards-and-publications/isa-standards/isa-iec-62443-series-of-standards">isa.org</a></li>
+  <li id="r-asyncapi">AsyncAPI — open specification for defining event-driven / message-based API contracts (channels, messages, payload schemas). <a href="https://www.asyncapi.com/">asyncapi.com</a></li>
+  <li id="r-cloudevents">CloudEvents (CNCF) — vendor-neutral specification for describing event data in a common envelope across systems and transports. <a href="https://cloudevents.io/">cloudevents.io</a></li>
+  <li id="r-ptp">IEEE 1588 — Precision Time Protocol (PTP) for sub-microsecond clock synchronization of networked devices. <a href="https://standards.ieee.org/ieee/1588/4355/">standards.ieee.org</a></li>
+</ol>
+</div>
+
+<div class="disc">
+  Methodology &amp; caveats — This note synthesizes public technical standards (DMTF Redfish and its telemetry model; MQTT Sparkplug B; OPC-UA; OpenTelemetry; OpenADR; ISA/IEC 62443) and industry reporting on emerging AI-factory reference architectures, through June 2026. It describes the converging direction of those efforts at an architectural level; it is not an endorsement of, and does not reproduce the internals of, any specific vendor product or repository. Independent commentary for planning purposes — not a substitute for a project-specific controls, networking, or OT-security design, nor for the governing editions of the standards referenced as adopted on your project.
+</div>
+
+<div class="disc" style="border-top:none;padding-top:0">
+  Drybulb publishes deep technical writing on AI factory and data center engineering.
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cost Model — multi-location (mockup v2)</title>
+<style>
+  /* Approximates the app's neutral shadcn tokens (app/globals.css). Light theme;
+     the production tool uses the real CSS variables and adapts to dark. */
+  :root{
+    --background:#ffffff; --foreground:#1a1a1a;
+    --card:#ffffff; --muted-bg:#f6f6f6; --secondary:#f1f1f1;
+    --muted-fg:#737373; --muted-fg2:#a3a3a3;
+    --border:#e7e7e7; --border2:#dddddd; --ring:#b4b4b4;
+    --primary:#1a1a1a; --primary-fg:#fafafa;
+    --destructive:#cc3333; --positive:#15803d;
+    /* curated data-viz palette (light/dark legible) */
+    --c1:#d97706; --c2:#0d9488; --c3:#2563eb; --c4:#7c3aed; --c5:#dc8a0a;
+    --c6:#64748b; --c7:#0891b2; --c8:#9333ea; --c9:#475569;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{margin:0;background:var(--background);color:var(--foreground);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px;line-height:1.5}
+  .mono{font-family:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1240px;margin:0 auto;padding:32px 24px 96px}
+  .crumbs{font-size:12px;color:var(--muted-fg);margin-bottom:24px;letter-spacing:.01em}
+  h1{font-size:28px;margin:0 0 8px;letter-spacing:-.02em;font-weight:680}
+  .sub{color:var(--muted-fg);max-width:680px;margin:0;font-size:14.5px}
+  .row{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+
+  /* mode toggle (segmented) */
+  .mode{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px;background:var(--card)}
+  .mode span{padding:7px 12px}
+  .mode .on{background:var(--primary);color:var(--primary-fg)}
+  .mode .off{color:var(--muted-fg);display:inline-flex;gap:6px;align-items:center}
+  .pill{font-size:9px;text-transform:uppercase;letter-spacing:.09em;border:1px solid var(--border2);border-radius:5px;padding:1px 5px;color:var(--muted-fg2)}
+
+  /* location tab bar */
+  .loctabs{display:flex;align-items:center;gap:4px;margin:26px 0 20px;flex-wrap:wrap;
+    border-bottom:1px solid var(--border);padding-bottom:0}
+  .ltab{padding:9px 14px;border-radius:8px 8px 0 0;color:var(--muted-fg);cursor:pointer;font-size:13px;
+    display:inline-flex;align-items:center;gap:9px;position:relative;top:1px;border:1px solid transparent;border-bottom:none;
+    transition:color .12s,background .12s}
+  .ltab:hover{color:var(--foreground);background:var(--muted-bg)}
+  .ltab .x{color:var(--muted-fg2);font-size:13px;opacity:0;transition:opacity .12s}
+  .ltab:hover .x{opacity:1}
+  .ltab.on{color:var(--foreground);background:var(--card);border-color:var(--border);font-weight:550}
+  .ltab.on::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--primary);border-radius:2px}
+  .ltab.add{color:var(--muted-fg);border:1px dashed var(--border2);border-radius:8px;top:0;margin-left:2px}
+  .ltab.add:hover{color:var(--foreground);border-color:var(--ring)}
+  .ltab.total{margin-left:auto;background:var(--secondary);color:var(--foreground);border-radius:8px;top:0;font-weight:600;gap:6px}
+  .ltab.total .sig{color:var(--muted-fg)}
+
+  /* layout */
+  .grid{display:grid;grid-template-columns:380px 1fr;gap:22px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .col{display:flex;flex-direction:column;gap:16px}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:0 1px 2px rgba(16,16,16,.04)}
+  .card .hd{padding:16px 18px 10px}
+  .card .bd{padding:6px 18px 18px;display:flex;flex-direction:column;gap:16px}
+  .ctitle{font-size:14.5px;font-weight:620;letter-spacing:-.01em;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .cdesc{font-size:12.5px;color:var(--muted-fg);margin-top:4px;line-height:1.45}
+  .chipval{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:13px;color:var(--foreground);
+    background:var(--secondary);padding:2px 8px;border-radius:6px;font-weight:550}
+
+  /* fields */
+  label.fld{display:block}
+  .lblrow{display:flex;justify-content:space-between;gap:8px;margin-bottom:7px;font-size:13px;font-weight:520;align-items:baseline}
+  .val{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--muted-fg);font-size:12.5px}
+  .hint{font-size:11.5px;color:var(--muted-fg);margin-top:5px;line-height:1.4}
+
+  /* slider with filled track */
+  .slider{appearance:none;-webkit-appearance:none;width:100%;height:6px;border-radius:999px;outline:none;cursor:pointer}
+  .slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--card);
+    border:2px solid var(--primary);box-shadow:0 1px 2px rgba(0,0,0,.18);margin-top:-1px}
+  .slider::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--card);border:2px solid var(--primary)}
+
+  select,.txt{width:100%;background:var(--card);border:1px solid var(--border);color:var(--foreground);
+    border-radius:8px;padding:8px 11px;font-size:13.5px}
+  select:focus,.txt:focus{outline:2px solid var(--ring);outline-offset:1px;border-color:var(--ring)}
+  .seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:13px;background:var(--muted-bg)}
+  .seg button{flex:1;background:transparent;color:var(--muted-fg);border:0;padding:7px;cursor:pointer}
+  .seg button.on{background:var(--card);color:var(--foreground);font-weight:560;box-shadow:0 1px 2px rgba(0,0,0,.06);margin:2px;border-radius:6px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .btn{background:var(--card);border:1px solid var(--border);color:var(--foreground);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:520}
+  .btn:hover{background:var(--muted-bg)}
+  .btn.block{width:100%}
+  .btn.ghost{border:0;background:transparent;color:var(--muted-fg);padding:4px 8px}
+  .btn.ghost:hover{color:var(--destructive);background:transparent}
+
+  /* services */
+  .svc{border:1px solid var(--border);border-radius:9px;padding:14px;display:flex;flex-direction:column;gap:13px;background:var(--muted-bg)}
+  .svc .top{display:flex;gap:8px;align-items:center}
+  .svc .top .txt{flex:1;background:var(--card);font-weight:560}
+  .meter{height:7px;border-radius:999px;background:var(--secondary);overflow:hidden;display:flex}
+  .meter > div{height:100%}
+  .meterlbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted-fg);margin-top:6px}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:580px){.stats{grid-template-columns:1fr 1fr}}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,16,16,.04)}
+  .stat .acc{position:absolute;left:0;right:0;top:0;height:3px}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-fg);margin-bottom:8px;font-weight:560}
+  .stat .v{font-size:23px;font-weight:680;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .stat .s{font-size:11.5px;color:var(--muted-fg);margin-top:5px}
+
+  /* result tabs */
+  .rtabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-top:2px}
+  .rtab{padding:9px 14px;font-size:13px;font-weight:540;color:var(--muted-fg);border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px}
+  .rtab:hover{color:var(--foreground)}
+  .rtab.on{color:var(--foreground);border-color:var(--primary)}
+
+  /* capex breakdown */
+  .bar{display:flex;height:32px;border-radius:7px;overflow:hidden;gap:1px;background:var(--border)}
+  .bar > div{height:100%}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:7px 28px;font-size:13px;margin-top:16px}
+  .legrow{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .legrow .nm{display:flex;align-items:center;gap:9px;color:var(--muted-fg);min-width:0}
+  .sw{width:11px;height:11px;border-radius:3px;flex:none}
+  .legrow .amt{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .legrow .pct{color:var(--muted-fg2)}
+  .tot{grid-column:1/-1;border-top:1px solid var(--border);margin-top:3px;padding-top:10px;display:flex;justify-content:space-between;font-weight:620}
+
+  /* double-wide grid */
+  .gridcards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;align-items:stretch}
+  @media(max-width:720px){.gridcards{grid-template-columns:1fr}}
+  .span2{grid-column:1/-1}
+
+  svg{display:block;width:100%;height:auto}
+  .cap{font-size:11.5px;color:var(--muted-fg);margin-top:10px;line-height:1.45}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:right;padding:10px 10px;border-bottom:1px solid var(--border)}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted-fg);font-weight:540;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+  tbody tr:hover{background:var(--muted-bg)}
+  td.mono{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  tr.totalrow{background:var(--secondary);font-weight:620}
+  tr.totalrow:hover{background:var(--secondary)}
+  .muted{color:var(--muted-fg)}
+  .sectionlabel{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted-fg2);margin:2px 0;font-weight:560}
+  .notice{font-size:12px;color:var(--muted-fg);background:var(--muted-bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;line-height:1.45}
+  .mockbadge{position:fixed;right:14px;bottom:14px;background:var(--foreground);color:var(--primary-fg);font-size:11px;padding:6px 11px;border-radius:20px;opacity:.9;letter-spacing:.03em}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="crumbs"><span class="mono">Tools / Data Center Cost Model</span></div>
+
+  <div class="row">
+    <div>
+      <h1>Data Center Cost Model</h1>
+      <p class="sub">Build a portfolio of locations — each with its own services, energy profile,
+      build cost and returns — then roll them up into a total view.</p>
+    </div>
+    <div class="mode">
+      <span class="on">Terrestrial</span>
+      <span class="off">Orbital comparison <span class="pill">Soon</span></span>
+    </div>
+  </div>
+
+  <!-- LOCATION TAB BAR -->
+  <div class="loctabs">
+    <div class="ltab on">NA <span class="x">×</span></div>
+    <div class="ltab">Ashburn, VA <span class="x">×</span></div>
+    <div class="ltab">Phoenix, AZ <span class="x">×</span></div>
+    <div class="ltab add">+ Add location</div>
+    <div class="ltab total"><span class="sig">Σ</span> Total</div>
+  </div>
+
+  <!-- ===================== ACTIVE LOCATION VIEW ===================== -->
+  <div class="grid">
+
+    <!-- LEFT: Location → Energy time series → Services -->
+    <div class="col">
+
+      <!-- LOCATION -->
+      <div class="card">
+        <div class="hd">
+          <div class="ctitle"><span>Location</span></div>
+          <div class="cdesc">A city's TMY3 weather drives the hourly PUE &amp; energy vector</div>
+        </div>
+        <div class="bd">
+          <label class="fld"><div class="lblrow"><span>City (weather)</span></div>
+            <select><option>— Not applicable (flat PUE) —</option><option>Ashburn / Dulles, VA</option><option>Phoenix, AZ</option><option>Quincy, WA</option></select>
+          </label>
+          <label class="fld"><div class="lblrow"><span>Flat PUE</span><span class="val">1.20</span></div><input class="slider" type="range" value="40" style="background:linear-gradient(90deg,var(--primary) 40%,var(--secondary) 40%)"/></label>
+          <div class="notice">“NA” is a generic global load with no city — the flat PUE applies. Pick a
+          city to weather-couple this location's hourly energy.</div>
+        </div>
+      </div>
+
+      <!-- ENERGY TIME SERIES (prominent) -->
+      <div class="card">
+        <div class="hd">
+          <div class="ctitle"><span>Energy time series</span><span class="chipval">10.1 TWh/yr</span></div>
+          <div class="cdesc">Hourly facility load for this location (services × weather PUE)</div>
+        </div>
+        <div class="bd">
+          <svg viewBox="0 0 360 104" preserveAspectRatio="none" style="height:104px">
+            <line x1="0" y1="34" x2="360" y2="34" stroke="var(--border)" stroke-width="1"/>
+            <line x1="0" y1="68" x2="360" y2="68" stroke="var(--border)" stroke-width="1"/>
+            <path d="M0,10 C90,14 150,38 220,68 C280,92 330,98 360,100 L360,100 L0,100 Z" fill="rgba(26,26,26,.06)"/>
+            <path d="M0,10 C90,14 150,38 220,68 C280,92 330,98 360,100" fill="none" stroke="var(--primary)" stroke-width="2"/>
+          </svg>
+          <div class="two" style="grid-template-columns:repeat(3,1fr)">
+            <div><div class="sectionlabel">Avg util</div><div class="mono" style="font-size:15px">84%</div></div>
+            <div><div class="sectionlabel">Avg PUE</div><div class="mono" style="font-size:15px">flat 1.20</div></div>
+            <div><div class="sectionlabel">Peak</div><div class="mono" style="font-size:15px">1,140 MW</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SERVICES -->
+      <div class="card">
+        <div class="hd">
+          <div class="ctitle"><span>Services</span></div>
+          <div class="cdesc">Differentiated workloads — each its own hourly profile and revenue</div>
+        </div>
+        <div class="bd">
+          <!-- allocation meter -->
+          <div>
+            <div class="meter">
+              <div style="width:70%;background:var(--c2)"></div>
+              <div style="width:30%;background:var(--c3)"></div>
+            </div>
+            <div class="meterlbl"><span>Capacity allocated</span><span class="mono">100% of 1,000 MW</span></div>
+          </div>
+
+          <div class="svc">
+            <div class="top"><input class="txt" value="AI training" /><button class="btn ghost">Remove</button></div>
+            <label class="fld"><div class="lblrow"><span>Capacity share</span><span class="val">70% · 700 MW</span></div><input class="slider" type="range" value="70" style="background:linear-gradient(90deg,var(--c2) 70%,var(--secondary) 70%)"/></label>
+            <div>
+              <div class="lblrow"><span>Load profile</span></div>
+              <div class="seg"><button class="on">Flat</button><button>Diurnal</button><button>Business</button><button>Ramp</button></div>
+              <div class="hint">Steady at peak load all year (saturated).</div>
+            </div>
+            <div class="two">
+              <label class="fld"><div class="lblrow"><span>Base</span><span class="val">90%</span></div><input class="slider" type="range" value="90" style="background:linear-gradient(90deg,var(--primary) 90%,var(--secondary) 90%)"/></label>
+              <label class="fld"><div class="lblrow"><span>Peak</span><span class="val">95%</span></div><input class="slider" type="range" value="95" style="background:linear-gradient(90deg,var(--primary) 95%,var(--secondary) 95%)"/></label>
+            </div>
+            <label class="fld"><div class="lblrow"><span>Revenue rate</span><span class="val">$15.0M/MW/yr</span></div><input class="slider" type="range" value="30" style="background:linear-gradient(90deg,var(--primary) 30%,var(--secondary) 30%)"/></label>
+          </div>
+
+          <div class="svc">
+            <div class="top"><input class="txt" value="Inference / managed" /><button class="btn ghost">Remove</button></div>
+            <label class="fld"><div class="lblrow"><span>Capacity share</span><span class="val">30% · 300 MW</span></div><input class="slider" type="range" value="30" style="background:linear-gradient(90deg,var(--c3) 30%,var(--secondary) 30%)"/></label>
+            <div>
+              <div class="lblrow"><span>Load profile</span></div>
+              <div class="seg"><button>Flat</button><button class="on">Diurnal</button><button>Business</button><button>Ramp</button></div>
+              <div class="hint">Daily cycle between base and peak, lowest pre-dawn.</div>
+            </div>
+            <div class="two">
+              <label class="fld"><div class="lblrow"><span>Base</span><span class="val">40%</span></div><input class="slider" type="range" value="40" style="background:linear-gradient(90deg,var(--primary) 40%,var(--secondary) 40%)"/></label>
+              <label class="fld"><div class="lblrow"><span>Peak</span><span class="val">90%</span></div><input class="slider" type="range" value="90" style="background:linear-gradient(90deg,var(--primary) 90%,var(--secondary) 90%)"/></label>
+            </div>
+            <label class="fld"><div class="lblrow"><span>Revenue rate</span><span class="val">$28.0M/MW/yr</span></div><input class="slider" type="range" value="56" style="background:linear-gradient(90deg,var(--primary) 56%,var(--secondary) 56%)"/></label>
+          </div>
+
+          <button class="btn block">+ Add service</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: stats + result tabs; Build cost holds the double-wide grid -->
+    <div class="col">
+      <div class="stats">
+        <div class="stat"><div class="acc" style="background:var(--c1)"></div><div class="k">Upfront capex</div><div class="v">$59.20<span style="font-size:14px;color:var(--muted-fg)">/W</span></div><div class="s">$59.20B total</div></div>
+        <div class="stat"><div class="k">Annual revenue</div><div class="v">$15.4B</div><div class="s">at current utilization</div></div>
+        <div class="stat"><div class="acc" style="background:var(--c2)"></div><div class="k">Payback</div><div class="v">2.9 <span style="font-size:14px;color:var(--muted-fg)">yr</span></div><div class="s">cumulative break-even</div></div>
+        <div class="stat"><div class="k">ROI</div><div class="v" style="color:var(--positive)">+108%</div><div class="s">over 6 yr</div></div>
+      </div>
+
+      <div class="rtabs">
+        <div class="rtab on">Build cost</div>
+        <div class="rtab">Returns</div>
+        <div class="rtab">Energy</div>
+        <div class="rtab">Technical notes</div>
+      </div>
+
+      <!-- breakdown -->
+      <div class="card"><div class="bd" style="padding-top:18px">
+        <div class="bar">
+          <div style="flex:4.7;background:var(--c9)"></div>
+          <div style="flex:3.9;background:var(--c1)"></div>
+          <div style="flex:2.6;background:var(--c5)"></div>
+          <div style="flex:1.8;background:var(--c3)"></div>
+          <div style="flex:1.7;background:var(--c2)"></div>
+          <div style="flex:1.5;background:var(--c6)"></div>
+          <div style="flex:3.0;background:var(--c7)"></div>
+          <div style="flex:30;background:var(--c2)"></div>
+          <div style="flex:10;background:var(--c4)"></div>
+        </div>
+        <div class="legend">
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c2)"></span>GPUs / accelerators</span><span class="amt">$30.0B <span class="pct">51%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c9)"></span>Labor</span><span class="amt">$4.70B <span class="pct">8%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c4)"></span>Other AI infra</span><span class="amt">$10.0B <span class="pct">17%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c1)"></span>Materials</span><span class="amt">$3.90B <span class="pct">7%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c7)"></span>On-site generation</span><span class="amt">$3.00B <span class="pct">5%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c5)"></span>Tenant fit-out</span><span class="amt">$2.60B <span class="pct">4%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c3)"></span>Electrical</span><span class="amt">$1.80B <span class="pct">3%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c2)"></span>Mechanical</span><span class="amt">$1.70B <span class="pct">3%</span></span></div>
+          <div class="tot"><span>Total upfront capex</span><span class="mono">$59.20B</span></div>
+        </div>
+      </div></div>
+
+      <!-- DOUBLE-WIDE input grid under Build cost -->
+      <div class="gridcards">
+
+        <div class="card">
+          <div class="hd"><div class="ctitle"><span>Facilities capex build-up</span><span class="chipval">$19.20/W</span></div>
+            <div class="cdesc">$/W of critical IT ($1/W = $1M/MW)</div></div>
+          <div class="bd">
+            <label class="fld"><div class="lblrow"><span>Labor</span><span class="val">$4.70/W</span></div><input class="slider" type="range" value="59" style="background:linear-gradient(90deg,var(--primary) 59%,var(--secondary) 59%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Materials</span><span class="val">$3.90/W</span></div><input class="slider" type="range" value="49" style="background:linear-gradient(90deg,var(--primary) 49%,var(--secondary) 49%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Tenant fit-out</span><span class="val">$2.60/W</span></div><input class="slider" type="range" value="33" style="background:linear-gradient(90deg,var(--primary) 33%,var(--secondary) 33%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Electrical equipment</span><span class="val">$1.80/W</span></div><input class="slider" type="range" value="23" style="background:linear-gradient(90deg,var(--primary) 23%,var(--secondary) 23%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Mechanical equipment</span><span class="val">$1.70/W</span></div><input class="slider" type="range" value="21" style="background:linear-gradient(90deg,var(--primary) 21%,var(--secondary) 21%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Soft costs</span><span class="val">$1.50/W</span></div><input class="slider" type="range" value="19" style="background:linear-gradient(90deg,var(--primary) 19%,var(--secondary) 19%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Gas plant (BTM)</span><span class="val">$3.00/W</span></div><input class="slider" type="range" value="50" style="background:linear-gradient(90deg,var(--primary) 50%,var(--secondary) 50%)"/></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><div class="ctitle"><span>AI infrastructure capex</span><span class="chipval">$40.00/W</span></div>
+            <div class="cdesc">The compute payload, same $/W basis</div></div>
+          <div class="bd">
+            <label class="fld"><div class="lblrow"><span>GPUs / accelerators</span><span class="val">$30.0/W</span></div><input class="slider" type="range" value="50" style="background:linear-gradient(90deg,var(--primary) 50%,var(--secondary) 50%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Other AI infrastructure</span><span class="val">$10.0/W</span></div><input class="slider" type="range" value="33" style="background:linear-gradient(90deg,var(--primary) 33%,var(--secondary) 33%)"/></label>
+            <label class="fld"><div class="lblrow"><span>GPU refresh interval</span><span class="val">never</span></div><input class="slider" type="range" value="0" style="background:linear-gradient(90deg,var(--primary) 0%,var(--secondary) 0%)"/></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><div class="ctitle"><span>Cooling</span></div>
+            <div class="cdesc">How weather becomes hourly PUE</div></div>
+          <div class="bd">
+            <label class="fld"><div class="lblrow"><span>Cooling system</span></div>
+              <select><option>CHW — Water-Cooled + Tower</option><option>Airside Economizer + DX</option><option>Evaporative</option></select></label>
+            <label class="fld"><div class="lblrow"><span>Supply-air setpoint</span><span class="val">24 °C</span></div><input class="slider" type="range" value="57" style="background:linear-gradient(90deg,var(--primary) 57%,var(--secondary) 57%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Liquid cooling share</span><span class="val">30%</span></div><input class="slider" type="range" value="30" style="background:linear-gradient(90deg,var(--primary) 30%,var(--secondary) 30%)"/></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd"><div class="ctitle"><span>Power &amp; energy price</span></div></div>
+          <div class="bd">
+            <div><div class="lblrow"><span>Power source</span></div>
+              <div class="seg"><button>Grid</button><button class="on">On-site gas</button></div></div>
+            <label class="fld"><div class="lblrow"><span>Heat rate</span><span class="val">6,200 Btu/kWh</span></div><input class="slider" type="range" value="40" style="background:linear-gradient(90deg,var(--primary) 40%,var(--secondary) 40%)"/></label>
+            <label class="fld"><div class="lblrow"><span>Natural gas price</span><span class="val">$4.30/MMBtu</span></div><input class="slider" type="range" value="30" style="background:linear-gradient(90deg,var(--primary) 30%,var(--secondary) 30%)"/></label>
+          </div>
+        </div>
+
+        <div class="card span2">
+          <div class="hd"><div class="ctitle"><span>Capacity &amp; finance</span><span class="cdesc" style="margin:0">per-location</span></div>
+            <div class="cdesc">This location's size and finance assumptions</div></div>
+          <div class="bd">
+            <div class="two" style="grid-template-columns:1fr 1fr 1fr">
+              <label class="fld"><div class="lblrow"><span>Critical IT load</span><span class="val">1,000 MW</span></div><input class="slider" type="range" value="50" style="background:linear-gradient(90deg,var(--primary) 50%,var(--secondary) 50%)"/></label>
+              <label class="fld"><div class="lblrow"><span>Horizon</span><span class="val">6 yr</span></div><input class="slider" type="range" value="30" style="background:linear-gradient(90deg,var(--primary) 30%,var(--secondary) 30%)"/></label>
+              <label class="fld"><div class="lblrow"><span>Discount</span><span class="val">8%</span></div><input class="slider" type="range" value="53" style="background:linear-gradient(90deg,var(--primary) 53%,var(--secondary) 53%)"/></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="cap" style="text-align:center">Planning-grade estimates for screening only. $1/W = $1M/MW. Tune every input.</p>
+    </div>
+  </div>
+
+  <!-- ===================== TOTAL VIEW (Σ Total tab) ===================== -->
+  <div style="border-top:1px dashed var(--border2);margin:44px 0 28px"></div>
+  <div class="sectionlabel" style="margin-bottom:14px">“Σ Total” tab — portfolio roll-up (shown when the Total tab is selected)</div>
+
+  <div class="stats" style="margin-bottom:16px">
+    <div class="stat"><div class="acc" style="background:var(--c1)"></div><div class="k">Portfolio capex</div><div class="v">$142B</div><div class="s">3 locations · 2,400 MW</div></div>
+    <div class="stat"><div class="k">Annual revenue</div><div class="v">$38.6B</div><div class="s">blended utilization</div></div>
+    <div class="stat"><div class="acc" style="background:var(--c2)"></div><div class="k">Blended payback</div><div class="v">3.2 <span style="font-size:14px;color:var(--muted-fg)">yr</span></div><div class="s">combined cash flow</div></div>
+    <div class="stat"><div class="k">Blended ROI</div><div class="v" style="color:var(--positive)">+96%</div><div class="s">max 7-yr horizon</div></div>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <div class="hd"><div class="ctitle"><span>Capex by location</span></div></div>
+      <div class="bd" style="padding-top:16px">
+        <div class="bar">
+          <div style="flex:59.2;background:var(--c2)"></div>
+          <div style="flex:47;background:var(--c3)"></div>
+          <div style="flex:35.6;background:var(--c1)"></div>
+        </div>
+        <div class="legend" style="grid-template-columns:1fr">
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c2)"></span>NA (global)</span><span class="amt">$59.2B <span class="pct">42%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c3)"></span>Ashburn, VA</span><span class="amt">$47.0B <span class="pct">33%</span></span></div>
+          <div class="legrow"><span class="nm"><span class="sw" style="background:var(--c1)"></span>Phoenix, AZ</span><span class="amt">$35.6B <span class="pct">25%</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><div class="ctitle"><span>Combined cash flow</span></div></div>
+      <div class="bd" style="padding-top:16px">
+        <svg viewBox="0 0 360 150">
+          <line x1="36" y1="96" x2="356" y2="96" stroke="var(--border2)"/>
+          <rect x="46"  y="96" width="28" height="44" rx="2" fill="rgba(204,51,51,.75)"/>
+          <rect x="92"  y="96" width="28" height="30" rx="2" fill="rgba(204,51,51,.75)"/>
+          <rect x="138" y="80" width="28" height="16" rx="2" fill="rgba(26,26,26,.78)"/>
+          <rect x="184" y="58" width="28" height="38" rx="2" fill="rgba(26,26,26,.78)"/>
+          <rect x="230" y="40" width="28" height="56" rx="2" fill="rgba(26,26,26,.78)"/>
+          <rect x="276" y="26" width="28" height="70" rx="2" fill="rgba(26,26,26,.78)"/>
+          <rect x="322" y="14" width="22" height="82" rx="2" fill="rgba(26,26,26,.78)"/>
+          <polyline points="60,140 106,126 152,80 198,58 244,40 290,26 333,14" fill="none" stroke="var(--primary)" stroke-width="2"/>
+          <line x1="148" y1="14" x2="148" y2="138" stroke="rgba(204,51,51,.85)" stroke-dasharray="4 3"/>
+          <text x="152" y="24" fill="var(--destructive)" font-size="10" class="mono">payback 3.2y</text>
+          <text x="36" y="150" fill="var(--muted-fg)" font-size="9" class="mono">Y0</text>
+          <text x="330" y="150" fill="var(--muted-fg)" font-size="9" class="mono">Y7</text>
+        </svg>
+        <div class="cap">Locations contribute profit through their own horizon; the portfolio combines over the longest (7 yr).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="hd"><div class="ctitle"><span>Locations</span></div></div>
+    <div class="bd" style="padding-top:6px">
+      <table>
+        <thead><tr><th>Location</th><th>City</th><th>MW</th><th>Avg PUE</th><th>Capex</th><th>Revenue/yr</th><th>Payback</th><th>ROI</th></tr></thead>
+        <tbody>
+          <tr><td>NA (global)</td><td class="muted">— flat PUE —</td><td class="mono">1,000</td><td class="mono">1.20</td><td class="mono">$59.2B</td><td class="mono">$15.4B</td><td class="mono">2.9 yr</td><td class="mono">+108%</td></tr>
+          <tr><td>Ashburn, VA</td><td class="muted">Dulles TMY3</td><td class="mono">800</td><td class="mono">1.24</td><td class="mono">$47.0B</td><td class="mono">$13.1B</td><td class="mono">3.1 yr</td><td class="mono">+98%</td></tr>
+          <tr><td>Phoenix, AZ</td><td class="muted">Sky Harbor TMY3</td><td class="mono">600</td><td class="mono">1.31</td><td class="mono">$35.6B</td><td class="mono">$10.1B</td><td class="mono">3.4 yr</td><td class="mono">+84%</td></tr>
+          <tr class="totalrow"><td>Σ Total</td><td></td><td class="mono">2,400</td><td class="mono">1.25</td><td class="mono">$141.8B</td><td class="mono">$38.6B</td><td class="mono">3.2 yr</td><td class="mono">+96%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<div class="mockbadge">MOCK-UP v2 · neutral theme</div>
+</body>
+</html>

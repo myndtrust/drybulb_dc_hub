@@ -43,6 +43,8 @@ import {
   type CatalogComponent,
   type CatalogProduct,
 } from "@/lib/cost/catalog";
+import { SavedModelsDrawer } from "@/components/cost/saved-models-drawer";
+import type { SavedCostInputs } from "@/lib/cost/saved-models";
 import type {
   DemandSource,
   Distribution,
@@ -197,16 +199,21 @@ const UNIT_OPTS: { value: CostUnit; label: string }[] = [
 ];
 
 function ConfidenceBadge({ confidence }: { confidence?: "sourced" | "estimate" }) {
-  const sourced = confidence === "sourced";
+  const verified = confidence === "sourced";
   return (
     <span
-      className={`rounded px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
-        sourced
+      title={
+        verified
+          ? "Verified — this line's default price is anchored to a cited vendor/market reference. Open Products for the source."
+          : "Estimate — a proportional split of the category total; not tied to a published price. Adjust to your own number."
+      }
+      className={`cursor-help rounded px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
+        verified
           ? "border border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300"
           : "border bg-secondary text-muted-foreground"
       }`}
     >
-      {sourced ? "sourced" : "estimate"}
+      {verified ? "verified" : "estimate"}
     </span>
   );
 }
@@ -535,6 +542,43 @@ function drawTimeAxis(ctx: CanvasRenderingContext2D, g: ChartGeom, win: [number,
   }
 }
 
+/**
+ * "Nice" axis ticks: round, evenly-spaced values covering [min,max] (step snapped
+ * to 1/2/2.5/5 ×10ⁿ) plus the number of decimals needed to render them all
+ * distinctly. Guards against degenerate ranges so labels are never duplicated or NaN.
+ */
+function niceTicks(min: number, max: number, count = 4): { ticks: number[]; decimals: number } {
+  if (!isFinite(min) || !isFinite(max) || max <= min) {
+    const base = isFinite(min) ? min : 0;
+    return { ticks: [base, base + 1], decimals: 0 };
+  }
+  const rawStep = (max - min) / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / mag;
+  const niceNorm = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  const step = niceNorm * mag;
+  const niceMin = Math.floor(min / step) * step;
+  const niceMax = Math.ceil(max / step) * step;
+  const ticks: number[] = [];
+  for (let v = niceMin; v <= niceMax + step * 1e-9; v += step) ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  const decimals = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  return { ticks, decimals };
+}
+
+/** Draw right-aligned y-axis labels + gridlines at the given tick values. */
+function drawYAxis(
+  ctx: CanvasRenderingContext2D, g: ChartGeom,
+  ticks: number[], decimals: number, yOf: (v: number) => number, suffix = "",
+) {
+  ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "right"; ctx.fillStyle = AXIS;
+  for (const t of ticks) {
+    const y = yOf(t);
+    if (y < g.padT - 1 || y > g.padT + g.plotH + 1) continue;
+    ctx.fillText(`${t.toFixed(decimals)}${suffix}`, g.padL - 6, y + 3);
+    ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(g.padL, y); ctx.lineTo(g.padL + g.plotW, y); ctx.stroke();
+  }
+}
+
 /** A canvas time-series with drag-to-zoom (select a horizontal range) + double-click reset. */
 function ZoomableChart({
   length,
@@ -627,16 +671,12 @@ function ServiceDemandChart({ services }: { services: ServiceChannel[] }) {
 
   const draw = useCallback((ctx: CanvasRenderingContext2D, g: ChartGeom, win: [number, number]) => {
     const i0 = Math.max(0, Math.floor(win[0])), i1 = Math.min(WIN - 1, Math.ceil(win[1]));
-    const top = totalMax * 1.06;
+    const { ticks, decimals } = niceTicks(0, totalMax, 3);
+    const top = ticks[ticks.length - 1] || 1;
     const xOf = (i: number) => g.padL + (g.plotW * (i - win[0])) / (win[1] - win[0]);
     const yOf = (v: number) => g.padT + g.plotH * (1 - v / top);
 
-    ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "right"; ctx.fillStyle = AXIS;
-    for (let k = 0; k <= 2; k++) {
-      const val = (top * k) / 2, y = yOf(val);
-      ctx.fillText(val.toFixed(0), g.padL - 6, y + 3);
-      ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(g.padL, y); ctx.lineTo(g.padL + g.plotW, y); ctx.stroke();
-    }
+    drawYAxis(ctx, g, ticks, decimals, yOf);
 
     const lower = new Array<number>(WIN).fill(0);
     series.forEach((ser, si) => {
@@ -668,14 +708,10 @@ function EnergyVectorChart({ facilityMW, height = 240 }: { facilityMW: number[];
   const ref = useCanvas((ctx, w, h) => {
     const padL = 50, padR = 10, padT = 10, padB = 22;
     const plotW = w - padL - padR, plotH = h - padT - padB;
-    const top = maxV > 0 ? maxV : 1;
+    const { ticks, decimals } = niceTicks(0, maxV);
+    const top = ticks[ticks.length - 1] || 1;
     const accent = cssVar("--primary", "#1a1a1a");
-    ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "right"; ctx.fillStyle = AXIS;
-    for (let k = 0; k <= 4; k++) {
-      const y = padT + plotH * (1 - k / 4);
-      ctx.fillText(((top * k) / 4).toFixed(0), padL - 6, y + 3);
-      ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
-    }
+    drawYAxis(ctx, { padL, padR, padT, padB, plotW, plotH, w, h }, ticks, decimals, (v) => padT + plotH * (1 - v / top));
     const n = curve.length;
     ctx.beginPath(); ctx.moveTo(padL, padT + plotH);
     for (let i = 0; i < n; i++) ctx.lineTo(padL + (plotW * i) / (n - 1), padT + plotH * (1 - curve[i] / top));
@@ -712,7 +748,12 @@ function CashFlowChart({ cashFlow, payback }: { cashFlow: CostResult["cashFlow"]
     cashFlow.forEach((p, i) => { const x = xOf(p.year), y = yOf(p.cumulative); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
     ctx.strokeStyle = cssVar("--primary", "#1a1a1a"); ctx.lineWidth = 2; ctx.stroke();
     ctx.font = "10px ui-monospace, monospace"; ctx.fillStyle = AXIS; ctx.textAlign = "right";
-    [minV, (minV + maxV) / 2, maxV].forEach((v) => ctx.fillText(fmtUSD(v), padL - 6, yOf(v) + 3));
+    const { ticks: yTicks } = niceTicks(minV, maxV, 4);
+    for (const t of yTicks) {
+      const y = yOf(t);
+      if (y < padT - 1 || y > padT + plotH + 1) continue;
+      ctx.fillText(fmtUSD(t), padL - 6, y + 3);
+    }
     ctx.textAlign = "center";
     cashFlow.forEach((p) => ctx.fillText(`Y${p.year}`, xOf(p.year), padT + plotH + 15));
     if (payback != null) {
@@ -739,12 +780,8 @@ function WeatherTempChart({ tdb, unit }: { tdb: number[]; unit: "C" | "F" }) {
     const range = hi - lo || 1;
     const yOf = (t: number) => g.padT + g.plotH * (1 - (t - lo) / range);
     const xOf = (i: number) => g.padL + (g.plotW * (i - win[0])) / (win[1] - win[0]);
-    ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "right"; ctx.fillStyle = AXIS;
-    for (let k = 0; k <= 4; k++) {
-      const t = lo + (range * k) / 4, y = g.padT + g.plotH * (1 - k / 4);
-      ctx.fillText(`${t.toFixed(0)}°`, g.padL - 6, y + 3);
-      ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(g.padL, y); ctx.lineTo(g.padL + g.plotW, y); ctx.stroke();
-    }
+    const { ticks, decimals } = niceTicks(lo, hi);
+    drawYAxis(ctx, g, ticks, decimals, yOf, "°");
     ctx.beginPath();
     for (let i = i0; i <= i1; i++) { const x = xOf(i), y = yOf(conv(tdb[i])); i === i0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
     ctx.strokeStyle = cssVar("--primary", "#1a1a1a"); ctx.lineWidth = 1; ctx.stroke();
@@ -779,21 +816,18 @@ function HistogramChart({ values, bins = 24 }: { values: number[]; bins?: number
 function DemandYearChart({ demand, peakMW }: { demand: number[]; peakMW: number }) {
   const draw = useCallback((ctx: CanvasRenderingContext2D, g: ChartGeom, win: [number, number]) => {
     const i0 = Math.max(0, Math.floor(win[0])), i1 = Math.min(demand.length - 1, Math.ceil(win[1]));
-    const top = peakMW > 0 ? peakMW : 1;
+    const { ticks, decimals } = niceTicks(0, peakMW > 0 ? peakMW : 1);
+    const top = ticks[ticks.length - 1] || 1;
+    const mwAt = (i: number) => (demand[i] ?? 0) * peakMW;
     const xOf = (i: number) => g.padL + (g.plotW * (i - win[0])) / (win[1] - win[0]);
-    const yOf = (frac: number) => g.padT + g.plotH * (1 - frac);
-    ctx.font = "10px ui-monospace, monospace"; ctx.textAlign = "right"; ctx.fillStyle = AXIS;
-    for (let k = 0; k <= 4; k++) {
-      const y = g.padT + g.plotH * (1 - k / 4);
-      ctx.fillText(((top * k) / 4).toFixed(0), g.padL - 6, y + 3);
-      ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(g.padL, y); ctx.lineTo(g.padL + g.plotW, y); ctx.stroke();
-    }
+    const yOf = (mw: number) => g.padT + g.plotH * (1 - mw / top);
+    drawYAxis(ctx, g, ticks, decimals, yOf);
     ctx.beginPath(); ctx.moveTo(xOf(i0), g.padT + g.plotH);
-    for (let i = i0; i <= i1; i++) ctx.lineTo(xOf(i), yOf(demand[i] ?? 0));
+    for (let i = i0; i <= i1; i++) ctx.lineTo(xOf(i), yOf(mwAt(i)));
     ctx.lineTo(xOf(i1), g.padT + g.plotH); ctx.closePath();
     ctx.fillStyle = "rgba(120,120,120,0.14)"; ctx.fill();
     ctx.beginPath();
-    for (let i = i0; i <= i1; i++) { const x = xOf(i), y = yOf(demand[i] ?? 0); i === i0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    for (let i = i0; i <= i1; i++) { const x = xOf(i), y = yOf(mwAt(i)); i === i0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
     ctx.strokeStyle = cssVar("--primary", "#1a1a1a"); ctx.lineWidth = 1.2; ctx.stroke();
     drawTimeAxis(ctx, g, win);
     watermark(ctx, g.w, g.h);
@@ -906,6 +940,14 @@ function CostModelTool() {
     if (activeId === id) setActiveId(remaining[0].id);
   };
 
+  // Restore a saved model: the full portfolio + the display unit it was saved with.
+  const handleLoadModel = (loaded: SavedCostInputs) => {
+    const { tempUnit: savedUnit, ...savedInputs } = loaded;
+    setInputs({ locations: savedInputs.locations });
+    if (savedUnit === "C" || savedUnit === "F") setTempUnit(savedUnit);
+    setActiveId(savedInputs.locations[0]?.id ?? "total");
+  };
+
   // — Service mutations (active location) —
   const patchService = (sid: string, patch: Partial<ServiceChannel>) =>
     activeLoc && patchLoc(activeLoc.id, { services: activeLoc.services.map((s) => (s.id === sid ? { ...s, ...patch } : s)) });
@@ -963,7 +1005,10 @@ function CostModelTool() {
             returns — then roll them up into a total view. Planning-grade; tune every assumption.
           </p>
         </div>
-        <div className="shrink-0"><ModeToggle /></div>
+        <div className="flex shrink-0 items-center gap-3">
+          <SavedModelsDrawer currentInputs={{ ...inputs, tempUnit }} onLoad={handleLoadModel} />
+          <ModeToggle />
+        </div>
       </div>
 
       {/* LOCATION TABS */}
@@ -1461,7 +1506,7 @@ function CostModelTool() {
                                     onChange={(e) => setDemandHour(svc.id, hr, parseFloat(e.target.value) || 0)}
                                     className="w-20 rounded border border-input bg-background px-1.5 py-0.5 text-right font-mono outline-none focus-visible:ring-1 focus-visible:ring-ring" />
                                 </td>
-                                <td className="px-3 py-1 text-right font-mono text-muted-foreground">{((svc.demand[hr] ?? 0) * svc.peakDemandMW).toFixed(0)}</td>
+                                <td className="px-3 py-1 text-right font-mono text-muted-foreground">{((svc.demand[hr] ?? 0) * svc.peakDemandMW).toFixed(svc.peakDemandMW < 10 ? 2 : 0)}</td>
                               </tr>
                             );
                           })}
@@ -1528,7 +1573,7 @@ function CostModelTool() {
                 <div className="space-y-2 border-t pt-3 text-xs text-muted-foreground">
                   <p><strong className="text-foreground">Scope.</strong> Capex builds up the facility plus AI infrastructure. Energy is integrated hourly over the city&apos;s weather through the PUE cooling engine; differentiated services drive the IT load and revenue. Returns use simple payback and ROI.</p>
                   <p><strong className="text-foreground">Methodology.</strong> Patterned on a public Crusoe presentation (illustrative) and Andrew McCalip&apos;s open-source (MIT) model. Independent Drybulb reimplementation; orbital-solar comparison in development.</p>
-                  <p><strong className="text-foreground">Itemized pricing.</strong> Each capex category can be itemized into its bill of materials. Category totals are well-anchored to published build benchmarks; the per-line $/W splits are proportional estimates unless flagged <em>sourced</em> (vendor / market-referenced). Example products and reference prices are planning-grade and vendor-dependent — confirm against live quotes. Equipment data lives in a maintainable catalog (<span className="font-mono">data/equipment-catalog.json</span>); a future supplier integration will replace estimates with quotes.</p>
+                  <p><strong className="text-foreground">Itemized pricing.</strong> Each capex category can be itemized into its bill of materials. Category totals are well-anchored to published build benchmarks; the per-line $/W splits are proportional estimates unless flagged <em>verified</em> (anchored to a cited vendor / market reference). Example products and reference prices are planning-grade and vendor-dependent — confirm against live quotes. Equipment data lives in a maintainable catalog (<span className="font-mono">data/equipment-catalog.json</span>); a future supplier integration will replace estimates with quotes.</p>
                 </div>
               </CardContent></Card>
             )}
