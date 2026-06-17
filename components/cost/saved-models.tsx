@@ -10,6 +10,7 @@ import {
 import {
   listModels,
   saveModel,
+  updateModel,
   deleteModel,
   type SavedCostModel,
   type SavedCostInputs,
@@ -23,10 +24,16 @@ const inputClass =
 // Content-only panel (no outer card) — designed to live inside the drawer.
 export function SavedModels({
   currentInputs,
+  loadedId,
+  loadedName,
   onLoad,
+  onSaved,
 }: {
   currentInputs: SavedCostInputs;
-  onLoad: (inputs: SavedCostInputs) => void;
+  loadedId: string | null;
+  loadedName: string | null;
+  onLoad: (model: SavedCostModel) => void;
+  onSaved: (model: SavedCostModel) => void;
 }) {
   const [signedIn, setSignedIn] = useState(false);
   const [ready, setReady] = useState(false);
@@ -66,17 +73,35 @@ export function SavedModels({
 
   if (!isSupabaseConfigured || !ready) return null;
 
-  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
+  // Save the current configuration as a brand-new model.
+  async function handleSaveNew(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      await saveModel(name.trim(), currentInputs);
+      const model = await saveModel(name.trim(), currentInputs);
       setName("");
+      onSaved(model);
       await refresh();
     } catch {
       setError("Couldn't save. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Overwrite the currently-loaded model with the current edits.
+  async function handleUpdate() {
+    if (!loadedId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const model = await updateModel(loadedId, loadedName?.trim() || "Untitled", currentInputs);
+      onSaved(model);
+      await refresh();
+    } catch {
+      setError("Couldn't save changes. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -107,18 +132,36 @@ export function SavedModels({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSave} className="flex gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Name this model"
-          aria-label="Model name"
-          maxLength={120}
-          className={inputClass}
-        />
-        <Button type="submit" size="sm" disabled={busy || !name.trim()} className="shrink-0">
-          {busy ? "Saving…" : "Save"}
-        </Button>
+      {/* Save changes to the loaded model (overwrite) */}
+      {loadedId && (
+        <div className="rounded-md border bg-muted/40 p-3">
+          <p className="mb-2 text-xs text-muted-foreground">
+            Editing <span className="font-medium text-foreground">{loadedName}</span>
+          </p>
+          <Button size="sm" className="w-full" disabled={busy} onClick={handleUpdate}>
+            {busy ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
+      )}
+
+      {/* Save as a new model */}
+      <form onSubmit={handleSaveNew} className="space-y-1.5">
+        <label className="block text-xs font-medium text-muted-foreground">
+          {loadedId ? "Save as a new model" : "Save this model"}
+        </label>
+        <div className="flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name this model"
+            aria-label="Model name"
+            maxLength={120}
+            className={inputClass}
+          />
+          <Button type="submit" size="sm" disabled={busy || !name.trim()} className="shrink-0">
+            {busy ? "Saving…" : loadedId ? "Save as new" : "Save"}
+          </Button>
+        </div>
       </form>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -127,21 +170,27 @@ export function SavedModels({
         <p className="text-sm text-muted-foreground">No saved models yet.</p>
       ) : (
         <ul className="divide-y divide-border/60">
-          {models.map((m) => (
-            <li key={m.id} className="flex items-center justify-between gap-2 py-2">
-              <span className="truncate text-sm" title={m.name}>
-                {m.name}
-              </span>
-              <span className="flex shrink-0 gap-2">
-                <Button variant="outline" size="sm" onClick={() => onLoad(m.inputs)}>
-                  Load
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(m.id)}>
-                  Delete
-                </Button>
-              </span>
-            </li>
-          ))}
+          {models.map((m) => {
+            const isLoaded = m.id === loadedId;
+            return (
+              <li key={m.id} className="flex items-center justify-between gap-2 py-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  {isLoaded && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />}
+                  <span className={`truncate text-sm ${isLoaded ? "font-medium" : ""}`} title={m.name}>
+                    {m.name}
+                  </span>
+                </span>
+                <span className="flex shrink-0 gap-2">
+                  <Button variant="outline" size="sm" onClick={() => onLoad(m)}>
+                    Load
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(m.id)}>
+                    Delete
+                  </Button>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

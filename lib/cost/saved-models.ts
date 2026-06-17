@@ -41,6 +41,22 @@ export async function saveModel(
   return data as SavedCostModel;
 }
 
+export async function updateModel(
+  id: string,
+  name: string,
+  inputs: SavedCostInputs,
+): Promise<SavedCostModel> {
+  // RLS restricts the update to the owner's row.
+  const { data, error } = await createClient()
+    .from("cost_models")
+    .update({ name, inputs, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select(SELECT)
+    .single();
+  if (error) throw error;
+  return data as SavedCostModel;
+}
+
 export async function deleteModel(id: string): Promise<void> {
   const { error } = await createClient().from("cost_models").delete().eq("id", id);
   if (error) throw error;

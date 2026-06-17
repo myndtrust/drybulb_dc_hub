@@ -44,7 +44,7 @@ import {
   type CatalogProduct,
 } from "@/lib/cost/catalog";
 import { SavedModelsDrawer } from "@/components/cost/saved-models-drawer";
-import type { SavedCostInputs } from "@/lib/cost/saved-models";
+import type { SavedCostModel } from "@/lib/cost/saved-models";
 import type {
   DemandSource,
   Distribution,
@@ -309,51 +309,64 @@ function CategoryCapex({
   const itemized = mode === "itemized" && !!cat;
   const effective = categoryPerW(loc, catKey, capacityW);
 
+  const pct = max > min ? ((lumpValue - min) / (max - min)) * 100 : 0;
+
   return (
     <div className="space-y-2">
+      {/* Category header: label + effective $/W */}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="flex items-center gap-2 text-sm font-medium">
+          {label}
+          {itemized && (
+            <span className="rounded border border-orange-300 bg-orange-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-orange-800 dark:border-orange-900 dark:bg-orange-950/60 dark:text-orange-300">
+              itemized
+            </span>
+          )}
+        </span>
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+          {fmtPerW(itemized ? effective : lumpValue)}
+          {itemized && <span className="text-muted-foreground/60"> sum</span>}
+        </span>
+      </div>
+
+      {/* Lump sum | Itemized — directly under the category */}
+      {cat && <ModeSeg mode={mode} onChange={onMode} />}
+
+      {/* Body: itemized BOM, or the lump-sum slider (slider hidden when itemized) */}
       {itemized ? (
-        <div>
-          <div className="mb-1.5 flex items-baseline justify-between gap-2">
-            <span className="flex items-center gap-2 text-sm font-medium">
-              {label}
-              <span className="rounded border border-orange-300 bg-orange-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-orange-800 dark:border-orange-900 dark:bg-orange-950/60 dark:text-orange-300">
-                itemized
-              </span>
-            </span>
-            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-              {fmtPerW(effective)} <span className="text-muted-foreground/60">sum</span>
-            </span>
+        <div className="rounded-lg border bg-muted/40 p-3">
+          <div className="mb-2 flex items-baseline justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span>Bill of materials</span><span>$/W · unit · products</span>
           </div>
-          <div className="rounded-lg border bg-muted/40 p-3">
-            <div className="mb-2 flex items-baseline justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
-              <span>Bill of materials</span><span>$/W · unit · products</span>
-            </div>
-            <div className="space-y-2">
-              {(cat?.components ?? []).map((comp) => {
-                const cost: ComponentCost =
-                  loc.componentCosts?.[comp.key] ?? { value: comp.defaultPerW, unit: "perW" };
-                return (
-                  <BomRow
-                    key={comp.key} comp={comp} cost={cost}
-                    onChange={(c) => onComponent(comp.key, c)}
-                    onProducts={() => onProducts(comp.key)}
-                  />
-                );
-              })}
-            </div>
-            <div className="mt-2 flex items-baseline justify-between border-t pt-2 text-[12.5px] font-semibold">
-              <span>Category total</span>
-              <span className="font-mono tabular-nums">{fmtPerW(effective)}</span>
-            </div>
+          <div className="space-y-2">
+            {(cat?.components ?? []).map((comp) => {
+              const cost: ComponentCost =
+                loc.componentCosts?.[comp.key] ?? { value: comp.defaultPerW, unit: "perW" };
+              return (
+                <BomRow
+                  key={comp.key} comp={comp} cost={cost}
+                  onChange={(c) => onComponent(comp.key, c)}
+                  onProducts={() => onProducts(comp.key)}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-2 flex items-baseline justify-between border-t pt-2 text-[12.5px] font-semibold">
+            <span>Category total</span>
+            <span className="font-mono tabular-nums">{fmtPerW(effective)}</span>
           </div>
         </div>
       ) : (
-        <SliderInput
-          label={label} value={lumpValue} onChange={onLump}
-          min={min} max={max} step={step} display={fmtPerW(lumpValue)} hint={hint}
-        />
+        <div>
+          <input
+            type="range" min={min} max={max} step={step} value={lumpValue}
+            onChange={(e) => onLump(parseFloat(e.target.value))}
+            className="cm-range w-full"
+            style={{ background: `linear-gradient(90deg, var(--primary) ${pct}%, var(--secondary) ${pct}%)` }}
+          />
+          {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        </div>
       )}
-      {cat && <ModeSeg mode={mode} onChange={onMode} />}
     </div>
   );
 }
@@ -868,6 +881,7 @@ function CostModelTool() {
   const [schedWeek, setSchedWeek] = useState(0); // 0..51
   const [tempUnit, setTempUnit] = useState<"C" | "F">("F");
   const [productsKey, setProductsKey] = useState<string | null>(null);
+  const [loadedModel, setLoadedModel] = useState<{ id: string; name: string } | null>(null);
 
   const [stations, setStations] = useState<TmyStation[]>([]);
   const [weatherMap, setWeatherMap] = useState<Map<string, HourlyWeather | null>>(new Map());
@@ -941,11 +955,23 @@ function CostModelTool() {
   };
 
   // Restore a saved model: the full portfolio + the display unit it was saved with.
-  const handleLoadModel = (loaded: SavedCostInputs) => {
-    const { tempUnit: savedUnit, ...savedInputs } = loaded;
+  const handleLoadModel = (model: SavedCostModel) => {
+    const { tempUnit: savedUnit, ...savedInputs } = model.inputs;
     setInputs({ locations: savedInputs.locations });
     if (savedUnit === "C" || savedUnit === "F") setTempUnit(savedUnit);
     setActiveId(savedInputs.locations[0]?.id ?? "total");
+    setLoadedModel({ id: model.id, name: model.name });
+  };
+  // After a save (new or overwrite), track it as the active model.
+  const handleSavedModel = (model: SavedCostModel) => setLoadedModel({ id: model.id, name: model.name });
+
+  // Reset every input back to a fresh default model (one "NA" location).
+  const resetToDefaults = () => {
+    if (!window.confirm("Reset all inputs to defaults? This clears the current model.")) return;
+    const fresh = makeLocation("NA", null);
+    setInputs({ locations: [fresh] });
+    setActiveId(fresh.id);
+    setLoadedModel(null);
   };
 
   // — Service mutations (active location) —
@@ -999,14 +1025,29 @@ function CostModelTool() {
 
       <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
-          <h1 className="mb-1.5 text-3xl font-bold tracking-tight">Data Center Cost Model</h1>
+          <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="text-3xl font-bold tracking-tight">Data Center Cost Model</h1>
+            {loadedModel && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border bg-secondary px-2.5 py-1 text-xs font-medium text-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                {loadedModel.name}
+              </span>
+            )}
+          </div>
           <p className="max-w-2xl text-muted-foreground">
             Build a portfolio of locations — each with its own services, energy profile, build cost and
             returns — then roll them up into a total view. Planning-grade; tune every assumption.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <SavedModelsDrawer currentInputs={{ ...inputs, tempUnit }} onLoad={handleLoadModel} />
+          <Button variant="outline" size="sm" onClick={resetToDefaults}>Reset</Button>
+          <SavedModelsDrawer
+            currentInputs={{ ...inputs, tempUnit }}
+            loadedId={loadedModel?.id ?? null}
+            loadedName={loadedModel?.name ?? null}
+            onLoad={handleLoadModel}
+            onSaved={handleSavedModel}
+          />
           <ModeToggle />
         </div>
       </div>
@@ -1396,7 +1437,7 @@ function CostModelTool() {
                       </div>
                       {svc.profile.shape === "flat" ? (
                         <SliderInput label="Level" value={svc.profile.peakLoadPct} onChange={(v) => regenPreset(svc.id, { ...svc.profile, peakLoadPct: v })}
-                          min={0} max={100} step={1} display={`${svc.profile.peakLoadPct}% of peak`} hint="Constant demand as a share of peak." />
+                          min={0} max={100} step={1} display={`${svc.profile.peakLoadPct}% of peak`} hint="Constant demand as a share of the service's peak demand." />
                       ) : (
                         <>
                           <div className="grid grid-cols-2 gap-3">
@@ -1413,8 +1454,10 @@ function CostModelTool() {
                                 min={0} max={23} step={1} display={`${String(svc.profile.peakHour ?? 15).padStart(2, "0")}:00`} hint="Local hour of the daily maximum." />
                             </div>
                           )}
-                          <SliderInput label="Weekend factor" value={svc.profile.weekendFactor} onChange={(v) => regenPreset(svc.id, { ...svc.profile, weekendFactor: v })}
-                            min={0} max={1} step={0.05} display={svc.profile.weekendFactor.toFixed(2)} hint="Shrinks weekend swing (1 = no change)." />
+                          {svc.profile.shape !== "ramp" && (
+                            <SliderInput label="Weekend factor" value={svc.profile.weekendFactor} onChange={(v) => regenPreset(svc.id, { ...svc.profile, weekendFactor: v })}
+                              min={0} max={1} step={0.05} display={svc.profile.weekendFactor.toFixed(2)} hint="Shrinks weekend swing (1 = no change)." />
+                          )}
                         </>
                       )}
                     </div>

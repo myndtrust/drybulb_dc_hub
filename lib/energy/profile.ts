@@ -38,6 +38,12 @@ export function dayShape(hod: number, peakHour = 15, troughHour = 4): number {
 
 /** Build an 8,760-hour utilization profile (fractions 0–1) from parameters. */
 export function generateProfile(p: ProfileParams): number[] {
+  // Flat is a single level: drive it straight from peakLoadPct (the "Level" knob)
+  // so it isn't floored by baseLoadPct via the min/max below.
+  if (p.shape === "flat") {
+    const level = clamp01(p.peakLoadPct / 100);
+    return new Array<number>(HOURS).fill(level);
+  }
   const base = Math.min(p.baseLoadPct, p.peakLoadPct) / 100;
   const peak = Math.max(p.baseLoadPct, p.peakLoadPct) / 100;
   const span = peak - base;

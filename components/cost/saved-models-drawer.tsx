@@ -4,16 +4,22 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { SavedModels } from "@/components/cost/saved-models";
-import type { SavedCostInputs } from "@/lib/cost/saved-models";
+import type { SavedCostInputs, SavedCostModel } from "@/lib/cost/saved-models";
 
 // A "Saved models" button that opens a collapsible left side-drawer, keeping the
 // panel out of the main content body until the user wants it.
 export function SavedModelsDrawer({
   currentInputs,
+  loadedId,
+  loadedName,
   onLoad,
+  onSaved,
 }: {
   currentInputs: SavedCostInputs;
-  onLoad: (inputs: SavedCostInputs) => void;
+  loadedId: string | null;
+  loadedName: string | null;
+  onLoad: (model: SavedCostModel) => void;
+  onSaved: (model: SavedCostModel) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -60,10 +66,13 @@ export function SavedModelsDrawer({
             <div className="flex-1 overflow-y-auto p-4">
               <SavedModels
                 currentInputs={currentInputs}
-                onLoad={(inputs) => {
-                  onLoad(inputs);
+                loadedId={loadedId}
+                loadedName={loadedName}
+                onLoad={(model) => {
+                  onLoad(model);
                   setOpen(false);
                 }}
+                onSaved={onSaved}
               />
             </div>
           </aside>
