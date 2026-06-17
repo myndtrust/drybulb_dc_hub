@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 // Adds a subscriber to a Resend Audience (reuses the Resend account already set
 // up for the contact form). Configure:
@@ -11,6 +12,10 @@ function clean(value: unknown, max: number): string {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await checkRateLimit(`subscribe:${clientIp(request)}`))) {
+    return NextResponse.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();

@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { jobSlug } from "./job-slug";
+import { sanitizeJobHtml } from "./sanitize";
 
 /**
  * Datacenter jobs feed loader.
@@ -82,6 +83,9 @@ async function fromLocalFile(): Promise<Job[] | null> {
 export async function getJobs(): Promise<Job[]> {
   const url = process.env.NEXT_PUBLIC_JOBS_FEED_URL;
   const jobs = (isAbsoluteUrl(url) ? await fromUrl(url) : null) ?? (await fromLocalFile()) ?? [];
+
+  // Re-sanitize the description HTML at render time — never trust the feed alone.
+  for (const job of jobs) job.description_html = sanitizeJobHtml(job.description_html ?? "");
 
   return jobs.slice().sort((a, b) => {
     const rank = CATEGORY_RANK[a.category] - CATEGORY_RANK[b.category];

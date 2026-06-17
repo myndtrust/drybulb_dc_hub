@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENGAGEMENT_LABELS } from "@/lib/engagements";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 // Email delivery via the Resend REST API (no SDK dependency). Configure:
 //   RESEND_API_KEY    — Resend API key
@@ -13,7 +14,17 @@ function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+// Single-line fields (name/email/company/engagement) must not carry CR/LF, which
+// could otherwise be folded into the email subject/headers.
+function cleanLine(value: unknown, max: number): string {
+  return clean(value, max).replace(/[\r\n]+/g, " ");
+}
+
 export async function POST(request: NextRequest) {
+  if (!(await checkRateLimit(`contact:${clientIp(request)}`))) {
+    return NextResponse.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
@@ -26,11 +37,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const name = clean(payload.name, 200);
-  const email = clean(payload.email, 200);
-  const company = clean(payload.company, 200);
+  const name = cleanLine(payload.name, 200);
+  const email = cleanLine(payload.email, 200);
+  const company = cleanLine(payload.company, 200);
   const message = clean(payload.message, 5000);
-  const engagementKey = clean(payload.engagement, 64) || "general";
+  const engagementKey = cleanLine(payload.engagement, 64) || "general";
   const engagement = ENGAGEMENT_LABELS[engagementKey] ?? ENGAGEMENT_LABELS.general;
 
   if (!name || !email || !message) {

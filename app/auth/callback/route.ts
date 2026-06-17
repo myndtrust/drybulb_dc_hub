@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const DEFAULT_NEXT = "/dashboard/tools/pue-calculator";
+
+/**
+ * Only allow same-origin relative paths as the post-login destination, so the
+ * `next` param can't be turned into an open redirect (e.g. `@evil.com`,
+ * `//evil.com`, `https://evil.com`, `/\evil.com`).
+ */
+function safeNext(value: string | null): string {
+  if (!value) return DEFAULT_NEXT;
+  if (!value.startsWith("/")) return DEFAULT_NEXT; // must be a relative path
+  if (value.startsWith("//") || value.startsWith("/\\")) return DEFAULT_NEXT; // protocol-relative
+  if (value.includes(":") || value.includes("@") || value.includes("\\")) return DEFAULT_NEXT;
+  return value;
+}
+
 // OAuth callback: exchange the authorization code for a session (sets cookies),
 // then return the user to wherever they started (`next`).
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard/tools/pue-calculator";
+  const next = safeNext(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
