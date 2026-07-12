@@ -1572,7 +1572,15 @@ function CostModelTool() {
                   <Line label="Energy opex" value={`${fmtUSD(activeResult.annualEnergyCost)}/yr`} />
                   <Line label="Other opex" value={`${fmtUSD(activeResult.annualOtherOpex)}/yr`} />
                   <Line label="LCOE" value={fmtPerMWh(activeResult.lcoePerMWh)} />
+                  <Line label="Upfront capex" value={fmtUSD(activeResult.totalCapex)} />
+                  <Line label="GPU refresh (PV)" value={activeResult.refreshPV > 0 ? `+${fmtUSD(activeResult.refreshPV)}` : "—"} />
+                  <Line label="Lifecycle capex (PV)" value={fmtUSD(activeResult.lifecycleCapexPV)} strong />
                 </div>
+                {activeLoc.gpuRefreshYears > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    GPU capex is re-spent every {activeLoc.gpuRefreshYears} yr ({fmtUSD(activeResult.refreshSpend)} nominal over {activeLoc.analysisYears} yr); discounted at {activeLoc.discountRatePct}% it adds {fmtUSD(activeResult.refreshPV)} to lifecycle capex and is netted into ROI &amp; payback.
+                  </p>
+                )}
               </CardContent></Card>
             )}
 

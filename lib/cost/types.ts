@@ -30,6 +30,8 @@ export type CategoryMode = "lump" | "itemized";
 export interface ComponentCost {
   value: number;
   unit: CostUnit;
+  /** Chosen vendor product, as "Vendor · Model" — persisted with the saved project. */
+  product?: string;
 }
 
 // ── Facility capex build-up (curated, theme-legible data palette) ────────────

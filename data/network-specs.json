@@ -1,0 +1,158 @@
+{
+  "$schema": "./network-specs.schema.md",
+  "version": 1,
+  "updated": "2026-06-21",
+  "note": "Network-equipment interface specs for the AI Factory single-line — same form/schema as data/rack-specs.json. `switches` is a sub-catalog of switch SKUs (power per unit); `racks` are role-based network racks composed of those SKUs, each carrying the same POWER + COOLING interface shape as an AI rack (so a network rack is sized + auto-fed exactly like a compute rack). Roles: 'east-west' = compute fabric (leaf/spine), 'north-south'/'storage'/'mgmt' = front-end / storage / management. Edit here, then run `python scripts/network_specs.py validate|build` → lib/factory/network-specs.gen.ts. `confidence`: 'sourced' = vendor datasheet, 'estimate' = engineering default (per-switch power and rack composition vary by build — refine for the project). Switch power figures are typical max; network racks are usually air-cooled (note liquid-cooled IB variants emerging).",
+  "sources": {
+    "nvidia_quantum": "https://www.nvidia.com/en-us/networking/infiniband-switching/",
+    "nvidia_spectrum": "https://www.nvidia.com/en-us/networking/ethernet-switching/",
+    "nvidia_sn2201": "https://www.nvidia.com/en-us/networking/ethernet/sn2201/",
+    "dgx_superpod": "https://docs.nvidia.com/dgx-superpod/",
+    "ocp_orv3": "https://www.opencompute.org/projects/rack-and-power"
+  },
+  "switches": [
+    { "key": "qm3400", "label": "NVIDIA Quantum-X800 QM3400 (IB XDR)", "vendor": "NVIDIA", "model": "QM3400", "role": "east-west", "ports": "144× 800G", "speed": "XDR 800G", "power_kw": 3.5, "confidence": "estimate", "source": "nvidia_quantum" },
+    { "key": "sn5600", "label": "NVIDIA Spectrum-X SN5600 (51.2T Ethernet)", "vendor": "NVIDIA", "model": "SN5600", "role": "east-west", "ports": "64× 800G", "speed": "800GbE", "power_kw": 1.6, "confidence": "sourced", "source": "nvidia_spectrum" },
+    { "key": "qm9700", "label": "NVIDIA Quantum-2 QM9700 (NDR storage)", "vendor": "NVIDIA", "model": "QM9700", "role": "storage", "ports": "64× 400G", "speed": "NDR 400G", "power_kw": 1.6, "confidence": "estimate", "source": "nvidia_quantum" },
+    { "key": "sn5610", "label": "NVIDIA Spectrum-4 SN5610 (in-band mgmt)", "vendor": "NVIDIA", "model": "SN5610", "role": "mgmt", "ports": "64× 800G", "speed": "800GbE", "power_kw": 1.6, "confidence": "estimate", "source": "nvidia_spectrum" },
+    { "key": "sn2201", "label": "NVIDIA SN2201 (OOB management)", "vendor": "NVIDIA", "model": "SN2201", "role": "mgmt", "ports": "48× 1G + 4× 100G", "speed": "1GbE", "power_kw": 0.15, "confidence": "sourced", "source": "nvidia_sn2201" }
+  ],
+  "racks": [
+    {
+      "key": "ew-ib-quantum",
+      "label": "East/West — InfiniBand compute fabric (Quantum-X800)",
+      "role": "east-west",
+      "fabric": "InfiniBand XDR (Quantum-X800)",
+      "switches": [{ "sku": "qm3400", "qty": 6 }],
+      "power": {
+        "rack_kw": 21,
+        "peak_kw": 24,
+        "voltage_v": 415,
+        "phase": "3ph-ac",
+        "delivery": "whip-rpp",
+        "feeds": 2,
+        "redundancy": "2N",
+        "circuit_amps": 40,
+        "circuit_size": "2× 40 A · 415 V 3φ (A/B)",
+        "connector": "IEC 60309 40 A 3φ → rPDU",
+        "rack_pdu": "2× metered 3φ rPDU (A/B)"
+      },
+      "cooling": {
+        "type": "air",
+        "liquid_fraction": 0.0,
+        "coolant": "n/a",
+        "flow_lpm": 0,
+        "supply_c": 24,
+        "return_c": 38,
+        "delta_c": 14,
+        "manifold": "n/a (hot-aisle / rear-door; liquid IB variant emerging)",
+        "air_cfm": 3500,
+        "air_supply_c": 24
+      },
+      "confidence": "estimate",
+      "source": "dgx_superpod"
+    },
+    {
+      "key": "ew-eth-spectrumx",
+      "label": "East/West — Spectrum-X Ethernet compute fabric (SN5600)",
+      "role": "east-west",
+      "fabric": "Spectrum-X Ethernet (SN5600)",
+      "switches": [{ "sku": "sn5600", "qty": 8 }],
+      "power": {
+        "rack_kw": 13,
+        "peak_kw": 15,
+        "voltage_v": 415,
+        "phase": "3ph-ac",
+        "delivery": "whip-rpp",
+        "feeds": 2,
+        "redundancy": "2N",
+        "circuit_amps": 30,
+        "circuit_size": "2× 30 A · 415 V 3φ (A/B)",
+        "connector": "IEC 60309 30 A 3φ → rPDU",
+        "rack_pdu": "2× metered 3φ rPDU (A/B)"
+      },
+      "cooling": {
+        "type": "air",
+        "liquid_fraction": 0.0,
+        "coolant": "n/a",
+        "flow_lpm": 0,
+        "supply_c": 24,
+        "return_c": 36,
+        "delta_c": 12,
+        "manifold": "n/a (hot-aisle containment)",
+        "air_cfm": 2500,
+        "air_supply_c": 24
+      },
+      "confidence": "estimate",
+      "source": "nvidia_spectrum"
+    },
+    {
+      "key": "ns-storage",
+      "label": "North/South — storage fabric (QM9700)",
+      "role": "storage",
+      "fabric": "NDR storage fabric (QM9700)",
+      "switches": [{ "sku": "qm9700", "qty": 4 }],
+      "power": {
+        "rack_kw": 7,
+        "peak_kw": 8,
+        "voltage_v": 415,
+        "phase": "3ph-ac",
+        "delivery": "whip-rpp",
+        "feeds": 2,
+        "redundancy": "2N",
+        "circuit_amps": 20,
+        "circuit_size": "2× 20 A · 415 V 3φ (A/B)",
+        "connector": "IEC 60309 20 A 3φ → rPDU",
+        "rack_pdu": "2× metered 3φ rPDU (A/B)"
+      },
+      "cooling": {
+        "type": "air",
+        "liquid_fraction": 0.0,
+        "coolant": "n/a",
+        "flow_lpm": 0,
+        "supply_c": 24,
+        "return_c": 35,
+        "delta_c": 11,
+        "manifold": "n/a (hot-aisle containment)",
+        "air_cfm": 1600,
+        "air_supply_c": 24
+      },
+      "confidence": "estimate",
+      "source": "dgx_superpod"
+    },
+    {
+      "key": "ns-mgmt",
+      "label": "North/South — management / OOB (SN5610 + SN2201)",
+      "role": "mgmt",
+      "fabric": "In-band (Spectrum-4) + OOB (SN2201)",
+      "switches": [{ "sku": "sn5610", "qty": 2 }, { "sku": "sn2201", "qty": 4 }],
+      "power": {
+        "rack_kw": 4,
+        "peak_kw": 5,
+        "voltage_v": 415,
+        "phase": "3ph-ac",
+        "delivery": "whip-rpp",
+        "feeds": 2,
+        "redundancy": "2N",
+        "circuit_amps": 20,
+        "circuit_size": "2× 20 A · 415 V 3φ (A/B)",
+        "connector": "IEC 60309 20 A 3φ → rPDU",
+        "rack_pdu": "2× metered 3φ rPDU (A/B)"
+      },
+      "cooling": {
+        "type": "air",
+        "liquid_fraction": 0.0,
+        "coolant": "n/a",
+        "flow_lpm": 0,
+        "supply_c": 24,
+        "return_c": 34,
+        "delta_c": 10,
+        "manifold": "n/a (hot-aisle containment)",
+        "air_cfm": 1000,
+        "air_supply_c": 24
+      },
+      "confidence": "estimate",
+      "source": "dgx_superpod"
+    }
+  ]
+}

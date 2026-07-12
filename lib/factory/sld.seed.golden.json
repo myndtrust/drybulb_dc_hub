@@ -1,0 +1,1216 @@
+{
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "utility",
+      "name": "Utility feed 230 kV",
+      "x": 180,
+      "y": 18,
+      "kw": 0,
+      "kind": "src",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "230 kV"
+    },
+    {
+      "id": "n2",
+      "type": "bess",
+      "name": "BESS · grid interconnect",
+      "x": 1120,
+      "y": 18,
+      "kw": 0,
+      "kind": "src",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "PCC · grid services / ride-through"
+    },
+    {
+      "id": "n3",
+      "type": "transformer",
+      "name": "Main transformer A",
+      "x": 180,
+      "y": 96,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "75 MVA · HV/MV"
+    },
+    {
+      "id": "n4",
+      "type": "transformer",
+      "name": "Main transformer B",
+      "x": 760,
+      "y": 96,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "75 MVA · HV/MV"
+    },
+    {
+      "id": "n5",
+      "type": "switchboard",
+      "name": "MV SWBD-A · 13.8 kV",
+      "x": 150,
+      "y": 176,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "13.8 kV · 1200 A",
+      "voltage": "13.8 kV",
+      "mainAmp": 1200,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "F1",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "F2",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "TIE",
+          "amp": 800,
+          "poles": 3,
+          "status": "open"
+        },
+        {
+          "id": "b4",
+          "label": "F4",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b5",
+          "label": "F5",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b6",
+          "label": "F6",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b7",
+          "label": "F7",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b8",
+          "label": "F8",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n6",
+      "type": "switchboard",
+      "name": "MV SWBD-B · 13.8 kV",
+      "x": 760,
+      "y": 176,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "13.8 kV · 1200 A",
+      "voltage": "13.8 kV",
+      "mainAmp": 1200,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "F1",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "F2",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "F3",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "F4",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b5",
+          "label": "F5",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b6",
+          "label": "F6",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b7",
+          "label": "F7",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b8",
+          "label": "F8",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n7",
+      "type": "transformer",
+      "name": "Transformer 1",
+      "x": 150,
+      "y": 250,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "2.5 MVA"
+    },
+    {
+      "id": "n8",
+      "type": "ups",
+      "name": "UPS 1 (4N3)",
+      "x": 150,
+      "y": 322,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "1500 kVA"
+    },
+    {
+      "id": "n9",
+      "type": "transformer",
+      "name": "Transformer 2",
+      "x": 340,
+      "y": 250,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "2.5 MVA"
+    },
+    {
+      "id": "n10",
+      "type": "ups",
+      "name": "UPS 2 (4N3)",
+      "x": 340,
+      "y": 322,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "1500 kVA"
+    },
+    {
+      "id": "n11",
+      "type": "transformer",
+      "name": "Transformer 3",
+      "x": 760,
+      "y": 250,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "2.5 MVA"
+    },
+    {
+      "id": "n12",
+      "type": "ups",
+      "name": "UPS 3 (4N3)",
+      "x": 760,
+      "y": 322,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "1500 kVA"
+    },
+    {
+      "id": "n13",
+      "type": "transformer",
+      "name": "Transformer 4",
+      "x": 950,
+      "y": 250,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "2.5 MVA"
+    },
+    {
+      "id": "n14",
+      "type": "ups",
+      "name": "UPS 4 (4N3)",
+      "x": 950,
+      "y": 322,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "1500 kVA"
+    },
+    {
+      "id": "n15",
+      "type": "genset",
+      "name": "On-site generation",
+      "x": 540,
+      "y": 300,
+      "kw": 0,
+      "kind": "src",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "N × 3 MW · 480 V"
+    },
+    {
+      "id": "n16",
+      "type": "switchboard",
+      "name": "GEN PARALLEL SWBD · 480 V",
+      "x": 500,
+      "y": 376,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "480 V · paralleling",
+      "voltage": "480 V",
+      "mainAmp": 4000,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "F1",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "F2",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "F3",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "F4",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b5",
+          "label": "F5",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b6",
+          "label": "F6",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b7",
+          "label": "F7",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b8",
+          "label": "F8",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n17",
+      "type": "switchboard",
+      "name": "SWBD-A",
+      "x": 250,
+      "y": 452,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "480 V · 3200 A",
+      "voltage": "480 V",
+      "mainAmp": 3200,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "F1",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "F2",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "F3",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "F4",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b5",
+          "label": "F5",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b6",
+          "label": "F6",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b7",
+          "label": "F7",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b8",
+          "label": "F8",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n18",
+      "type": "switchboard",
+      "name": "SWBD-B",
+      "x": 900,
+      "y": 452,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "480 V · 3200 A",
+      "voltage": "480 V",
+      "mainAmp": 3200,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "F1",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "F2",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "F3",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "F4",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b5",
+          "label": "F5",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b6",
+          "label": "F6",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b7",
+          "label": "F7",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b8",
+          "label": "F8",
+          "amp": 800,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n19",
+      "type": "rpp",
+      "name": "RPP-A1",
+      "x": 150,
+      "y": 544,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "voltage": "415/240 V",
+      "mainAmp": 400,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "C1",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "C2",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "C3",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "C4",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n20",
+      "type": "rpp",
+      "name": "RPP-A2",
+      "x": 470,
+      "y": 544,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "voltage": "415/240 V",
+      "mainAmp": 400,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "C1",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "C2",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "C3",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "C4",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n21",
+      "type": "rpp",
+      "name": "RPP-B1",
+      "x": 800,
+      "y": 544,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "voltage": "415/240 V",
+      "mainAmp": 400,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "C1",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "C2",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "C3",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "C4",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n22",
+      "type": "rpp",
+      "name": "RPP-B2",
+      "x": 1120,
+      "y": 544,
+      "kw": 0,
+      "kind": "eq",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "voltage": "415/240 V",
+      "mainAmp": 400,
+      "breakers": [
+        {
+          "id": "b1",
+          "label": "C1",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b2",
+          "label": "C2",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b3",
+          "label": "C3",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        },
+        {
+          "id": "b4",
+          "label": "C4",
+          "amp": 100,
+          "poles": 3,
+          "status": "closed"
+        }
+      ]
+    },
+    {
+      "id": "n23",
+      "type": "rack",
+      "name": "GB300 rack 1",
+      "x": 150,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n24",
+      "type": "rack",
+      "name": "GB300 rack 2",
+      "x": 262,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n25",
+      "type": "rack",
+      "name": "GB300 rack 3",
+      "x": 374,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n26",
+      "type": "rack",
+      "name": "GB300 rack 4",
+      "x": 486,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n27",
+      "type": "rack",
+      "name": "GB300 rack 5",
+      "x": 598,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n28",
+      "type": "rack",
+      "name": "GB300 rack 6",
+      "x": 710,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n29",
+      "type": "rack",
+      "name": "GB300 rack 7",
+      "x": 822,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n30",
+      "type": "rack",
+      "name": "GB300 rack 8",
+      "x": 934,
+      "y": 652,
+      "kw": 120,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "IT"
+    },
+    {
+      "id": "n31",
+      "type": "chiller",
+      "name": "Chiller plant",
+      "x": 1060,
+      "y": 652,
+      "kw": 300,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "MECH"
+    },
+    {
+      "id": "n32",
+      "type": "cdu",
+      "name": "CDU",
+      "x": 1160,
+      "y": 652,
+      "kw": 5,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "MECH"
+    },
+    {
+      "id": "n33",
+      "type": "crah",
+      "name": "CRAH",
+      "x": 1250,
+      "y": 652,
+      "kw": 40,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "MECH"
+    },
+    {
+      "id": "n34",
+      "type": "spine",
+      "name": "Spine",
+      "x": 1340,
+      "y": 652,
+      "kw": 8,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "NET"
+    },
+    {
+      "id": "n35",
+      "type": "leaf",
+      "name": "Leaf",
+      "x": 1430,
+      "y": 652,
+      "kw": 12,
+      "kind": "load",
+      "red": "2N",
+      "catalogKey": "",
+      "product": "",
+      "rating": "",
+      "grp": "NET"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e36",
+      "from": "n1",
+      "to": "n3"
+    },
+    {
+      "id": "e37",
+      "from": "n1",
+      "to": "n4"
+    },
+    {
+      "id": "e38",
+      "from": "n3",
+      "to": "n5"
+    },
+    {
+      "id": "e39",
+      "from": "n4",
+      "to": "n6"
+    },
+    {
+      "id": "e40",
+      "from": "n2",
+      "to": "n5"
+    },
+    {
+      "id": "e41",
+      "from": "n5",
+      "to": "n6",
+      "fromBreaker": "b3"
+    },
+    {
+      "id": "e42",
+      "from": "n5",
+      "to": "n7",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e43",
+      "from": "n5",
+      "to": "n9",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e44",
+      "from": "n6",
+      "to": "n11",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e45",
+      "from": "n6",
+      "to": "n13",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e46",
+      "from": "n7",
+      "to": "n8"
+    },
+    {
+      "id": "e47",
+      "from": "n9",
+      "to": "n10"
+    },
+    {
+      "id": "e48",
+      "from": "n11",
+      "to": "n12"
+    },
+    {
+      "id": "e49",
+      "from": "n13",
+      "to": "n14"
+    },
+    {
+      "id": "e50",
+      "from": "n8",
+      "to": "n17"
+    },
+    {
+      "id": "e51",
+      "from": "n8",
+      "to": "n18"
+    },
+    {
+      "id": "e52",
+      "from": "n10",
+      "to": "n17"
+    },
+    {
+      "id": "e53",
+      "from": "n10",
+      "to": "n18"
+    },
+    {
+      "id": "e54",
+      "from": "n12",
+      "to": "n17"
+    },
+    {
+      "id": "e55",
+      "from": "n12",
+      "to": "n18"
+    },
+    {
+      "id": "e56",
+      "from": "n14",
+      "to": "n17"
+    },
+    {
+      "id": "e57",
+      "from": "n14",
+      "to": "n18"
+    },
+    {
+      "id": "e58",
+      "from": "n15",
+      "to": "n16"
+    },
+    {
+      "id": "e59",
+      "from": "n16",
+      "to": "n17",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e60",
+      "from": "n16",
+      "to": "n18",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e61",
+      "from": "n17",
+      "to": "n19",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e62",
+      "from": "n17",
+      "to": "n20",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e63",
+      "from": "n17",
+      "to": "n31",
+      "fromBreaker": "b3"
+    },
+    {
+      "id": "e64",
+      "from": "n17",
+      "to": "n32",
+      "fromBreaker": "b4"
+    },
+    {
+      "id": "e65",
+      "from": "n17",
+      "to": "n33",
+      "fromBreaker": "b5"
+    },
+    {
+      "id": "e66",
+      "from": "n17",
+      "to": "n34",
+      "fromBreaker": "b6"
+    },
+    {
+      "id": "e67",
+      "from": "n17",
+      "to": "n35",
+      "fromBreaker": "b7"
+    },
+    {
+      "id": "e68",
+      "from": "n18",
+      "to": "n21",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e69",
+      "from": "n18",
+      "to": "n22",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e70",
+      "from": "n18",
+      "to": "n31",
+      "fromBreaker": "b3"
+    },
+    {
+      "id": "e71",
+      "from": "n18",
+      "to": "n32",
+      "fromBreaker": "b4"
+    },
+    {
+      "id": "e72",
+      "from": "n18",
+      "to": "n33",
+      "fromBreaker": "b5"
+    },
+    {
+      "id": "e73",
+      "from": "n18",
+      "to": "n34",
+      "fromBreaker": "b6"
+    },
+    {
+      "id": "e74",
+      "from": "n18",
+      "to": "n35",
+      "fromBreaker": "b7"
+    },
+    {
+      "id": "e75",
+      "from": "n19",
+      "to": "n23",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e76",
+      "from": "n21",
+      "to": "n23",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e77",
+      "from": "n19",
+      "to": "n24",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e78",
+      "from": "n21",
+      "to": "n24",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e79",
+      "from": "n19",
+      "to": "n25",
+      "fromBreaker": "b3"
+    },
+    {
+      "id": "e80",
+      "from": "n21",
+      "to": "n25",
+      "fromBreaker": "b3"
+    },
+    {
+      "id": "e81",
+      "from": "n19",
+      "to": "n26",
+      "fromBreaker": "b4"
+    },
+    {
+      "id": "e82",
+      "from": "n21",
+      "to": "n26",
+      "fromBreaker": "b4"
+    },
+    {
+      "id": "e83",
+      "from": "n20",
+      "to": "n27",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e84",
+      "from": "n22",
+      "to": "n27",
+      "fromBreaker": "b1"
+    },
+    {
+      "id": "e85",
+      "from": "n20",
+      "to": "n28",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e86",
+      "from": "n22",
+      "to": "n28",
+      "fromBreaker": "b2"
+    },
+    {
+      "id": "e87",
+      "from": "n20",
+      "to": "n29",
+      "fromBreaker": "b3"
+    },
+    {
+      "id": "e88",
+      "from": "n22",
+      "to": "n29",
+      "fromBreaker": "b3"
+    },
+    {
+      "id": "e89",
+      "from": "n20",
+      "to": "n30",
+      "fromBreaker": "b4"
+    },
+    {
+      "id": "e90",
+      "from": "n22",
+      "to": "n30",
+      "fromBreaker": "b4"
+    }
+  ],
+  "busbars": [],
+  "uid": 90
+}

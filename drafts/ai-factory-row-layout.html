@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Factory — server-row layout & library (mockup)</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--fg:#0b0d12;--mut:#6b7280;--bd:#e4e7eb;--bd2:#d4d8de;--sec:#eef1f4;
+    --emerald:#059669;--teal:#0d9488;--sky:#0284c7;--violet:#7c3aed;--slate:#475569;--amber:#d97706;--rose:#e11d48;--zinc:#a1a1aa;}
+  *{box-sizing:border-box}
+  body{margin:0;font:13px/1.45 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;color:var(--fg);background:var(--bg)}
+  .mono{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+  .top{display:flex;align-items:center;gap:12px;padding:9px 16px;background:var(--card);border-bottom:1px solid var(--bd);flex-wrap:wrap}
+  .top h1{font-size:14px;margin:0;font-weight:700}
+  .crumbs{font-size:10px;color:var(--mut)}
+  select,input{font:inherit;border:1px solid var(--bd);border-radius:7px;padding:5px 8px;font-size:12px;background:var(--card)}
+  .btn{border:1px solid var(--bd2);background:var(--card);border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;font-weight:560}
+  .btn.primary{background:var(--fg);color:#fff;border-color:var(--fg)}
+  .body{display:grid;grid-template-columns:188px 1fr 268px;height:calc(100vh - 49px)}
+  .rail{background:var(--card);overflow:auto;padding:11px}
+  .rail.l{border-right:1px solid var(--bd)} .rail.r{border-left:1px solid var(--bd)}
+  h2{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:8px 0 6px}
+  .lib{display:flex;flex-direction:column;gap:5px}
+  .libcard{border:1px solid var(--bd2);border-radius:7px;padding:6px 8px;font-size:12px;cursor:grab;display:flex;align-items:center;gap:7px;background:var(--card)}
+  .libcard:hover{background:var(--sec)} .dot{width:8px;height:8px;border-radius:3px;flex:none}
+  .tpl{display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--bd);border-radius:7px;padding:5px 7px;font-size:12px;margin-bottom:5px;cursor:pointer}
+  .tpl:hover{background:var(--sec)} .tpl small{color:var(--mut)}
+  /* stage */
+  .stage{overflow:auto;padding:16px;background:
+    linear-gradient(var(--bd) 1px,transparent 1px) 0 0/22px 22px,
+    linear-gradient(90deg,var(--bd) 1px,transparent 1px) 0 0/22px 22px,var(--bg)}
+  .rowwrap{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;min-width:760px}
+  .rowname{font-weight:680;font-size:14px;margin-bottom:2px;outline:none}
+  .rowmeta{font-size:11px;color:var(--mut);margin-bottom:12px}
+  .row{display:flex;align-items:flex-end;gap:3px;border-bottom:2px solid var(--bd2);padding-bottom:0;min-height:220px}
+  .obj{position:relative;border:1px solid var(--bd2);border-bottom:0;border-radius:7px 7px 0 0;background:var(--card);cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;padding:5px 5px 7px}
+  .obj.sel{outline:2px solid var(--fg);outline-offset:1px;z-index:2}
+  .obj .ot{font-size:8.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--mut)}
+  .obj .on{font-size:11px;font-weight:600;line-height:1.1;margin-top:1px}
+  .obj .ou{flex:1;margin:5px 0;border-radius:3px;background:repeating-linear-gradient(0deg,rgba(0,0,0,.06) 0 1px,transparent 1px 7px)}
+  .obj .om{font-size:9px;color:var(--mut);line-height:1.25}
+  .obj .om b{color:var(--fg)}
+  .obj .del{position:absolute;top:3px;right:4px;border:0;background:transparent;color:var(--mut);cursor:pointer;font-size:10px;opacity:0}
+  .obj:hover .del,.obj.sel .del{opacity:1}
+  .obj .del:hover{color:var(--rose)}
+  .totals{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .tot{background:var(--sec);border:1px solid var(--bd);border-radius:9px;padding:6px 11px;line-height:1.15}
+  .tot b{font-size:14px}.tot span{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);display:block}
+  .bal.ok{color:var(--emerald)} .bal.bad{color:var(--rose)}
+  /* inspector */
+  .field{margin-bottom:8px}.field label{display:block;font-size:10px;color:var(--mut);margin-bottom:2px}.field input,.field select{width:100%}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .note{font-size:11px;color:var(--mut);margin-top:10px}
+  .mock{position:fixed;right:12px;bottom:12px;background:var(--fg);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;opacity:.9}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><div class="crumbs mono">Tools / Cost Model / Server-row layout</div><h1>Server-row layout &amp; library — rack elevations · space · power · cooling</h1></div>
+  <label class="mono" style="font-size:11px">RA <select id="ra"><option value="gb300">GB300 NVL72</option><option value="b300">DGX B300</option></select></label>
+  <button class="btn" id="save">★ Save row to library</button>
+  <button class="btn" id="addcustom">+ Custom object</button>
+</div>
+<div class="body">
+  <aside class="rail l">
+    <h2>Object library</h2>
+    <div class="lib" id="palette"></div>
+    <h2 style="margin-top:14px">Row library</h2>
+    <div id="rowlib"></div>
+    <p class="note">Drag objects into the row. Rows seed from the RA; save your own to build a reusable library (stored in this browser).</p>
+  </aside>
+  <div class="stage">
+    <div class="rowwrap">
+      <div class="rowname" id="rowname" contenteditable spellcheck="false"></div>
+      <div class="rowmeta" id="rowmeta"></div>
+      <div class="row" id="row"></div>
+      <div class="totals" id="totals"></div>
+    </div>
+    <p class="note">Each object models the floor <b>space</b> (width / footprint, rack U), the <b>power</b> it draws, and the <b>cooling</b> it adds (IT heat, +) or serves (capacity, −). The cooling <b>balance</b> = capacity − load.</p>
+  </div>
+  <aside class="rail r" id="inspector"></aside>
+</div>
+<div class="mock">row-layout mockup · drag · edit · save library</div>
+
+<script>
+const C={emerald:"#059669",teal:"#0d9488",sky:"#0284c7",violet:"#7c3aed",slate:"#475569",amber:"#d97706",zinc:"#a1a1aa",mut:"#6b7280"};
+// object templates: space (rackU,widthMM,footprintM2), powerKW, coolingKW(+heat/-capacity)
+const OBJ = {
+  "gb300-rack":{type:"rack",name:"GB300 NVL72 rack",color:C.emerald,space:{rackU:48,widthMM:600,footprintM2:1.2},powerKW:120,coolingKW:120,catalogKey:"accel"},
+  "b300-rack":{type:"rack",name:"DGX B300 rack (4 nodes)",color:C.emerald,space:{rackU:48,widthMM:600,footprintM2:1.2},powerKW:56,coolingKW:56,catalogKey:"accel"},
+  "cdu":{type:"cdu",name:"In-row CDU",color:C.teal,space:{rackU:48,widthMM:300,footprintM2:0.6},powerKW:5,coolingKW:-300,catalogKey:"cdus"},
+  "endcap":{type:"endcap-cooler",name:"End-of-row cooler",color:C.teal,space:{rackU:48,widthMM:350,footprintM2:0.7},powerKW:8,coolingKW:-200,catalogKey:"crah"},
+  "netrack":{type:"network-rack",name:"Network rack",color:C.violet,space:{rackU:48,widthMM:600,footprintM2:1.2},powerKW:15,coolingKW:15,catalogKey:"switches"},
+  "pdu":{type:"pdu",name:"Power / busway tap",color:C.sky,space:{rackU:48,widthMM:200,footprintM2:0.3},powerKW:0,coolingKW:0,catalogKey:"busway"},
+  "blanking":{type:"blanking",name:"Blanking / aisle space",color:C.zinc,space:{widthMM:600,footprintM2:1.2},powerKW:0,coolingKW:0},
+};
+// RA default rows
+const RA_ROWS = {
+  gb300:{label:"GB300 NVL72 — reference row", objects:[["pdu",1],["gb300-rack",8],["cdu",2],["netrack",1]]},
+  b300: {label:"DGX B300 — reference row", objects:[["pdu",1],["b300-rack",8],["cdu",2],["endcap",1],["netrack",1]]},
+};
+let uid=0, row=[], rowName="", sel=null;
+const id=()=>"o"+(++uid);
+const mk=(key,qty)=>{const o=OBJ[key];return {id:id(),key,type:o.type,name:o.name,color:o.color,qty:qty||1,catalogKey:o.catalogKey,product:o.product,space:{...o.space},powerKW:o.powerKW,coolingKW:o.coolingKW};};
+
+function loadRA(ra){ const r=RA_ROWS[ra]; rowName=r.label; row=r.objects.map(([k,q])=>mk(k,q)); sel=null; render(); }
+function userLib(){ try{return JSON.parse(localStorage.getItem("drybulb.rowlib")||"[]")}catch{return[]} }
+function saveLib(arr){ localStorage.setItem("drybulb.rowlib",JSON.stringify(arr)); }
+
+function render(){
+  // palette
+  document.getElementById("palette").innerHTML=Object.entries(OBJ).map(([k,o])=>
+    `<div class="libcard" draggable="true" data-add="${k}"><span class="dot" style="background:${o.color}"></span>${o.name}</div>`).join("");
+  document.querySelectorAll("[data-add]").forEach(c=>c.addEventListener("dragstart",e=>window.__add=c.dataset.add));
+  // row library
+  const lib=userLib();
+  document.getElementById("rowlib").innerHTML =
+    Object.entries(RA_ROWS).map(([k,r])=>`<div class="tpl" data-ra="${k}"><span>${r.label}</span><small>RA</small></div>`).join("")
+    + lib.map((t,i)=>`<div class="tpl" data-user="${i}"><span>${t.name}</span><small>mine ✕</small></div>`).join("");
+  document.querySelectorAll("[data-ra]").forEach(t=>t.addEventListener("click",()=>loadRA(t.dataset.ra)));
+  document.querySelectorAll("[data-user]").forEach(t=>t.addEventListener("click",e=>{
+    const i=+t.dataset.user; if(e.offsetX>t.clientWidth-26){ const a=userLib(); a.splice(i,1); saveLib(a); render(); return; }
+    const tpl=userLib()[i]; rowName=tpl.name; row=tpl.objects.map(o=>({...o,id:id(),space:{...o.space}})); sel=null; render();
+  }));
+  // row name + tiles (visual height scaled by rackU, width by widthMM)
+  document.getElementById("rowname").textContent=rowName;
+  const maxU=48;
+  document.getElementById("row").innerHTML=row.map(o=>{
+    const w=Math.max(28,(o.space.widthMM||400)/600*86), h=120+((o.space.rackU||30)/maxU)*90;
+    const fillU = o.type==="rack"? ` <b>${o.space.rackU||0}U</b>`:"";
+    const cool = o.coolingKW<0? `serves <b>${-o.coolingKW}kW</b>` : `heat <b>${o.coolingKW}kW</b>`;
+    return `<div class="obj ${sel===o.id?'sel':''}" data-id="${o.id}" draggable="true" style="width:${w}px;height:${h}px;border-top:4px solid ${o.color}">
+      <button class="del" data-id="${o.id}">✕</button>
+      <div><div class="ot">${o.type}${o.qty>1?' ×'+o.qty:''}</div><div class="on">${o.name}</div></div>
+      <div class="ou" style="background-color:${o.color}1a"></div>
+      <div class="om"><b>${o.powerKW*o.qty}kW</b> · ${(o.space.footprintM2*o.qty).toFixed(1)}m²${fillU}<br>${cool}</div>
+    </div>`;
+  }).join("") || `<div class="note">Empty row — drag objects from the library.</div>`;
+  wireRow();
+  // totals
+  let len=0,fp=0,pw=0,load=0,cap=0,n=0;
+  row.forEach(o=>{const q=o.qty||1;n+=q;len+=(o.space.widthMM||0)*q;fp+=(o.space.footprintM2||0)*q;pw+=o.powerKW*q;if(o.coolingKW>=0)load+=o.coolingKW*q;else cap+=-o.coolingKW*q;});
+  const bal=cap-load;
+  document.getElementById("rowmeta").textContent=`${n} objects · ${(len/1000).toFixed(1)} m long`;
+  document.getElementById("totals").innerHTML=[
+    ["Objects",n],["Footprint",fp.toFixed(1)+" m²"],["Row power",pw.toFixed(0)+" kW"],
+    ["Cooling load",load.toFixed(0)+" kW"],["Cooling capacity",cap.toFixed(0)+" kW"],
+  ].map(([s,v])=>`<div class="tot"><b class="mono">${v}</b><span>${s}</span></div>`).join("")
+   +`<div class="tot"><b class="mono bal ${bal>=0?'ok':'bad'}">${bal>=0?'+':''}${bal.toFixed(0)} kW</b><span>Cooling balance</span></div>`;
+  renderInspector();
+}
+
+function wireRow(){
+  const rowEl=document.getElementById("row");
+  rowEl.querySelectorAll(".obj").forEach(el=>{
+    el.addEventListener("click",e=>{ if(e.target.classList.contains("del"))return; sel=el.dataset.id; render(); });
+    el.addEventListener("dragstart",e=>{ window.__move=el.dataset.id; });
+  });
+  rowEl.querySelectorAll(".del").forEach(d=>d.addEventListener("click",e=>{ e.stopPropagation(); row=row.filter(o=>o.id!==d.dataset.id); if(sel===d.dataset.id)sel=null; render(); }));
+  rowEl.addEventListener("dragover",e=>e.preventDefault());
+  rowEl.addEventListener("drop",e=>{
+    e.preventDefault();
+    if(window.__add){ row.push(mk(window.__add)); window.__add=null; render(); }
+    else if(window.__move){ /* simple reorder: move to end */ const i=row.findIndex(o=>o.id===window.__move); if(i>=0){ const [m]=row.splice(i,1); row.push(m);} window.__move=null; render(); }
+  });
+}
+
+function f(l,v,oin){return `<div class="field"><label>${l}</label><input value="${v}" oninput="${oin}"></div>`;}
+function renderInspector(){
+  const ins=document.getElementById("inspector"); const o=row.find(x=>x.id===sel);
+  if(!o){ ins.innerHTML=`<h2>Object</h2><p class="note">Select an object in the row to edit its space, power, and cooling. Use “+ Custom object” to add a user-defined object.</p>`; return; }
+  ins.innerHTML=`<h2>Object — ${o.type}</h2>
+    ${f("Name",o.name,"setO('"+o.id+"','name',this.value)")}
+    <div class="grid2">${f("Quantity",o.qty,"setO('"+o.id+"','qty',+this.value)")}${f("Rack U",o.space.rackU||0,"setS('"+o.id+"','rackU',+this.value)")}</div>
+    <div class="grid2">${f("Width (mm)",o.space.widthMM||0,"setS('"+o.id+"','widthMM',+this.value)")}${f("Footprint (m²)",o.space.footprintM2||0,"setS('"+o.id+"','footprintM2',+this.value)")}</div>
+    <div class="grid2">${f("Power (kW)",o.powerKW,"setO('"+o.id+"','powerKW',+this.value)")}${f("Cooling (kW, − = capacity)",o.coolingKW,"setO('"+o.id+"','coolingKW',+this.value)")}</div>
+    ${f("Catalog key",o.catalogKey||"","setO('"+o.id+"','catalogKey',this.value)")}
+    ${f("Product (vendor · model)",o.product||"","setO('"+o.id+"','product',this.value)")}
+    <div style="display:flex;gap:6px;margin-top:9px"><button class="btn" onclick="dupO('${o.id}')">Duplicate</button><button class="btn" onclick="delO('${o.id}')">Delete</button></div>`;
+}
+function setO(id,k,v){const o=row.find(x=>x.id===id);if(o){o[k]=v;render();}}
+function setS(id,k,v){const o=row.find(x=>x.id===id);if(o){o.space[k]=v;render();}}
+function dupO(id){const o=row.find(x=>x.id===id);if(o){row.splice(row.indexOf(o)+1,0,{...o,id:id+"_"+(++uid),space:{...o.space}});render();}}
+function delO(id){row=row.filter(o=>o.id!==id);if(sel===id)sel=null;render();}
+
+document.getElementById("ra").addEventListener("change",e=>loadRA(e.target.value));
+document.getElementById("save").addEventListener("click",()=>{
+  const name=prompt("Save this row to your library as:",rowName||"My row"); if(!name)return;
+  const a=userLib(); a.push({name,objects:row.map(o=>({...o}))}); saveLib(a); render();
+});
+document.getElementById("addcustom").addEventListener("click",()=>{
+  const o=mk("blanking"); o.type="custom"; o.name="Custom object"; o.color=C.amber; row.push(o); sel=o.id; render();
+});
+document.getElementById("rowname").addEventListener("blur",e=>rowName=e.target.textContent);
+
+loadRA("gb300");
+</script>
+</body>
+</html>

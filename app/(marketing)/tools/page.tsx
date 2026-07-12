@@ -19,7 +19,7 @@ const statusLabels: Record<string, { label: string; variant: "outline" | "defaul
 };
 
 // Explicit display order for the gallery; anything unlisted falls to the end.
-const TOOL_ORDER = ["pue-calculator", "cost-model"];
+const TOOL_ORDER = ["pue-calculator", "cost-model", "single-line"];
 const orderRank = (slug: string) => {
   const i = TOOL_ORDER.indexOf(slug);
   return i === -1 ? Number.MAX_SAFE_INTEGER : i;

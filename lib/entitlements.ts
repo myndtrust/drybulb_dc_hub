@@ -13,6 +13,7 @@ export type Tier = "free" | "members" | "pro";
 export const TOOL_TIER: Record<string, Tier> = {
   "pue-calculator": "free",
   "cost-model": "members",
+  "single-line": "members",
 };
 
 const RANK: Record<Tier, number> = { free: 0, members: 1, pro: 2 };

@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Factory Configurator — ETAP-style single-line (mockup)</title>
+<style>
+  :root{
+    --bg:#f6f7f9;--card:#fff;--fg:#0b0d12;--mut:#6b7280;--mutbg:#f1f3f5;--bd:#e4e7eb;--bd2:#d4d8de;
+    --pri:#0b0d12;--prifg:#fff;--sec:#eef1f4;--link:#2563eb;
+    --sky:#0ea5e9;--teal:#0d9488;--violet:#7c3aed;--emerald:#059669;--slate:#475569;--amber:#d97706;
+    --orange:#ea580c;--rose:#e11d48;--green:#16a34a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:13px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--fg);background:var(--bg);overflow:hidden}
+  .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-variant-numeric:tabular-nums}
+  button{font:inherit}
+  select,input{font:inherit;color:inherit;background:var(--card);border:1px solid var(--bd);border-radius:7px;padding:5px 8px;font-size:12px}
+
+  /* top bar */
+  .top{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--bd);flex-wrap:wrap}
+  .top h1{font-size:14px;margin:0;font-weight:700}
+  .top .crumbs{font-size:10px;color:var(--mut)}
+  .btn{border:1px solid var(--bd2);background:var(--card);border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;font-weight:560}
+  .btn.primary{background:var(--pri);color:var(--prifg);border-color:var(--pri)}
+  .btn:hover{filter:brightness(.97)}
+  .seg{display:inline-flex;background:var(--mutbg);border-radius:8px;padding:2px}
+  .seg button{border:0;background:transparent;color:var(--mut);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:560}
+  .seg button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+  .hint{font-size:11px;color:var(--mut)}
+  .lk{color:var(--link);text-decoration:none;font-size:11px}
+
+  /* kpi strip */
+  .kpis{display:flex;gap:7px;padding:6px 14px;background:var(--card);border-bottom:1px solid var(--bd);overflow:auto}
+  .kpi{background:var(--sec);border:1px solid var(--bd);border-radius:8px;padding:4px 10px;min-width:72px;line-height:1.15}
+  .kpi b{font-size:13px}.kpi span{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);display:block}
+
+  /* body */
+  .body{display:grid;grid-template-columns:206px 1fr 296px;height:calc(100vh - 152px)}
+  .rail{background:var(--card);overflow:auto}
+  .rail.left{border-right:1px solid var(--bd)}
+  .rail.right{border-left:1px solid var(--bd);padding:12px}
+  .tabs{display:flex;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--card);z-index:5}
+  .tabs button{flex:1;border:0;background:transparent;padding:8px;font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;border-bottom:2px solid transparent}
+  .tabs button.on{color:var(--fg);border-bottom-color:var(--pri)}
+  .tabpane{padding:10px}
+  h2.sl{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:6px 0}
+
+  /* element library */
+  .lib{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+  .libcard{border:1px solid var(--bd2);border-radius:7px;padding:6px 8px;font-size:12px;cursor:grab;display:flex;align-items:center;gap:7px;background:var(--card)}
+  .libcard:hover{background:var(--mutbg)}
+  .dot{width:8px;height:8px;border-radius:3px;flex:none}
+
+  /* explorer tree */
+  .tree{font-size:12px}
+  .trow{display:flex;align-items:center;gap:5px;padding:3px 4px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .trow:hover{background:var(--mutbg)}
+  .trow.sel{background:var(--sec);font-weight:600}
+  .tw{width:12px;text-align:center;color:var(--mut);cursor:pointer;font-size:10px}
+  .tcount{margin-left:auto;color:var(--mut);font-size:10px}
+
+  /* stage */
+  .stage{position:relative;overflow:auto;background:
+    linear-gradient(var(--bd) 1px,transparent 1px) 0 0/20px 20px,
+    linear-gradient(90deg,var(--bd) 1px,transparent 1px) 0 0/20px 20px,var(--bg);padding:14px}
+  .stagebar{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .breadcrumb{font-size:11px;color:var(--mut)}
+  .breadcrumb b{color:var(--fg)}
+  .ovleg{display:flex;gap:8px;font-size:10px;color:var(--mut);align-items:center}
+  .ovleg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  /* composite + element nodes */
+  .comp{border:1.5px solid var(--bd2);border-radius:12px;background:rgba(255,255,255,.45);margin:0 0 10px;position:relative}
+  .comp>.chd{display:flex;align-items:center;gap:7px;padding:6px 9px;font-weight:620;font-size:12px;cursor:pointer;border-bottom:1px solid transparent}
+  .comp.open>.chd{border-bottom-color:var(--bd)}
+  .comp .cbody{padding:9px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+  .comp .twi{width:13px;text-align:center;color:var(--mut)}
+  .comp .cdb{margin-left:auto;font-size:10px;color:var(--mut)}
+  .comp.sel{outline:2px solid var(--pri);outline-offset:1px}
+  .comp.collapsed>.cbody{display:none}
+  .comp .drill{border:0;background:transparent;color:var(--link);cursor:pointer;font-size:10px}
+
+  .el{background:var(--card);border:1px solid var(--bd2);border-left-width:4px;border-radius:8px;padding:6px 8px;width:142px;cursor:grab;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .el.sel{outline:2px solid var(--pri);outline-offset:1px}
+  .el .eh{display:flex;justify-content:space-between;align-items:center;gap:5px}
+  .el .et{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+  .el .qin{width:20px;border:0;background:transparent;text-align:right;font-family:ui-monospace,monospace;font-size:10px}
+  .el .del{border:0;background:transparent;color:var(--mut);cursor:pointer;font-size:10px;opacity:0}
+  .el:hover .del,.el.sel .del{opacity:1}
+  .el .del:hover{color:var(--rose)}
+  .el .nm{font-size:12px;font-weight:600;margin:1px 0 2px;outline:none}
+  .el .nm:focus{background:var(--sec);border-radius:3px}
+  .el .db{font-size:10px;color:var(--mut);display:flex;justify-content:space-between}
+  .el .db b{color:var(--fg)}
+  .badge{font-size:8px;text-transform:uppercase;letter-spacing:.04em;border-radius:4px;padding:0 4px;font-weight:700}
+  .badge.sourced{background:#dcfce7;color:#166534}.badge.est{background:var(--sec);color:var(--mut)}
+
+  /* inspector */
+  .field{margin-bottom:8px}
+  .field label{display:block;font-size:10px;color:var(--mut);margin-bottom:2px}
+  .field input,.field select{width:100%}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .seclabel{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:13px 0 7px;border-top:1px solid var(--bd);padding-top:10px}
+
+  /* status / feasibility bar */
+  .status{display:flex;gap:8px;padding:7px 14px;background:var(--card);border-top:1px solid var(--bd);overflow:auto;align-items:stretch}
+  .gauge{border:1px solid var(--bd);border-radius:8px;padding:4px 9px;min-width:120px;line-height:1.2}
+  .gauge .gl{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+  .gauge .gv{font-size:12px;font-weight:660}
+  .gauge .bar{height:4px;border-radius:3px;background:var(--mutbg);margin-top:3px;overflow:hidden}
+  .gauge .bar i{display:block;height:100%}
+  .ok{color:var(--green)} .warn{color:var(--amber)} .bad{color:var(--rose)}
+  .bgok{background:var(--green)} .bgwarn{background:var(--amber)} .bgbad{background:var(--rose)}
+
+  /* bom + kpi panes */
+  table.bom{width:100%;border-collapse:collapse;font-size:12px;background:var(--card);border-radius:10px;overflow:hidden}
+  table.bom th,table.bom td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:left}
+  table.bom th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);background:var(--mutbg)}
+  table.bom td.r,table.bom th.r{text-align:right;font-family:ui-monospace,monospace}
+  .kpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+  .kpcard{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:13px}
+  .kpcard .v{font-size:22px;font-weight:700}
+  .kpcard .l{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+  .kpcard .bar{height:6px;border-radius:4px;background:var(--mutbg);margin-top:8px;overflow:hidden}
+  .kpcard .bar i{display:block;height:100%}
+
+  /* floor plan */
+  .fp{display:flex;flex-direction:column;gap:14px}
+  .fphall{border:1.5px solid #b8c0cc;border-radius:12px;padding:10px;background:rgba(232,236,242,.5)}
+  .fppods{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+  .fppod{border:1.5px solid #f6c89f;border-radius:10px;padding:8px;background:rgba(255,247,237,.7)}
+  .fprow{display:flex;gap:3px;margin-top:5px}
+  .rk{width:15px;height:34px;border-radius:3px;border:1px solid var(--bd2)}
+
+  .mock{position:fixed;right:12px;bottom:64px;background:var(--fg);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;opacity:.9;z-index:40}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>
+    <div class="crumbs mono">Tools / Cost Model / AI Factory Configurator</div>
+    <h1 contenteditable="true" spellcheck="false" id="pname">AI Factory — Atlanta GA</h1>
+  </div>
+  <span class="seg" id="view">
+    <button data-v="schematic" class="on">Single-line</button>
+    <button data-v="floor">Floor plan</button>
+    <button data-v="bom">BOM</button>
+    <button data-v="kpi">KPIs</button>
+  </span>
+  <label class="hint">RA (boundary)
+    <select id="ra">
+      <option value="gb300">GB300 NVL72 (liquid)</option>
+      <option value="b300ib">DGX B300 · Quantum-3 IB · DC busbar</option>
+      <option value="b300eth">DGX B300 · Spectrum-X Eth · AC</option>
+    </select>
+  </label>
+  <a id="ralink" class="lk" target="_blank" rel="noopener" data-track="outbound">RA source ↗</a>
+  <button class="btn primary" id="autobuild">⚡ AutoBuild from RA</button>
+  <span style="margin-left:auto" class="hint">Units
+    <span class="seg" id="units"><button data-u="perW" class="on">$/W</button><button data-u="abs">$</button></span>
+  </span>
+  <a class="lk" href="#" id="openinapp">Open in cost model →</a>
+</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="body">
+  <!-- LEFT -->
+  <aside class="rail left">
+    <div class="tabs" id="ltabs">
+      <button data-t="explorer" class="on">Project explorer</button>
+      <button data-t="library">Library</button>
+    </div>
+    <div class="tabpane" id="lpane"></div>
+  </aside>
+
+  <!-- CENTER -->
+  <div class="stage" id="stage">
+    <div class="stagebar">
+      <span class="breadcrumb" id="crumb"></span>
+      <span style="margin-left:auto" class="hint">Overlay
+        <select id="overlay">
+          <option value="system">System (power/cool/net)</option>
+          <option value="loading">Power loading %</option>
+          <option value="perW">$/W heatmap</option>
+          <option value="conf">Confidence</option>
+        </select>
+      </span>
+      <span class="ovleg" id="ovleg"></span>
+    </div>
+    <div id="stageview"></div>
+  </div>
+
+  <!-- RIGHT inspector -->
+  <aside class="rail right" id="inspector"></aside>
+</div>
+
+<div class="status" id="status"></div>
+<div class="mock">ETAP-style mockup · AutoBuild · drill-in · overlays</div>
+
+<script>
+// ───────────────────────────── reference architectures ─────────────────────────────
+const RA = {
+  gb300:  {label:"GB300 NVL72", gpu:72, kw:120, perRack:1, capex:3.20e6, suSys:1,  pue:1.10, liquid:100, wue:0.0, gpuModel:"Blackwell Ultra (B300)",
+           src:"https://docs.nvidia.com/pdf/dgx-spod-gb300-ra.pdf"},
+  b300ib: {label:"DGX B300 (IB/DC)", gpu:8, kw:14, perRack:4, capex:0.44e6, suSys:64, pue:1.25, liquid:70, wue:0.3, gpuModel:"Blackwell Ultra (B300, 288GB)",
+           src:"https://docs.nvidia.com/dgx-superpod/reference-architecture/scalable-infrastructure-b300-xdr/latest/dgx-superpod-architecture.html"},
+  b300eth:{label:"DGX B300 (Eth/AC)", gpu:8, kw:14, perRack:4, capex:0.44e6, suSys:72, pue:1.30, liquid:70, wue:0.4, gpuModel:"Blackwell Ultra (B300, 288GB)",
+           src:"https://docs.nvidia.com/dgx-superpod/reference-architecture/scalable-infrastructure-b300/latest/dgx-superpod-architecture.html"},
+};
+const FAC_PER_W = 9.0, OTHER_AI_PER_W = 10.0;
+const GROUP = {power:"--sky",cooling:"--teal",network:"--violet",compute:"--emerald",site:"--slate",building:"--slate",hall:"--slate",pod:"--orange",row:"--orange"};
+const fmtUSD = n => n>=1e9?"$"+(n/1e9).toFixed(2)+"B":n>=1e6?"$"+(n/1e6).toFixed(0)+"M":n>=1e3?"$"+(n/1e3).toFixed(0)+"k":"$"+n.toFixed(0);
+const ceil=Math.ceil, cv=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// element catalog (the cost-model card "type" library) — perW/$ are illustrative
+const EL = {
+  system:{group:"compute",cat:"GPU node",unit:"$/W",perW:26,conf:"sourced",kw:r=>RA[r].kw,nm:r=>RA[r].gpuModel,catalogKey:"accel"},
+  storage:{group:"compute",cat:"Storage",unit:"$/W",perW:1,conf:"sourced",kw:()=>2,nm:()=>"NVMe-oF all-flash",catalogKey:"storage"},
+  xfmr:{group:"power",cat:"Transformer",unit:"$/W",perW:0.28,conf:"est",kw:()=>0,nm:()=>"HV transformer",catalogKey:"transformers"},
+  switchgear:{group:"power",cat:"MV switchgear",unit:"$/W",perW:0.40,conf:"sourced",kw:()=>0,nm:()=>"MV switchgear",catalogKey:"switchgear"},
+  ups:{group:"power",cat:"UPS",unit:"$/W",perW:0.36,conf:"sourced",kw:()=>0,nm:()=>"UPS + LFP",catalogKey:"ups"},
+  busway:{group:"power",cat:"Busway",unit:"$/W",perW:0.13,conf:"est",kw:()=>0,nm:()=>"Busway (power stripe)",catalogKey:"busway"},
+  chiller:{group:"cooling",cat:"Chiller",unit:"$/W",perW:0.55,conf:"sourced",kw:()=>0,nm:()=>"Chiller / plant",catalogKey:"chillers"},
+  cdu:{group:"cooling",cat:"CDU",unit:"$/W",perW:0.45,conf:"sourced",kw:()=>0,nm:()=>"CDU",catalogKey:"cdus"},
+  spine:{group:"network",cat:"Spine",unit:"$/W",perW:1.0,conf:"est",kw:()=>0,nm:()=>"Spine switch",catalogKey:"switches"},
+  leaf:{group:"network",cat:"Leaf",unit:"$/W",perW:4.0,conf:"sourced",kw:()=>0,nm:()=>"Leaf switch",catalogKey:"switches"},
+};
+
+// ───────────────────────────── state ─────────────────────────────
+let M = { ra:"gb300", targetMode:"gpus", target:576, gridCapMW:30, budgetCap:600e6,
+  redundancy:"N+1", tier:"III", pueTarget:1.3, wueTarget:0.4, footprintCap:3000,
+  units:"perW", overlay:"system", view:"schematic", ltab:"explorer", focus:null };
+let tree=null, sel=null, uid=0;
+
+function id(p){return p+(++uid)}
+function comp(ctype,name,children){return {kind:"composite",id:id("c"),ctype,name,collapsed:false,children:children||[]}}
+function el(etype){const d=EL[etype];return {kind:"element",id:id("e"),etype,name:d.nm(M.ra),qty:1,perW:d.perW,kw:d.kw(M.ra),conf:d.conf,group:d.group,cat:d.cat,catalogKey:d.catalogKey}}
+
+// ───────────────────────────── AutoBuild from RA ─────────────────────────────
+function rollupTarget(){
+  const r=RA[M.ra]; let G=Math.max(1,M.target|0);
+  if(M.targetMode==="mw"){ G = Math.floor((M.target*1e6)/(r.kw*1000))*r.gpu; }
+  if(M.targetMode==="su"){ G = (M.target|0)*r.suSys*r.gpu; }
+  if(M.targetMode==="budget"){ const sys=Math.floor(M.target/r.capex); G=sys*r.gpu; }
+  const systems=ceil(G/r.gpu), racks=ceil(systems/r.perRack), su=ceil(systems/r.suSys);
+  return {systems,racks,su,gpus:systems*r.gpu};
+}
+function autoBuild(){
+  uid=0; const r=RA[M.ra]; const t=rollupTarget();
+  const podCount=Math.min(6,Math.max(1,Math.round(t.racks/ (M.ra==="gb300"?6:4))||1));
+  const racksPerPod=ceil(t.racks/podCount);
+  const sysPerRack=r.perRack;
+  const pods=[];
+  for(let p=0;p<podCount;p++){
+    const elsys=[]; const nRacks=Math.min(racksPerPod, t.racks-p*racksPerPod);
+    const nSys=Math.max(1,nRacks*sysPerRack);
+    // represent up to a few systems as datablocks, with qty rolling the rest
+    const shown=Math.min(4,nSys);
+    for(let i=0;i<shown;i++){ const e=el("system"); e.qty=(i===shown-1)?(nSys-(shown-1)):1; elsys.push(e); }
+    pods.push(comp("pod","Containment POD "+(p+1), elsys));
+  }
+  const powerStripe=comp("power","Power stripe (busway)",[el("busway")]);
+  const cduRow=comp("cooling","In-row CDUs + manifold",[el("cdu"),el("cdu")]);
+  const hall=comp("hall","Data Hall A",[powerStripe,...pods,cduRow]);
+  const power=comp("power","Power chain",[el("xfmr"),el("switchgear"),el("ups"),el("busway")]);
+  const cooling=comp("cooling","Cooling plant",[el("chiller"),el("cdu")]);
+  const network=comp("network","Network fabric",[el("spine"),el("leaf"),el("leaf")]);
+  const bldg=comp("building","Building 1",[power,cooling,network,hall]);
+  tree=comp("site","Site — "+document.getElementById("pname").textContent.replace(/^AI Factory — /,""),[bldg]);
+  M.focus=null; sel=null;
+  renderAll();
+}
+
+// ───────────────────────────── rollups & feasibility ─────────────────────────────
+function walk(node,fn){ fn(node); if(node.children) node.children.forEach(c=>walk(c,fn)); }
+function rollup(){
+  const r=RA[M.ra]; let systems=0,gpus=0,itKW=0,capex=0;
+  walk(tree,n=>{ if(n.kind==="element"&&n.etype==="system"){ systems+=n.qty; gpus+=n.qty*r.gpu; itKW+=n.qty*r.kw; }});
+  const itW=itKW*1000, itMW=itKW/1000;
+  const computeCapex=systems*r.capex;
+  capex=computeCapex+(FAC_PER_W+OTHER_AI_PER_W)*itW;
+  const facMW=itMW*r.pue;
+  const racks=ceil(systems/r.perRack);
+  return {systems,gpus,itMW,facMW,racks,su:ceil(systems/r.suSys),capex,perGpu:gpus?capex/gpus:0,pue:r.pue,wue:r.wue,footprint:racks*3.5};
+}
+function status(k){
+  const g=(label,val,frac,unit)=>{ const pct=Math.min(150,frac*100); const cls=frac>1?"bad":frac>0.85?"warn":"ok"; const bg=frac>1?"bgbad":frac>0.85?"bgwarn":"bgok";
+    return `<div class="gauge"><div class="gl">${label}</div><div class="gv ${cls}">${val}</div><div class="bar"><i class="${bg}" style="width:${Math.min(100,pct)}%"></i></div></div>`; };
+  const redOK = M.redundancy!=="N";
+  return [
+    g("Facility power", `${k.facMW.toFixed(1)} / ${M.gridCapMW} MW`, k.facMW/M.gridCapMW),
+    g("Capex vs budget", `${fmtUSD(k.capex)} / ${fmtUSD(M.budgetCap)}`, k.capex/M.budgetCap),
+    g("PUE vs target", `${k.pue.toFixed(2)} / ${M.pueTarget}`, k.pue/M.pueTarget),
+    g("WUE vs target", `${k.wue.toFixed(2)} / ${M.wueTarget}`, M.wueTarget?k.wue/M.wueTarget:0),
+    g("Footprint", `${k.footprint.toFixed(0)} / ${M.footprintCap} m²`, k.footprint/M.footprintCap),
+    `<div class="gauge"><div class="gl">Redundancy</div><div class="gv ${redOK?'ok':'warn'}">${M.redundancy} · Tier ${M.tier} ${redOK?'✓':'—'}</div><div class="bar"><i class="${redOK?'bgok':'bgwarn'}" style="width:100%"></i></div></div>`,
+    `<div class="gauge"><div class="gl">$/GPU</div><div class="gv">${fmtUSD(k.perGpu)}</div><div class="bar"><i class="bgok" style="width:60%"></i></div></div>`,
+  ].join("");
+}
+
+// ───────────────────────────── overlay coloring ─────────────────────────────
+function heat(frac){ frac=Math.max(0,Math.min(1,frac)); const h=(1-frac)*120; return `hsl(${h} 70% 45%)`; }
+function colorFor(node){
+  if(M.overlay==="system"){ const grp=node.group||GROUP_FROM_CTYPE(node.ctype); return cv("--"+(GROUP[grp]?GROUP[grp].slice(2):"slate")); }
+  if(M.overlay==="conf"){ return node.kind==="element"? (node.conf==="sourced"?cv("--green"):cv("--mut")) : cv("--slate"); }
+  if(M.overlay==="perW"){ const v=node.kind==="element"?node.perW:elPerWsum(node); return heat(Math.min(1,v/30)); }
+  if(M.overlay==="loading"){ const kw=node.kind==="element"?node.kw*node.qty:loadKW(node); return heat(Math.min(1,kw/500)); }
+  return cv("--slate");
+}
+function GROUP_FROM_CTYPE(ct){ return ct==="pod"||ct==="row"||ct==="hall"||ct==="building"||ct==="site"?"compute":ct; }
+function loadKW(node){ let s=0; walk(node,n=>{ if(n.kind==="element") s+=n.kw*n.qty; }); return s; }
+function elPerWsum(node){ let s=0,c=0; walk(node,n=>{ if(n.kind==="element"){s+=n.perW;c++;} }); return c?s/c:0; }
+
+// ───────────────────────────── renderers ─────────────────────────────
+function renderAll(){ renderKpis(); renderStatus(); renderStage(); renderInspector(); renderLeft(); renderOverlayLegend(); document.getElementById("ralink").href=RA[M.ra].src; }
+
+function renderKpis(){
+  const k=rollup();
+  document.getElementById("kpis").innerHTML=[
+    ["GPUs",k.gpus.toLocaleString()],["Scalable units",k.su],["Racks",k.racks],
+    ["IT power",k.itMW.toFixed(2)+" MW"],["Facility",k.facMW.toFixed(2)+" MW"],
+    ["Capex",fmtUSD(k.capex)],["$/GPU",fmtUSD(k.perGpu)],
+  ].map(([s,v])=>`<div class="kpi"><b class="mono">${v}</b><span>${s}</span></div>`).join("");
+}
+function renderStatus(){ document.getElementById("status").innerHTML=status(rollup()); }
+function renderOverlayLegend(){
+  const map={system:[["Power","--sky"],["Cooling","--teal"],["Network","--violet"],["Compute","--emerald"]],
+    conf:[["Verified","--green"],["Estimate","--mut"]],
+    perW:[["low $/W","hsl(120 70% 45%)"],["high $/W","hsl(0 70% 45%)"]],
+    loading:[["light","hsl(120 70% 45%)"],["heavy","hsl(0 70% 45%)"]]};
+  document.getElementById("ovleg").innerHTML=(map[M.overlay]||[]).map(([l,c])=>`<span><i style="background:${c.startsWith('--')?cv(c):c}"></i> ${l}</span>`).join("");
+}
+
+function dbText(node){ // composite datablock summary
+  let sys=0,kw=0,cap=0; const r=RA[M.ra];
+  walk(node,n=>{ if(n.kind==="element"&&n.etype==="system"){sys+=n.qty;kw+=n.qty*r.kw;} });
+  const racks=ceil(sys/r.perRack);
+  return sys? `${racks} rack${racks>1?'s':''} · ${(kw/1000).toFixed(2)} MW` : "";
+}
+
+function renderStage(){
+  const sv=document.getElementById("stageview");
+  document.getElementById("crumb").innerHTML = M.focus? `<b style="cursor:pointer" onclick="clearFocus()">⟵ ${tree.name}</b> / ${findNode(M.focus).name}` : `<b>${tree?tree.name:""}</b>`;
+  if(M.view==="schematic"){ sv.innerHTML = renderComposite(M.focus?findNode(M.focus):tree, true); wireStage(); drawnEdges(); }
+  else if(M.view==="floor"){ sv.innerHTML = renderFloor(); }
+  else if(M.view==="bom"){ sv.innerHTML = renderBOM(); }
+  else if(M.view==="kpi"){ sv.innerHTML = renderKpiBoard(); }
+}
+
+function renderComposite(node,root){
+  const open = !node.collapsed;
+  const col = colorFor(node);
+  const isComp = node.kind==="composite";
+  if(!isComp) return renderEl(node);
+  const kids = open ? `<div class="cbody">${node.children.map(c=>renderComposite(c)).join("")}</div>` : "";
+  const drill = (node.ctype==="hall"||node.ctype==="pod"||node.ctype==="building") ? `<button class="drill" onclick="drill('${node.id}',event)">drill ▸</button>` : "";
+  return `<div class="comp ${open?'open':'collapsed'} ${sel===node.id?'sel':''}" data-id="${node.id}" style="border-color:${col}">
+    <div class="chd" data-head="${node.id}" style="background:${hexA(col,.08)}">
+      <span class="twi" onclick="toggle('${node.id}',event)">${open?'▾':'▸'}</span>
+      <span class="dot" style="background:${col}"></span>
+      <span class="cnm" contenteditable="true" spellcheck="false" data-id="${node.id}">${node.name}</span>
+      ${drill}
+      <span class="cdb">${dbText(node)}</span>
+    </div>${kids}</div>`;
+}
+function renderEl(n){
+  const col=colorFor(n);
+  const d=EL[n.etype];
+  return `<div class="el ${sel===n.id?'sel':''}" data-id="${n.id}" draggable="true" style="border-left-color:${col}">
+    <div class="eh"><span class="et">${n.cat}</span>
+      <span style="display:flex;align-items:center;gap:2px;color:var(--mut);font-size:10px">×<input class="qin" data-id="${n.id}" value="${n.qty}"/><button class="del" data-id="${n.id}" title="Delete">✕</button></span></div>
+    <div class="nm" contenteditable="true" spellcheck="false" data-id="${n.id}">${n.name}</div>
+    <div class="db"><span>${n.kw?n.kw+' kW':''}</span><span><b>$${n.perW}/W</b></span></div>
+    <div class="db"><span class="badge ${n.conf}">${n.conf==='sourced'?'verified':'estimate'}</span><span>${n.catalogKey}</span></div>
+  </div>`;
+}
+function hexA(c,a){ // accept hsl() or hex var -> rgba-ish overlay; fallback light tint
+  return c.startsWith('hsl')? c.replace(')',` / ${a})`).replace('hsl','hsla') : c+Math.round(a*255).toString(16).padStart(2,'0');
+}
+
+function renderFloor(){
+  const r=RA[M.ra]; const k=rollup();
+  let pods=[]; walk(tree,n=>{ if(n.kind==="composite"&&n.ctype==="pod") pods.push(n); });
+  return `<div class="fp"><div class="fphall"><b>Data Hall A</b> · ${k.racks} racks · ${k.itMW.toFixed(2)} MW IT · hot-aisle containment
+    <div class="fppods">${pods.map((p,i)=>{ let sys=0; walk(p,n=>{if(n.kind==="element"&&n.etype==="system")sys+=n.qty;}); const racks=ceil(sys/r.perRack);
+      return `<div class="fppod"><div class="hint">POD ${i+1} · ${racks} racks</div><div class="fprow">${Array.from({length:Math.min(racks,16)},()=>`<div class="rk" style="background:${hexA(cv('--emerald'),.5)}"></div>`).join("")}</div></div>`;
+    }).join("")}</div></div>
+    <p class="hint">Top-down floor plan (mock) — each cell is a rack; PODs are hot-aisle containment. Power stripe runs overhead; CDUs in-row.</p></div>`;
+}
+function renderBOM(){
+  const agg={}; const r=RA[M.ra];
+  walk(tree,n=>{ if(n.kind==="element"){ const key=n.cat; (agg[key]=agg[key]||{qty:0,perW:n.perW,cat:n.cat,catalogKey:n.catalogKey,conf:n.conf}).qty+=n.qty; }});
+  const k=rollup(); const itW=k.itMW*1e6;
+  const rows=Object.values(agg).map(a=>{ const ext=a.perW*itW* (a.catalogKey==="accel"?0:0) ; return a; });
+  // extended cost: per-W lines scale with IT watts; node lines scale with system capex
+  let html=`<table class="bom"><thead><tr><th>Component</th><th>Catalog key</th><th class="r">Qty</th><th class="r">$/W</th><th class="r">Ext. cost</th><th>Conf.</th></tr></thead><tbody>`;
+  Object.values(agg).forEach(a=>{
+    const ext = a.catalogKey==="accel" ? a.qty*r.capex : a.perW*itW;
+    html+=`<tr><td>${a.cat}</td><td class="mono">${a.catalogKey}</td><td class="r">${a.qty}</td><td class="r">$${a.perW}</td><td class="r">${fmtUSD(ext)}</td><td><span class="badge ${a.conf}">${a.conf==='sourced'?'verified':'estimate'}</span></td></tr>`;
+  });
+  html+=`<tr><td colspan="4"><b>Total upfront capex</b></td><td class="r"><b>${fmtUSD(k.capex)}</b></td><td></td></tr></tbody></table>
+    <p class="hint" style="margin-top:8px">BOM aggregates every element in the graph → the same itemized lines the cost-model cards edit. "Open in cost model" drills into per-line products & overrides.</p>`;
+  return html;
+}
+function renderKpiBoard(){
+  const k=rollup();
+  const card=(l,v,frac)=>{ const bg=frac>1?"bgbad":frac>0.85?"bgwarn":"bgok"; return `<div class="kpcard"><div class="v mono">${v}</div><div class="l">${l}</div><div class="bar"><i class="${bg}" style="width:${Math.min(100,frac*100)}%"></i></div></div>`; };
+  return `<div class="kpgrid">
+    ${card("Facility power vs grid cap",`${k.facMW.toFixed(1)} / ${M.gridCapMW} MW`,k.facMW/M.gridCapMW)}
+    ${card("Capex vs budget",`${fmtUSD(k.capex)} / ${fmtUSD(M.budgetCap)}`,k.capex/M.budgetCap)}
+    ${card("PUE vs target",`${k.pue.toFixed(2)} / ${M.pueTarget}`,k.pue/M.pueTarget)}
+    ${card("Footprint vs cap",`${k.footprint.toFixed(0)} / ${M.footprintCap} m²`,k.footprint/M.footprintCap)}
+    ${card("GPUs",k.gpus.toLocaleString(),k.gpus/9216)}
+    ${card("$/GPU",fmtUSD(k.perGpu),0.6)}
+  </div><p class="hint" style="margin-top:10px">KPI dashboard — boundary conditions as live gauges. Red = a boundary is exceeded.</p>`;
+}
+
+// ───────────────────────────── inspector (contextual) ─────────────────────────────
+function f(label,val,onin){return `<div class="field"><label>${label}</label><input value="${val}" oninput="${onin}"></div>`}
+function fsel(label,opts,val,onin){return `<div class="field"><label>${label}</label><select onchange="${onin}">${opts.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join("")}</select></div>`}
+function renderInspector(){
+  const ins=document.getElementById("inspector");
+  const node = sel?findNode(sel):null;
+  if(!node){ // BOUNDARY CONDITIONS
+    const r=RA[M.ra];
+    ins.innerHTML=`<h2 class="sl">Boundary conditions (project envelope)</h2>
+      <p class="hint">The <b>reference architecture is the primary boundary</b>; the rest are live constraints the design must satisfy (see the status bar).</p>
+      ${fsel("Reference architecture",["GB300 NVL72 (liquid)","DGX B300 · Quantum-3 IB · DC busbar","DGX B300 · Spectrum-X Eth · AC"],raLabel(M.ra),"setRA(this.selectedIndex)")}
+      <div class="grid2">
+        ${fsel("Target mode",["gpus","mw","su","budget"],M.targetMode,"setM('targetMode',this.value)")}
+        ${f("Target value",M.target,"setM('target',+this.value)")}
+      </div>
+      <div class="grid2">
+        ${f("Grid power cap (MW)",M.gridCapMW,"setM('gridCapMW',+this.value)")}
+        ${f("Budget cap ($M)",(M.budgetCap/1e6),"setM('budgetCap',+this.value*1e6)")}
+      </div>
+      <div class="grid2">
+        ${fsel("Redundancy",["N","N+1","2N"],M.redundancy,"setM('redundancy',this.value)")}
+        ${fsel("Tier",["II","III","IV"],M.tier,"setM('tier',this.value)")}
+      </div>
+      <div class="grid2">
+        ${f("PUE target",M.pueTarget,"setM('pueTarget',+this.value)")}
+        ${f("WUE target",M.wueTarget,"setM('wueTarget',+this.value)")}
+      </div>
+      ${f("Footprint cap (m²)",M.footprintCap,"setM('footprintCap',+this.value)")}
+      <button class="btn primary" style="width:100%;margin-top:8px" onclick="autoBuild()">⚡ AutoBuild from RA</button>`;
+    return;
+  }
+  if(node.kind==="composite"){
+    ins.innerHTML=`<h2 class="sl">Composite — ${node.ctype}</h2>
+      ${f("Name",node.name,"renameNode('"+node.id+"',this.value)")}
+      <p class="hint">Group-level defaults apply to all children (bulk).</p>
+      <div class="grid2">${f("Racks / group", ((()=>{let s=0;walk(node,n=>{if(n.kind==='element'&&n.etype==='system')s+=n.qty;});return ceil(s/RA[M.ra].perRack)})()),"")}${fsel("Redundancy",["N","N+1","2N"],M.redundancy,"")}</div>
+      <div class="grid2">${f("kW / rack",RA[M.ra].kw*RA[M.ra].perRack,"")}${f("Liquid %",RA[M.ra].liquid,"")}</div>
+      <div class="seclabel">Structure</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn" onclick="addChildPrompt('${node.id}')">+ Add element</button>
+        <button class="btn" onclick="duplicateNode('${node.id}')">Duplicate</button>
+        <button class="btn" onclick="scalePrompt('${node.id}')">Scale ×N</button>
+        <button class="btn" onclick="deleteNode('${node.id}')">Delete</button>
+      </div>`;
+    return;
+  }
+  // ELEMENT — full cost-model fields (the detailed-definition facet)
+  ins.innerHTML=`<h2 class="sl">Element — ${node.cat} <span class="hint">(cost-model card)</span></h2>
+    ${f("Name",node.name,"renameNode('"+node.id+"',this.value)")}
+    <div class="grid2">
+      ${f("Quantity",node.qty,"setEl('"+node.id+"','qty',+this.value)")}
+      ${fsel("Cost unit",["$/W","$/MW","$ total"],"$/W","")}
+    </div>
+    <div class="grid2">
+      ${f("Unit cost $/W",node.perW,"setEl('"+node.id+"','perW',+this.value)")}
+      ${f("Power kW (each)",node.kw,"setEl('"+node.id+"','kw',+this.value)")}
+    </div>
+    <div class="grid2">
+      ${fsel("Confidence",["verified","estimate"],node.conf==="sourced"?"verified":"estimate","setConf('"+node.id+"',this.value)")}
+      ${f("Lead time (wk)","—","")}
+    </div>
+    ${f("Catalog key",node.catalogKey,"")}
+    <div class="seclabel">Detail</div>
+    <a class="lk" href="#" id="openinapp2">⊞ Products & overrides — open in cost model →</a>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn" onclick="duplicateNode('${node.id}')">Duplicate</button>
+      <button class="btn" onclick="deleteNode('${node.id}')">Delete</button>
+    </div>`;
+}
+function raLabel(k){return {gb300:"GB300 NVL72 (liquid)",b300ib:"DGX B300 · Quantum-3 IB · DC busbar",b300eth:"DGX B300 · Spectrum-X Eth · AC"}[k]}
+
+// ───────────────────────────── left rail ─────────────────────────────
+function renderLeft(){
+  const p=document.getElementById("lpane");
+  document.querySelectorAll("#ltabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===M.ltab));
+  if(M.ltab==="library"){
+    const groups={Compute:["system","storage"],Power:["xfmr","switchgear","ups","busway"],Cooling:["chiller","cdu"],Network:["spine","leaf"]};
+    p.innerHTML=Object.entries(groups).map(([g,arr])=>`<h2 class="sl">${g}</h2><div class="lib">${arr.map(t=>{const d=EL[t];return `<div class="libcard" draggable="true" data-add="${t}"><span class="dot" style="background:${cv('--'+(GROUP[d.group].slice(2)))}"></span>${d.cat}</div>`}).join("")}</div>`).join("")
+      +`<p class="hint">Drag an element onto a composite, or select a composite and use “+ Add element”.</p>`;
+    p.querySelectorAll("[data-add]").forEach(c=>c.addEventListener("dragstart",e=>{window.__add=c.dataset.add;}));
+  } else {
+    p.innerHTML=`<div class="tree">${treeRow(tree,0)}</div>`;
+    p.querySelectorAll(".trow").forEach(rw=>rw.addEventListener("click",e=>{ if(e.target.classList.contains("tw"))return; sel=rw.dataset.id; renderAll(); }));
+    p.querySelectorAll(".tw").forEach(tw=>tw.addEventListener("click",e=>{ e.stopPropagation(); const n=findNode(tw.dataset.id); if(n&&n.kind==="composite"){n.collapsed=!n.collapsed; renderAll();} }));
+  }
+}
+function treeRow(n,depth){
+  if(!n) return "";
+  const pad=`style="padding-left:${depth*12+4}px"`;
+  if(n.kind==="element") return `<div class="trow ${sel===n.id?'sel':''}" data-id="${n.id}" ${pad}><span class="tw"></span><span class="dot" style="background:${cv('--'+GROUP[n.group].slice(2))}"></span>${n.cat}<span class="tcount">×${n.qty}</span></div>`;
+  const tw = n.children.length? `<span class="tw" data-id="${n.id}">${n.collapsed?'▸':'▾'}</span>`:`<span class="tw"></span>`;
+  let h=`<div class="trow ${sel===n.id?'sel':''}" data-id="${n.id}" ${pad}>${tw}<span class="dot" style="background:${cv('--'+(GROUP[GROUP_FROM_CTYPE(n.ctype)]||'--slate').slice(2))}"></span>${n.name}<span class="tcount">${n.children.length}</span></div>`;
+  if(!n.collapsed) h+=n.children.map(c=>treeRow(c,depth+1)).join("");
+  return h;
+}
+
+// ───────────────────────────── interactions ─────────────────────────────
+function findNode(idv,node){ node=node||tree; if(node.id===idv)return node; if(node.children)for(const c of node.children){const r=findNode(idv,c); if(r)return r;} return null; }
+function findParent(idv,node){ node=node||tree; if(node.children){for(const c of node.children){ if(c.id===idv)return node; const r=findParent(idv,c); if(r)return r; }} return null; }
+function setM(k,v){ M[k]=v; if(k==="targetMode"||k==="target"){ /* live */ } renderAll(); }
+function setRA(i){ M.ra=["gb300","b300ib","b300eth"][i]; autoBuild(); }
+function setEl(idv,k,v){ const n=findNode(idv); if(n){n[k]=v; renderAll();} }
+function setConf(idv,v){ const n=findNode(idv); if(n){n.conf=v==="verified"?"sourced":"est"; renderAll();} }
+function renameNode(idv,v){ const n=findNode(idv); if(n){n.name=v;} }
+function toggle(idv,e){ e.stopPropagation(); const n=findNode(idv); if(n){n.collapsed=!n.collapsed; renderAll();} }
+function drill(idv,e){ e.stopPropagation(); M.focus=idv; sel=idv; renderAll(); }
+function clearFocus(){ M.focus=null; renderAll(); }
+function deleteNode(idv){ const p=findParent(idv); if(p){ p.children=p.children.filter(c=>c.id!==idv); if(sel===idv)sel=null; if(M.focus===idv)M.focus=null; renderAll(); flash("Deleted"); } }
+function duplicateNode(idv){ const p=findParent(idv),n=findNode(idv); if(p&&n){ const copy=JSON.parse(JSON.stringify(n)); reId(copy); p.children.push(copy); renderAll(); flash("Duplicated"); } }
+function reId(n){ n.id=id(n.kind==="element"?"e":"c"); if(n.children)n.children.forEach(reId); }
+function scalePrompt(idv){ const n=findNode(idv); const v=prompt("Scale this group to how many copies?","2"); const k=parseInt(v); if(k>0){ const p=findParent(idv)||tree; for(let i=1;i<k;i++){ const copy=JSON.parse(JSON.stringify(n)); reId(copy); copy.name=n.name+" ("+(i+1)+")"; (p.children||tree.children).push(copy);} renderAll(); flash("Scaled ×"+k);} }
+function addChildPrompt(idv){ const n=findNode(idv); if(!n)return; const t=prompt("Element type: system, storage, xfmr, switchgear, ups, busway, chiller, cdu, spine, leaf","system"); if(EL[t]){ n.children.push(el(t)); n.collapsed=false; renderAll(); } }
+function flash(m){ const b=document.querySelector(".mock"); const o=b.textContent; b.textContent=m; setTimeout(()=>b.textContent=o,1300); }
+
+function wireStage(){
+  const sv=document.getElementById("stageview");
+  sv.querySelectorAll(".comp,.el").forEach(node=>{
+    node.addEventListener("click",e=>{ if(e.target.closest("input,button,.cnm,.nm,[contenteditable]"))return; e.stopPropagation(); sel=node.dataset.id; renderAll(); });
+  });
+  sv.querySelectorAll(".qin").forEach(q=>{ q.addEventListener("click",e=>e.stopPropagation()); q.addEventListener("change",e=>setEl(q.dataset.id,"qty",+q.value||1)); });
+  sv.querySelectorAll(".del").forEach(d=>d.addEventListener("click",e=>{ e.stopPropagation(); deleteNode(d.dataset.id); }));
+  sv.querySelectorAll("[contenteditable].nm,[contenteditable].cnm").forEach(x=>{
+    x.addEventListener("click",e=>e.stopPropagation());
+    x.addEventListener("blur",()=>renameNode(x.dataset.id,x.textContent));
+  });
+  // drop new elements from library onto a composite
+  sv.querySelectorAll(".comp").forEach(c=>{
+    c.addEventListener("dragover",e=>{e.preventDefault();});
+    c.addEventListener("drop",e=>{ e.preventDefault(); e.stopPropagation(); if(window.__add){ const n=findNode(c.dataset.id); if(n&&n.kind==="composite"){ n.children.push(el(window.__add)); n.collapsed=false; window.__add=null; renderAll(); } } });
+  });
+}
+function drawnEdges(){ /* single-line edges are implied by nesting in this mock; overlay shows system color */ }
+
+document.getElementById("stage").addEventListener("click",e=>{ if(e.target.id==="stage"||e.target.id==="stageview"){ sel=null; renderInspector(); document.querySelectorAll('.sel').forEach(n=>n.classList.remove('sel')); } });
+document.querySelectorAll("#view button").forEach(b=>b.addEventListener("click",()=>{ M.view=b.dataset.v; document.querySelectorAll("#view button").forEach(x=>x.classList.toggle("on",x===b)); renderStage(); }));
+document.querySelectorAll("#units button").forEach(b=>b.addEventListener("click",()=>{ M.units=b.dataset.u; document.querySelectorAll("#units button").forEach(x=>x.classList.toggle("on",x===b)); }));
+document.querySelectorAll("#ltabs button").forEach(b=>b.addEventListener("click",()=>{ M.ltab=b.dataset.t; renderLeft(); }));
+document.getElementById("ra").addEventListener("change",e=>{ M.ra=e.target.value; autoBuild(); });
+document.getElementById("autobuild").addEventListener("click",autoBuild);
+document.getElementById("overlay").addEventListener("change",e=>{ M.overlay=e.target.value; renderAll(); });
+document.addEventListener("keydown",e=>{ const a=document.activeElement; if(a&&(a.tagName==="INPUT"||a.isContentEditable))return; if((e.key==="Delete"||e.key==="Backspace")&&sel){ e.preventDefault(); deleteNode(sel);} });
+
+autoBuild();
+</script>
+</body>
+</html>

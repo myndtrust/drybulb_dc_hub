@@ -1,0 +1,469 @@
+// AUTO-GENERATED from data/reference-architectures.json by scripts/reference_architectures.py.
+// Do NOT edit by hand — edit the JSON and run `python scripts/reference_architectures.py build`.
+
+export interface RaSystem {
+  key: string; label: string; catalogKey: string; gpus: number; gpu_model: string;
+  cpus: number; cpu_model: string; compute_trays?: number; hbm_tb?: number;
+  power_kw: number; rack_u: number; capex_usd: number; perf_fp4_pflops?: number;
+  confidence: "sourced" | "estimate";
+}
+export interface RaRacking { systems_per_rack: number; gpus_per_rack: number; kw_per_rack: number; }
+export interface RaScalableUnit { systems: number; racks: number; gpus: number; }
+export interface RaBomRatio {
+  component: string; catalogKey: string; model?: string; catalog_todo?: boolean;
+  per: "gpu" | "system" | "rack" | "su" | "it_kw" | "it_mw"; qty: number;
+  unit?: string; confidence?: "sourced" | "estimate";
+}
+export interface ReferenceArchitecture {
+  key: string; label: string; vendor: string; family: string;
+  cooling: string; liquid_fraction: number; power_scheme: string; compute_fabric: string;
+  confidence: "sourced" | "estimate"; source: string;
+  system: RaSystem; racking: RaRacking; scalable_unit: RaScalableUnit;
+  max_config?: { racks: number; gpus: number }; bom_ratios: RaBomRatio[];
+}
+
+export const RA_TARGETS = ["gpus", "scalable_units", "racks", "it_mw", "fp4_pflops"] as const;
+export type RaTarget = (typeof RA_TARGETS)[number];
+
+export const REFERENCE_ARCHITECTURES: ReferenceArchitecture[] = [
+  {
+    "key": "gb300-nvl72",
+    "label": "DGX SuperPOD — GB300 NVL72 (rack-scale, liquid)",
+    "vendor": "NVIDIA",
+    "family": "GB300",
+    "cooling": "liquid",
+    "liquid_fraction": 1.0,
+    "power_scheme": "dc_busbar",
+    "compute_fabric": "infiniband",
+    "confidence": "sourced",
+    "source": "https://docs.nvidia.com/pdf/dgx-spod-gb300-ra.pdf",
+    "system": {
+      "key": "gb300-nvl72-rack",
+      "label": "GB300 NVL72 rack",
+      "catalogKey": "accel",
+      "gpus": 72,
+      "gpu_model": "Blackwell Ultra (B300)",
+      "cpus": 36,
+      "cpu_model": "Grace",
+      "compute_trays": 18,
+      "hbm_tb": 20.7,
+      "power_kw": 120,
+      "rack_u": 48,
+      "capex_usd": 3200000,
+      "perf_fp4_pflops": 1100,
+      "confidence": "sourced"
+    },
+    "racking": {
+      "systems_per_rack": 1,
+      "gpus_per_rack": 72,
+      "kw_per_rack": 120
+    },
+    "scalable_unit": {
+      "systems": 8,
+      "racks": 8,
+      "gpus": 576
+    },
+    "max_config": {
+      "racks": 128,
+      "gpus": 9216
+    },
+    "bom_ratios": [
+      {
+        "component": "Scale-out compute NIC (ConnectX-8)",
+        "catalogKey": "dpu",
+        "model": "NVIDIA ConnectX-8",
+        "catalog_todo": true,
+        "per": "gpu",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Compute fabric leaf switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Quantum-X800 QM3400",
+        "per": "su",
+        "qty": 8,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Compute fabric spine switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Quantum-X800 QM3400",
+        "per": "su",
+        "qty": 4,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Compute fabric optics (OSFP 800G)",
+        "catalogKey": "optics",
+        "model": "NVIDIA OSFP 800G twin-port",
+        "per": "gpu",
+        "qty": 2,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Storage/mgmt DPU (BlueField-3)",
+        "catalogKey": "dpu",
+        "model": "NVIDIA BlueField-3",
+        "per": "rack",
+        "qty": 18,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Storage fabric switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Spectrum-4 SN5600",
+        "per": "su",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Management OOB switch",
+        "catalogKey": "mgmt",
+        "model": "NVIDIA SN2201",
+        "catalog_todo": true,
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "All-flash NVMe-oF storage",
+        "catalogKey": "storage",
+        "model": "Certified storage partner",
+        "per": "gpu",
+        "qty": 0.002,
+        "unit": "usable_PB",
+        "confidence": "estimate"
+      },
+      {
+        "component": "Coolant distribution unit (CDU)",
+        "catalogKey": "cdus",
+        "model": "In-row liquid-to-liquid CDU",
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "UPS + battery",
+        "catalogKey": "ups",
+        "model": "Static UPS / DC plant",
+        "per": "it_kw",
+        "qty": 1.3,
+        "unit": "kVA",
+        "confidence": "estimate"
+      },
+      {
+        "component": "Busway / DC busbar",
+        "catalogKey": "busway",
+        "model": "Overhead busway / DC busbar",
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      }
+    ]
+  },
+  {
+    "key": "dgx-b300-ib-dc",
+    "label": "DGX SuperPOD — DGX B300, Quantum-3 InfiniBand, DC busbar",
+    "vendor": "NVIDIA",
+    "family": "B300",
+    "cooling": "hybrid",
+    "liquid_fraction": 0.7,
+    "power_scheme": "dc_busbar",
+    "compute_fabric": "infiniband",
+    "confidence": "sourced",
+    "source": "https://docs.nvidia.com/dgx-superpod/reference-architecture/scalable-infrastructure-b300/latest/dgx-superpod-components.html",
+    "system": {
+      "key": "dgx-b300-node",
+      "label": "DGX B300 node",
+      "catalogKey": "accel",
+      "gpus": 8,
+      "gpu_model": "Blackwell Ultra (B300, 288 GB)",
+      "cpus": 2,
+      "cpu_model": "Intel Xeon 6776P",
+      "hbm_tb": 2.3,
+      "power_kw": 14,
+      "rack_u": 10,
+      "capex_usd": 440000,
+      "perf_fp4_pflops": 144,
+      "confidence": "estimate"
+    },
+    "racking": {
+      "systems_per_rack": 4,
+      "gpus_per_rack": 32,
+      "kw_per_rack": 56
+    },
+    "scalable_unit": {
+      "systems": 64,
+      "racks": 16,
+      "gpus": 512
+    },
+    "max_config": {
+      "racks": 288,
+      "gpus": 9216
+    },
+    "bom_ratios": [
+      {
+        "component": "Compute NIC (ConnectX-8)",
+        "catalogKey": "dpu",
+        "model": "NVIDIA ConnectX-8",
+        "catalog_todo": true,
+        "per": "system",
+        "qty": 8,
+        "confidence": "sourced"
+      },
+      {
+        "component": "Storage/mgmt DPU (BlueField-3)",
+        "catalogKey": "dpu",
+        "model": "NVIDIA BlueField-3",
+        "per": "system",
+        "qty": 2,
+        "confidence": "sourced"
+      },
+      {
+        "component": "Compute fabric leaf switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Quantum-3 Q3400-RA",
+        "catalog_todo": true,
+        "per": "su",
+        "qty": 8,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Compute fabric spine switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Quantum-3 Q3400-RA",
+        "catalog_todo": true,
+        "per": "su",
+        "qty": 4,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Compute fabric optics (OSFP 800G)",
+        "catalogKey": "optics",
+        "model": "NVIDIA OSFP 800G twin-port",
+        "per": "system",
+        "qty": 8,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Storage fabric switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Quantum QM9700 NDR",
+        "per": "su",
+        "qty": 2,
+        "confidence": "estimate"
+      },
+      {
+        "component": "In-band management switch",
+        "catalogKey": "mgmt",
+        "model": "NVIDIA Spectrum-4 SN5610",
+        "per": "su",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Management OOB switch",
+        "catalogKey": "mgmt",
+        "model": "NVIDIA SN2201",
+        "catalog_todo": true,
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "All-flash NVMe-oF storage",
+        "catalogKey": "storage",
+        "model": "Certified storage partner",
+        "per": "gpu",
+        "qty": 0.002,
+        "unit": "usable_PB",
+        "confidence": "estimate"
+      },
+      {
+        "component": "Coolant distribution unit (CDU)",
+        "catalogKey": "cdus",
+        "model": "In-row liquid-to-liquid CDU",
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "CRAH / air handling (air fraction)",
+        "catalogKey": "crah",
+        "model": "Row/perimeter CRAH",
+        "per": "rack",
+        "qty": 0.5,
+        "confidence": "estimate"
+      },
+      {
+        "component": "UPS + battery",
+        "catalogKey": "ups",
+        "model": "Static UPS / DC plant",
+        "per": "it_kw",
+        "qty": 1.3,
+        "unit": "kVA",
+        "confidence": "estimate"
+      },
+      {
+        "component": "Busway / DC busbar",
+        "catalogKey": "busway",
+        "model": "Overhead busway / DC busbar",
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      }
+    ]
+  },
+  {
+    "key": "dgx-b300-eth-ac",
+    "label": "DGX SuperPOD — DGX B300, Spectrum-X Ethernet, AC power",
+    "vendor": "NVIDIA",
+    "family": "B300",
+    "cooling": "hybrid",
+    "liquid_fraction": 0.7,
+    "power_scheme": "ac",
+    "compute_fabric": "ethernet",
+    "confidence": "sourced",
+    "source": "https://docs.nvidia.com/dgx-superpod/reference-architecture/scalable-infrastructure-b300/latest/dgx-superpod-components.html",
+    "system": {
+      "key": "dgx-b300-node",
+      "label": "DGX B300 node",
+      "catalogKey": "accel",
+      "gpus": 8,
+      "gpu_model": "Blackwell Ultra (B300, 288 GB)",
+      "cpus": 2,
+      "cpu_model": "Intel Xeon 6776P",
+      "hbm_tb": 2.3,
+      "power_kw": 14,
+      "rack_u": 10,
+      "capex_usd": 440000,
+      "perf_fp4_pflops": 144,
+      "confidence": "estimate"
+    },
+    "racking": {
+      "systems_per_rack": 4,
+      "gpus_per_rack": 32,
+      "kw_per_rack": 56
+    },
+    "scalable_unit": {
+      "systems": 72,
+      "racks": 18,
+      "gpus": 576
+    },
+    "max_config": {
+      "racks": 288,
+      "gpus": 9216
+    },
+    "bom_ratios": [
+      {
+        "component": "Compute NIC (ConnectX-8)",
+        "catalogKey": "dpu",
+        "model": "NVIDIA ConnectX-8",
+        "catalog_todo": true,
+        "per": "system",
+        "qty": 8,
+        "confidence": "sourced"
+      },
+      {
+        "component": "Storage/mgmt DPU (BlueField-3)",
+        "catalogKey": "dpu",
+        "model": "NVIDIA BlueField-3",
+        "per": "system",
+        "qty": 2,
+        "confidence": "sourced"
+      },
+      {
+        "component": "Compute fabric leaf switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Spectrum-4 SN5600",
+        "per": "su",
+        "qty": 8,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Compute fabric spine switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Spectrum-4 SN5600",
+        "per": "su",
+        "qty": 4,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Compute fabric optics (OSFP 800G)",
+        "catalogKey": "optics",
+        "model": "NVIDIA OSFP 800G twin-port",
+        "per": "system",
+        "qty": 8,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Storage fabric switch",
+        "catalogKey": "switches",
+        "model": "NVIDIA Spectrum-4 SN5610",
+        "per": "su",
+        "qty": 2,
+        "confidence": "estimate"
+      },
+      {
+        "component": "In-band management switch",
+        "catalogKey": "mgmt",
+        "model": "NVIDIA Spectrum-4 SN5610",
+        "per": "su",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "Management OOB switch",
+        "catalogKey": "mgmt",
+        "model": "NVIDIA SN2201",
+        "catalog_todo": true,
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "All-flash NVMe-oF storage",
+        "catalogKey": "storage",
+        "model": "Certified storage partner",
+        "per": "gpu",
+        "qty": 0.002,
+        "unit": "usable_PB",
+        "confidence": "estimate"
+      },
+      {
+        "component": "Coolant distribution unit (CDU)",
+        "catalogKey": "cdus",
+        "model": "In-row liquid-to-liquid CDU",
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      },
+      {
+        "component": "CRAH / air handling (air fraction)",
+        "catalogKey": "crah",
+        "model": "Row/perimeter CRAH",
+        "per": "rack",
+        "qty": 0.5,
+        "confidence": "estimate"
+      },
+      {
+        "component": "UPS + battery",
+        "catalogKey": "ups",
+        "model": "Static UPS",
+        "per": "it_kw",
+        "qty": 1.4,
+        "unit": "kVA",
+        "confidence": "estimate"
+      },
+      {
+        "component": "Busway",
+        "catalogKey": "busway",
+        "model": "Overhead busway",
+        "per": "rack",
+        "qty": 1,
+        "confidence": "estimate"
+      }
+    ]
+  }
+];

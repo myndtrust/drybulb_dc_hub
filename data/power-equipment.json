@@ -1,0 +1,176 @@
+{
+  "$schema": "./power-equipment.schema.md",
+  "version": 1,
+  "updated": "2026-07-11",
+  "note": "Structured, sourced knowledge base for the power-topology design agent (/design-power-topology). Captures the utility-to-chip distribution chain, equipment classes with real ratings + lead times, standard electrical pod blocks, redundancy templates, and Uptime tiers. The deterministic generator (drafts/sld/topology.js) reads this to SIZE a power chain and emit a valid single-line (drafts/sld/engine.js format). `catalogKey` maps a class to data/equipment-catalog.json so the cost model reuses the same pricing/products. Every numeric claim carries a `source`. Primary source for the chain + redundancy is SemiAnalysis 'Datacenter Anatomy Part 1: Electrical Systems'; verify exact ratings against the governing NVIDIA RA + project basis of design.",
+
+  "sources": {
+    "semi": "https://newsletter.semianalysis.com/p/datacenter-anatomy-part-1-electrical",
+    "uptime": "https://uptimeinstitute.com/tiers",
+    "tia942": "ANSI/TIA-942 telecommunications infrastructure standard for data centers",
+    "ocp": "https://www.opencompute.org/projects/rack-and-power",
+    "coresite": "https://www.coresite.com/blog/data-center-redundancy-n-1-vs-2n-1",
+    "dgtl": "https://dgtlinfra.com/data-center-redundancy/",
+    "local_topologies": "docs/ai-factory/electrical-topologies.md",
+    "lselectric": "https://www.lselectricamerica.com/blog/ring-main-unit/",
+    "mikeholt": "https://forums.mikeholt.com/threads/double-ended-switchgear-design.930/",
+    "gensource": "https://generatorsource.com/industries-served/data-centers/paralleling-switchgear-explained-how-we-power-hyperscale-data-center-growth/",
+    "shanhua": "https://shanhuachina.com/blog/high-voltage-generator-for-data-center/",
+    "flexgen": "https://www.flexgen.com/resources/blog/expert-qa-why-battery-energy-storage-future-data-center-ups-solutions",
+    "orrick": "https://www.orrick.com/en/Insights/2025/11/Powering-Data-Centers"
+  },
+
+  "voltage_levels": [
+    { "key": "hv", "label": "High voltage (transmission)", "typical_kv": [138, 230, 345], "purpose": "Utility transmission into the on-site substation", "source": "semi" },
+    { "key": "mv", "label": "Medium voltage (site distribution)", "typical_kv": [11, 13.8, 22, 33], "purpose": "Campus distribution from the substation to unit-sub transformers; 13.8 kV common in US hyperscale", "source": "semi" },
+    { "key": "lv", "label": "Low voltage (data hall)", "typical_v": [415, 480], "purpose": "UPS output and data-hall delivery; 415 V (line-line) / 240 V (line-neutral) common, 480 V in US", "source": "semi" }
+  ],
+
+  "chain": [
+    "utility_substation", "mv_switchgear", "paralleling_ats", "unit_sub_transformer",
+    "ups", "lv_switchboard", "busway_or_pdu", "rpp", "rack_pdu", "power_shelf", "server"
+  ],
+
+  "equipment": [
+    {
+      "key": "hv_transformer", "label": "HV substation transformer", "stage": "substation",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": [50, 100], "step": "e.g. 230 kV → 33 kV (current ~350 A → ~2500 A)",
+      "lead_time_months": [18, 24], "material_bottleneck": "GOES (grain-oriented electrical steel) cores",
+      "note": "Custom-built to the specific transmission interconnect; MVA ≈ MW with a ~5-10% power-factor allowance.",
+      "confidence": "sourced", "source": "semi"
+    },
+    {
+      "key": "mv_switchgear", "label": "MV switchgear / paralleling", "stage": "mv",
+      "catalogKey": "switchgear", "kind": "switchgear",
+      "voltage_kv": [11, 13.8, 22, 33],
+      "note": "Metal-clad, draw-out breakers, high interrupting rating. Contains breakers, metering, CTs/VTs, switches and MV cables. Paralleling switchgear ties utility ∥ on-site generation; ATS transfers to gensets on outage.",
+      "lead_time_weeks": 50, "confidence": "sourced", "source": "semi"
+    },
+    {
+      "key": "unit_sub_transformer", "label": "Unit-substation transformer (MV→LV)", "stage": "unit_sub",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": [2.5, 3.0], "step": "13.8 kV → 480 V",
+      "note": "One per electrical pod; pairs with the pod UPS. Microsoft pods cited at 3 MVA transformer + 3 MW genset.",
+      "confidence": "sourced", "source": "semi"
+    },
+    {
+      "key": "genset", "label": "Standby generator", "stage": "generation",
+      "catalogKey": "generators", "kind": "source",
+      "rating_mw": [2.0, 3.0], "fuel": ["diesel", "natural_gas"], "fuel_storage_hours": [24, 48],
+      "start_time_s": 60, "horsepower_3mw": 4000, "typical_count_hyperscale": "20+",
+      "note": "Matched to transformer ratings. Diesel preferred (transportable, energy-dense). UPS bridges the ~60 s genset start. Meta 'H' building ~36 gensets; a Google building ~34 larger units.",
+      "confidence": "sourced", "source": "semi"
+    },
+    {
+      "key": "ups", "label": "Static UPS (double-conversion) + battery", "stage": "ups",
+      "catalogKey": "ups", "kind": "ups",
+      "module_kva": [200, 400], "cores_per_unit_max": 10, "units_parallel_max": 8, "system_max_mw": 27,
+      "response_time_ms": 10, "losses_pct": [3, 5], "eco_mode_efficiency_pct": 99,
+      "components": ["rectifier (AC→DC)", "inverter (DC→AC, IGBT)", "battery (Li-ion / lead-acid)", "static bypass switch"],
+      "note": "Bridges the gap until gensets carry load. Eco/VFD standby mode >99% efficient but adds a few ms transfer time. Losses worsen at low load.",
+      "confidence": "sourced", "source": "semi"
+    },
+    {
+      "key": "lv_switchboard", "label": "LV main switchboard", "stage": "lv",
+      "catalogKey": "lv", "kind": "switchboard", "breakered": true,
+      "voltage_v": 480, "typical_main_a": 3200,
+      "note": "Group/fixed-mounted main + feeder breakers — the workhorse LV distribution board. In 2N, deployed as A/B boards.",
+      "confidence": "sourced", "source": "local_topologies"
+    },
+    {
+      "key": "busway", "label": "Overhead busway", "stage": "distribution",
+      "catalogKey": "busway", "kind": "distribution",
+      "note": "Solid copper bars, preferred for high-density. Tap-off units + whips drop to each rack. Replaces per-rack flexible cabling.",
+      "confidence": "sourced", "source": "semi"
+    },
+    {
+      "key": "rpp", "label": "Remote power panel (RPP)", "stage": "distribution",
+      "catalogKey": "lv", "kind": "panel", "breakered": true,
+      "voltage_v": "415/240", "footprint_ft": "2×2", "panelboards_max": 4,
+      "note": "Transformer-less row/zone panel fed from a floor PDU or switchboard; branch circuits to a rack cluster via whips. In 2N, deployed as A/B pairs.",
+      "confidence": "sourced", "source": "local_topologies"
+    },
+    {
+      "key": "power_shelf", "label": "OCP power shelf (rack)", "stage": "rack",
+      "kind": "rack_power", "module_kw": 3,
+      "note": "Central AC→DC for the whole rack, supplies DC via busbar (Google 48 V). Replaces per-server rectifiers; needs DC-busbar server design.",
+      "confidence": "sourced", "source": "ocp"
+    },
+    {
+      "key": "bbu", "label": "Battery backup unit (in-rack)", "stage": "rack",
+      "kind": "rack_power",
+      "note": "In-rack lithium backup; ride-through at the rack can eliminate dual central UPS systems.",
+      "confidence": "sourced", "source": "semi"
+    },
+    {
+      "key": "bess", "label": "BESS (battery energy storage system)", "stage": "interconnection",
+      "catalogKey": "bess", "kind": "source", "catalog_todo": true,
+      "connection": "mv_pcc", "duration_hr": [0.5, 8],
+      "note": "Ties in at the MV interconnection / point of common coupling (PCC), behind the meter. Buffers between grid-accepted power and internal load; provides fast frequency response, load smoothing, and reactive support — which accelerates grid interconnection (increasingly required by connection codes). A 4-8 h system can also serve the UPS ride-through role (bridge to genset start), i.e. a diesel/UPS alternative.",
+      "confidence": "sourced", "source": "flexgen"
+    }
+  ],
+
+  "substation_topologies": [
+    {
+      "key": "main-tie-main", "label": "Main-Tie-Main (secondary-selective / double-ended)",
+      "mv_boards": 2, "tie": "one tie breaker, normally-open (interlocked) or normally-closed for critical DC loads",
+      "note": "Two equal-kVA HV/MV transformers feed two MV buses (A/B) with two main breakers (N.C.) and a tie breaker. Loss of one source transfers load to the other bus; allows maintenance on one transformer with no outage. The Drybulb default MV arrangement.",
+      "confidence": "sourced", "source": "mikeholt"
+    },
+    {
+      "key": "ring-main", "label": "Ring Main Unit (RMU) loop",
+      "mv_boards": "loop of RMUs", "voltage_kv": [11, 33],
+      "note": "Closed-loop MV feed; each RMU has two incoming feeders → redundant paths. Isolates a faulted section while maintaining service. Common where the local utility provides a looped MV feed; the RMU is the switching node between incoming utility feeders and outgoing transformer feeders.",
+      "confidence": "sourced", "source": "lselectric"
+    },
+    {
+      "key": "distributed-redundant", "label": "Distributed redundant (3-to-2 / 4-to-3, catcher)",
+      "note": "M blocks share a bus, any M−1 carry the load (each ~67-75% loaded). A 'catcher' variant keeps one reserve block online-unloaded that catches a failed block via Static Transfer Switch (STS). Applied at the UPS layer (see redundancy_templates). Beyond 4-to-make-3 = diminishing returns.",
+      "confidence": "sourced", "source": "local_topologies"
+    },
+    {
+      "key": "2N", "label": "System-plus-system (2N)",
+      "note": "Two fully independent A/B systems end-to-end. Highest availability (Tier IV), highest CapEx. Applied at the UPS + distribution layers (see redundancy_templates).",
+      "confidence": "sourced", "source": "coresite"
+    }
+  ],
+
+  "generator_voltage": [
+    { "key": "LV", "label": "Low-voltage gensets (≈480 V)", "default": true, "rating_kva": [1500, 4000], "note": "400/480 V gensets parallel on a generator paralleling switchboard at the site-distribution voltage and back up the LV boards; feeding the MV bus requires step-up. Common practice — the Drybulb default.", "source": "gensource" },
+    { "key": "MV", "label": "Medium-voltage gensets (3.3-13.8 kV)", "default": false, "note": "Direct MV gensets feed the MV bus without step-up transformers; chosen on large (>10-20 MW) campuses to cut cable/transformer-yard cost.", "source": "shanhua" }
+  ],
+
+  "pod_blocks_mw": [
+    { "mw": 1.6, "note": "Standardised pod size — widely available equipment, lower cost", "source": "semi" },
+    { "mw": 2.0, "note": "Standardised pod size", "source": "semi" },
+    { "mw": 2.5, "note": "Standardised pod size; common transformer/UPS granularity", "source": "semi" }
+  ],
+
+  "redundancy_templates": [
+    { "key": "N", "label": "N", "meaning": "exactly enough capacity, no spare", "where": "non-critical / dev", "blocks": "ceil(load/block)", "source": "coresite" },
+    { "key": "N+1", "label": "N+1", "meaning": "one spare unit beyond need", "where": "generation & cooling supply (Tier III)", "blocks": "ceil(load/block) + 1", "source": "coresite" },
+    { "key": "2N", "label": "2N", "meaning": "fully duplicated A/B paths", "where": "UPS + distribution (PDU/RPP/rack), Tier IV", "blocks": "2 × ceil(load/block)", "source": "coresite" },
+    { "key": "2N+1", "label": "2N+1", "meaning": "duplicated plus a spare", "where": "highest availability", "blocks": "2 × ceil(load/block) + 1", "source": "dgtl" },
+    { "key": "distributed-4to3", "label": "Distributed redundant (4-to-make-3)", "meaning": "M blocks share a bus, any M−1 carry load; each UPS ~75% loaded", "where": "hyperscale UPS layer — better utilisation/CapEx", "blocks": "ceil(need/3) × 4", "group": [4, 3], "source": "local_topologies" },
+    { "key": "distributed-3to2", "label": "Distributed redundant (3-to-make-2)", "meaning": "3 blocks per 2 needed share a bus", "where": "hyperscale UPS layer", "blocks": "ceil(need/2) × 3", "group": [3, 2], "source": "local_topologies" },
+    { "key": "catcher", "label": "Catcher / N+2C (isolated parallel)", "meaning": "a reserve UPS 'catches' a failed block via Static Transfer Switch (STS) — ~2N availability, lower cost", "where": "hyperscale", "blocks": "ceil(load/block) + 1", "reserve": true, "source": "semi" }
+  ],
+
+  "tiers": [
+    { "tier": "I", "downtime_hr_yr": 28.8, "attribute": "single path", "typical_scheme": "N", "source": "uptime" },
+    { "tier": "II", "downtime_hr_yr": 22, "attribute": "redundant capacity components", "typical_scheme": "N+1", "source": "uptime" },
+    { "tier": "III", "downtime_hr_yr": 1.6, "attribute": "concurrently maintainable", "typical_scheme": "N+1 generation/transformers, 2N UPS + distribution", "source": "uptime" },
+    { "tier": "IV", "downtime_hr_yr": 0.43, "attribute": "fault tolerant", "typical_scheme": "2N end-to-end", "source": "uptime" }
+  ],
+
+  "rack_densities_kw": [
+    { "label": "Legacy", "kw": 10, "source": "semi" },
+    { "label": "Omdia 2030 average (noted as conservative)", "kw": 14.8, "source": "semi" },
+    { "label": "Meta traditional", "kw": 30, "source": "semi" },
+    { "label": "Google typical", "kw": 40, "source": "semi" },
+    { "label": "NVIDIA GB300 NVL72 (this RA)", "kw": 120, "source": "data/reference-architectures.json" },
+    { "label": "NVIDIA GB200 NVL72", "kw": 132, "source": "semi" }
+  ]
+}

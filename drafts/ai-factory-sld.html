@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Factory — power single-line (ETAP-style mockup)</title>
+<style>
+  :root{--bg:#fbfbfc;--panel:#fff;--ink:#1e293b;--ink2:#334155;--mut:#64748b;--bd:#e2e8f0;--bd2:#cbd5e1;--sel:#0f172a;
+    --pwr:#0f172a;--it:#047857;--mech:#0e7490;--net:#6d28d9;--accent:#1d4ed8;--bad:#dc2626;--ok:#16a34a;}
+  *{box-sizing:border-box}
+  body{margin:0;font:12.5px/1.4 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg);overflow:hidden}
+  .mono{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+  /* toolbar */
+  .tb{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--panel);border-bottom:1px solid var(--bd)}
+  .tb h1{font-size:13px;margin:0 8px 0 0;font-weight:700;letter-spacing:.01em}
+  .tb .sub{font-size:10px;color:var(--mut)}
+  .btn{border:1px solid var(--bd2);background:#fff;border-radius:6px;padding:5px 9px;font-size:12px;cursor:pointer;font-weight:560;color:var(--ink2)}
+  .btn:hover{background:#f1f5f9}.btn:disabled{opacity:.4;cursor:default}
+  .tabs{display:inline-flex;margin-left:6px;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+  .tabs button{border:0;background:#fff;padding:6px 13px;font-size:12px;font-weight:600;color:var(--mut);cursor:pointer;border-right:1px solid var(--bd)}
+  .tabs button:last-child{border-right:0}
+  .tabs button.on{background:var(--pwr);color:#fff}
+  .tabs button:disabled{color:#cbd5e1;cursor:not-allowed;background:#fff}
+  .spacer{flex:1}
+  .ti{border:1px solid var(--bd2);border-radius:6px;padding:4px 7px;font-size:12px;background:#fff;color:var(--ink2);max-width:150px}
+  .sep{width:1px;height:20px;background:var(--bd);margin:0 4px}
+  /* layout */
+  .body{display:grid;grid-template-columns:152px 1fr 244px;height:calc(100vh - 86px)}
+  .rail{background:var(--panel);overflow:auto;padding:10px}
+  .rail.l{border-right:1px solid var(--bd)}.rail.r{border-left:1px solid var(--bd)}
+  h2{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);margin:8px 0 6px}
+  .pc{border:1px solid var(--bd2);border-radius:6px;padding:5px 7px;font-size:11.5px;cursor:pointer;display:flex;gap:6px;align-items:center;margin-bottom:4px}
+  .pc:hover{background:#f1f5f9}.gl{width:14px;height:14px;flex:none}
+  .canvaswrap{position:relative;overflow:auto;background:
+    radial-gradient(circle,#e9edf2 1px,transparent 1px) 0 0/16px 16px,var(--bg)}
+  .canvas{position:relative;width:1520px;height:880px}
+  svg.lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  /* nodes — fixed height = EQH (52) so wire endpoints sit on the card edge (no air gap) */
+  .n{position:absolute;background:#fff;border:1.4px solid var(--ink2);border-radius:5px;user-select:none;height:52px;display:flex;flex-direction:column}
+  .n.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(29,78,216,.25);z-index:6}
+  .n .hd{display:flex;align-items:center;gap:5px;padding:3px 6px;cursor:grab}
+  .n .hd:active{cursor:grabbing}
+  .n .gx{flex:none}
+  .n .nm{font-weight:650;font-size:11.5px;line-height:1.1;flex:1}
+  .n .del{border:0;background:transparent;color:var(--mut);font-size:10px;cursor:pointer;opacity:0}
+  .n:hover .del,.n.sel .del{opacity:1}.n .del:hover{color:var(--bad)}
+  .n .db{margin-top:auto;padding:0 6px 4px;font-size:9.5px;color:var(--mut);display:flex;justify-content:space-between;gap:6px}
+  .n .db b{color:var(--ink)}
+  .n.drop{border-color:var(--accent);border-style:dashed}
+  /* bus bar */
+  .bus{position:absolute;height:10px;background:var(--ink);border-radius:2px;user-select:none;cursor:grab}
+  .bus.sel{outline:2px solid var(--accent);outline-offset:2px}
+  .bus.drop{outline:2px dashed var(--accent);outline-offset:3px}
+  .bus .lab{position:absolute;top:-15px;left:2px;font-size:9.5px;font-weight:650;color:var(--ink2);white-space:nowrap;letter-spacing:.02em}
+  .zone{position:absolute;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--mut);text-transform:uppercase}
+  .zoneline{position:absolute;border-top:1px dashed var(--bd2)}
+  /* inspector */
+  .field{margin-bottom:7px}.field label{display:block;font-size:9.5px;color:var(--mut);margin-bottom:2px}.field input,.field select{width:100%;border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;background:#fff}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .note{font-size:10.5px;color:var(--mut)}
+  /* kpi strip */
+  .kpis{display:flex;gap:8px;padding:6px 12px;background:var(--panel);border-top:1px solid var(--bd);overflow:auto}
+  .kpi{border:1px solid var(--bd);border-radius:7px;padding:4px 10px;line-height:1.15;min-width:96px}
+  .kpi b{font-size:12.5px}.kpi span{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);display:block}
+  /* title block */
+  .title{position:absolute;right:14px;bottom:14px;border:1px solid var(--bd2);background:#fff;border-radius:4px;font-size:9px;color:var(--ink2);min-width:210px}
+  .title div{display:flex;justify-content:space-between;padding:2px 7px;border-bottom:1px solid var(--bd)}
+  .title div:last-child{border-bottom:0}.title b{font-weight:680}
+  .mock{position:fixed;left:50%;transform:translateX(-50%);bottom:50px;background:var(--ink);color:#fff;font-size:10.5px;padding:4px 10px;border-radius:14px;opacity:.85}
+  /* connector ports (top = input, bottom = output) */
+  .port{position:absolute;left:50%;width:11px;height:11px;border-radius:50%;background:#fff;border:1.6px solid var(--mut);transform:translateX(-50%);cursor:crosshair;z-index:7}
+  .port.in{top:-6px}.port.out{bottom:-6px}
+  .port:hover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,78,216,.22)}
+  .port.it{border-color:var(--it)}.port.mech{border-color:var(--mech)}.port.net{border-color:var(--net)}
+  .port.tgt{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 3px rgba(22,163,74,.3)}
+  .n:hover .port,.n.sel .port{border-width:2px}
+  /* connector wire end-handles + delete badge */
+  .wh{position:absolute;width:9px;height:9px;border-radius:50%;background:#fff;border:1.5px solid var(--accent);transform:translate(-50%,-50%);cursor:grab;z-index:8;opacity:.55}
+  .wh:hover{opacity:1;background:var(--accent)}
+  .wx{position:absolute;width:15px;height:15px;border-radius:50%;background:#fff;border:1px solid var(--bad);color:var(--bad);font-size:10px;line-height:13px;text-align:center;font-weight:700;transform:translate(-50%,-50%);cursor:pointer;z-index:9}
+  .wx:hover{background:var(--bad);color:#fff}
+  .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:var(--bad);color:#fff;font-size:11px;font-weight:600;padding:5px 12px;border-radius:14px;opacity:0;transition:opacity .15s;pointer-events:none;z-index:30}
+  .toast.on{opacity:.96}
+  /* breakered cards (switchboard / RPP): a bottom bus bar with breaker taps */
+  .brkbus{position:absolute;left:5px;right:5px;bottom:-1px;height:3px;background:var(--ink2);border-radius:2px}
+  .port.tap{width:9px;height:13px;border-radius:2px;bottom:-8px;border:1.4px solid var(--ink2);background:var(--ink2)}
+  .port.tap.open{background:#fff}
+  .port.tap.spare{background:#f1f5f9;border-color:var(--bd2)}
+  .port.tap:hover{box-shadow:0 0 0 3px rgba(29,78,216,.22);border-color:var(--accent)}
+  .port.tap.tgt{background:var(--ok);border-color:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.3)}
+  /* breaker schedule editor (inspector) */
+  .brk{display:flex;gap:4px;align-items:center;margin-bottom:3px}
+  .brk input,.brk select{padding:3px 4px;font-size:11px;border:1px solid var(--bd);border-radius:5px;background:#fff}
+</style>
+</head>
+<body>
+<div class="tb">
+  <h1>AI Factory — Single-line</h1>
+  <div class="tabs" id="tabs">
+    <button class="on" data-v="power">Power</button>
+    <button disabled data-v="cool" title="Next round">Cooling ·soon</button>
+    <button disabled data-v="net" title="Next round">Network ·soon</button>
+    <button disabled data-v="all" title="Next round">Consolidated ·soon</button>
+  </div>
+  <span class="sub">POWER — 13.8 kV / 480 V · 4-to-make-3 UPS · 2N dist</span>
+  <div class="spacer"></div>
+  <input id="topoName" class="ti" placeholder="topology name" title="name this topology">
+  <button class="btn" id="save" title="Save the current topology to the reusable library">💾 Save</button>
+  <select id="load" class="ti" title="Load a saved topology (reusable across projects)"><option value="">Load…</option></select>
+  <button class="btn" id="delTopo" title="Delete the selected saved topology">🗑</button>
+  <span class="sep"></span>
+  <button class="btn" id="undo" title="Ctrl+Z">↶ Undo</button>
+  <button class="btn" id="redo" title="Ctrl+Shift+Z">↷ Redo</button>
+  <button class="btn" id="auto" title="Reset to the seed topology">Auto-layout</button>
+</div>
+<div class="body">
+  <aside class="rail l">
+    <h2>Add element</h2>
+    <div id="palette"></div>
+    <p class="note" style="margin-top:8px">Drag a card's <b>header</b> to move. <b>Wire</b> by dragging a card's port (top = input, bottom = output) onto another port or a <b>bus</b>. A <b>Bus / busbar</b> is the thick line — any element can tap onto it. <b>Re-route</b> by grabbing a connector's end-handle and pulling it to another card. <b>Delete</b> a connector by clicking the wire (turns red). <b>Save</b> a topology to the library (top bar) to reuse it across projects. Manifold is passive (cooling view only).</p>
+  </aside>
+  <div class="canvaswrap"><div class="canvas" id="canvas">
+    <svg class="lines" id="lines"></svg>
+    <svg class="lines" id="hit"></svg>
+    <svg class="lines" id="drag"></svg>
+    <div class="title">
+      <div><span>Project</span><b>AI Factory — Atlanta</b></div>
+      <div><span>View</span><b>Power single-line</b></div>
+      <div><span>Basis</span><b>GB300 NVL72 · NVIDIA RA (4N3)</b></div>
+      <div><span>Rev / Date</span><b class="mono" id="rev">A · 2026-06-19</b></div>
+    </div>
+  </div></div>
+  <aside class="rail r" id="inspector"></aside>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="mock">ETAP-style power single-line · undo · move · wire · re-route · delete</div>
+<div class="toast" id="toast"></div>
+
+<script src="./sld/engine.js"></script>
+<script>
+const GL={ // tiny SVG glyphs per type (ETAP-ish)
+  utility:`<svg class="gx" width="16" height="16"><path d="M8 1v6M4 7h8l-4 5z" stroke="#1e293b" fill="none" stroke-width="1.3"/></svg>`,
+  genset:`<svg class="gx" width="16" height="16"><circle cx="8" cy="8" r="6" stroke="#1e293b" fill="none" stroke-width="1.3"/><text x="8" y="11" font-size="8" text-anchor="middle" fill="#1e293b">G</text></svg>`,
+  paralleling:`<svg class="gx" width="16" height="16"><rect x="3" y="3" width="10" height="10" stroke="#1e293b" fill="none" stroke-width="1.3"/><path d="M3 8h10" stroke="#1e293b" stroke-width="1"/></svg>`,
+  transformer:`<svg class="gx" width="16" height="16"><circle cx="8" cy="6" r="3.4" stroke="#1e293b" fill="none" stroke-width="1.2"/><circle cx="8" cy="10" r="3.4" stroke="#1e293b" fill="none" stroke-width="1.2"/></svg>`,
+  ups:`<svg class="gx" width="16" height="16"><rect x="3" y="4" width="10" height="8" stroke="#1e293b" fill="none" stroke-width="1.2"/><path d="M6 8h4M8 6v4" stroke="#1e293b" stroke-width="1"/></svg>`,
+  switchboard:`<svg class="gx" width="16" height="16"><rect x="2" y="4" width="12" height="8" stroke="#1e293b" fill="none" stroke-width="1.2"/><path d="M5 12v2M8 12v2M11 12v2" stroke="#1e293b" stroke-width="1.1"/></svg>`,
+  rpp:`<svg class="gx" width="16" height="16"><rect x="4" y="3" width="8" height="10" stroke="#1e293b" fill="none" stroke-width="1.2"/><path d="M6 12v2M10 12v2M6 6h4M6 8.5h4" stroke="#1e293b" stroke-width="1"/></svg>`,
+  bus:`<svg class="gx" width="16" height="16"><rect x="1" y="7" width="14" height="3" rx="1" fill="#1e293b"/></svg>`,
+  rack:`<svg class="gx" width="16" height="16"><rect x="4" y="2" width="8" height="12" stroke="#047857" fill="none" stroke-width="1.3"/><path d="M4 6h8M4 10h8" stroke="#047857" stroke-width="1"/></svg>`,
+  chiller:`<svg class="gx" width="16" height="16"><circle cx="8" cy="8" r="6" stroke="#0e7490" fill="none" stroke-width="1.3"/><path d="M8 4v8M4 8h8" stroke="#0e7490" stroke-width="1"/></svg>`,
+  cdu:`<svg class="gx" width="16" height="16"><rect x="3" y="3" width="10" height="10" rx="2" stroke="#0e7490" fill="none" stroke-width="1.3"/></svg>`,
+  crah:`<svg class="gx" width="16" height="16"><circle cx="8" cy="8" r="5.5" stroke="#0e7490" fill="none" stroke-width="1.2"/><path d="M8 8l4-2M8 8l-3 3" stroke="#0e7490" stroke-width="1.1"/></svg>`,
+  spine:`<svg class="gx" width="16" height="16"><rect x="2" y="6" width="12" height="4" rx="1" stroke="#6d28d9" fill="none" stroke-width="1.3"/></svg>`,
+  leaf:`<svg class="gx" width="16" height="16"><rect x="3" y="6" width="10" height="4" rx="1" stroke="#6d28d9" fill="none" stroke-width="1.3"/></svg>`,
+};
+const BUSC="#0f172a";
+// ── Shared connector engine (drafts/sld/engine.js) is the single source of truth ──
+const SLD = window.SLD;
+let G = SLD.seed();           // the graph (nodes / edges / busbars / uid)
+let sel = null;               // selected card / bus id
+let selEdge = null;           // selected connector id
+let undoStack = [], redoStack = [];
+
+const $ = (id)=>document.getElementById(id);
+function canvasXY(e){ const r=$("canvas").getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function accentOf(n){ return n.grp==="IT"?"var(--it)":n.grp==="MECH"?"var(--mech)":n.grp==="NET"?"var(--net)":"var(--ink2)"; }
+function grpCls(n){ return n.grp==="IT"?"it":n.grp==="MECH"?"mech":n.grp==="NET"?"net":""; }
+function isBrk(n){ return !!(n && SLD.PAL[n.type] && SLD.PAL[n.type].breakered); }
+
+// ── Undo / redo (snapshots of the whole graph) ──────────────────────────────
+function pushUndo(){ undoStack.push(SLD.snap(G)); if(undoStack.length>50)undoStack.shift(); redoStack=[]; refreshUndo(); }
+function refreshUndo(){ $("undo").disabled=!undoStack.length; $("redo").disabled=!redoStack.length; }
+function afterMutate(){ render(); devCheck(); }
+function devCheck(){ const v=SLD.validate(G); const s=v.errors.filter(e=>!/has no feeder/.test(e)); if(s.length) console.warn("[SLD invariant]", s); }
+/** Apply a pure engine result: toast on failure, else snapshot + swap + render. */
+function commitResult(r){ if(!r.ok){ toast(r.reason); return false; } pushUndo(); G=r.graph; afterMutate(); return true; }
+function undo(){ if(!undoStack.length)return; redoStack.push(SLD.snap(G)); G=SLD.restore(undoStack.pop()); sel=selEdge=null; render(); refreshUndo(); }
+function redo(){ if(!redoStack.length)return; undoStack.push(SLD.snap(G)); G=SLD.restore(redoStack.pop()); sel=selEdge=null; render(); refreshUndo(); }
+
+let toastT; function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("on"),1800); }
+
+// ── Wire geometry (presentation: drop straight from a busbar onto each load) ──
+function wireGeom(e){
+  const fa=SLD.ent(G,e.from), ta=SLD.ent(G,e.to); if(!fa||!ta) return null;
+  const fromBus=!!SLD.findBus(G,e.from), toBus=!!SLD.findBus(G,e.to);
+  const fg=fromBus?SLD.busGeo(fa):SLD.geo(fa), tg=toBus?SLD.busGeo(ta):SLD.geo(ta);
+  const x2 = toBus? fg.cx : tg.cx;
+  let x1 = fromBus? tg.cx : fg.cx;
+  if(!fromBus && e.fromBreaker){ x1 = SLD.tapPos(fa, e.fromBreaker).x; } // start at the feeder breaker tap
+  return { x1, y1:fg.bot, x2, y2:tg.top };
+}
+function wirePath(w){ const my=(w.y1+w.y2)/2; return Math.abs(w.x1-w.x2)<1 ? `M ${w.x1} ${w.y1} V ${w.y2}` : `M ${w.x1} ${w.y1} V ${my} H ${w.x2} V ${w.y2}`; }
+
+function drawLines(){
+  const vis=[], hit=[];
+  G.edges.forEach(e=>{ const w=wireGeom(e); if(!w)return; const d=wirePath(w);
+    const onSel = e.id===selEdge;
+    vis.push(`<path data-edge="${e.id}" d="${d}" stroke="${onSel?'var(--bad)':BUSC}" stroke-width="${onSel?2.4:1.4}" fill="none"/>`);
+    if(SLD.findNode(G,e.to)) vis.push(`<rect x="${w.x2-4}" y="${w.y2-11}" width="8" height="8" fill="#fff" stroke="${BUSC}" stroke-width="1.2"/>`); // breaker
+    // wide transparent hit path → click deletes, hover hints red
+    hit.push(`<path data-edge="${e.id}" d="${d}" stroke="transparent" stroke-width="12" fill="none" style="pointer-events:stroke;cursor:pointer"/>`);
+  });
+  $("lines").innerHTML=vis.join("");
+  const h=$("hit"); h.innerHTML=hit.join("");
+  h.querySelectorAll("[data-edge]").forEach(p=>{
+    const eid=p.getAttribute("data-edge");
+    p.addEventListener("click",ev=>{ ev.stopPropagation(); commitResult(SLD.removeEdge(G,eid)); if(selEdge===eid)selEdge=null; });
+    p.addEventListener("mouseenter",()=>{ const v=$("lines").querySelector(`[data-edge="${eid}"]`); if(v){ v.setAttribute("stroke","var(--bad)"); v.setAttribute("stroke-width","2.4"); } });
+    p.addEventListener("mouseleave",()=>{ if(eid===selEdge)return; const v=$("lines").querySelector(`[data-edge="${eid}"]`); if(v){ v.setAttribute("stroke",BUSC); v.setAttribute("stroke-width","1.4"); } });
+  });
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function render(){
+  const cv=$("canvas");
+  $("palette").innerHTML=Object.entries(SLD.PAL).map(([t,p])=>`<div class="pc" data-add="${t}">${GL[t]||""}${p.label}</div>`).join("")
+    + `<div class="pc" data-add-bus="1">${GL.bus} Bus / busbar (any tap)</div>`;
+  cv.querySelectorAll(".n,.bus,.zone,.zoneline,.wh").forEach(e=>e.remove());
+  // busbars
+  G.busbars.forEach(b=>{
+    const el=document.createElement("div"); el.className="bus"+(sel===b.id?" sel":""); el.style.left=b.x+"px"; el.style.top=b.y+"px"; el.style.width=b.w+"px"; el.dataset.bus=b.id;
+    el.innerHTML=`<span class="lab">${b.name} · ${b.kv}</span>`; cv.appendChild(el);
+  });
+  // zone labels
+  const loads=G.nodes.filter(n=>n.kind==="load"); const yz=608;
+  [["IT","IT LOAD"],["MECH","MECHANICAL LOAD"],["NET","NETWORK LOAD"]].forEach(([g,lab])=>{
+    const gs=loads.filter(n=>n.grp===g); if(!gs.length)return; const x0=Math.min(...gs.map(n=>n.x));
+    const z=document.createElement("div"); z.className="zone"; z.style.left=x0+"px"; z.style.top=yz+"px"; z.textContent=lab; cv.appendChild(z);
+  });
+  // cards (with input/output ports; breakered cards get a breaker strip)
+  G.nodes.forEach(n=>{
+    const g=SLD.geo(n), p=SLD.ports(n), gc=grpCls(n), brk=isBrk(n);
+    const el=document.createElement("div"); el.className="n"+(sel===n.id?" sel":"")+(brk?" brk":""); el.style.left=n.x+"px"; el.style.top=n.y+"px"; el.style.width=g.w+"px"; el.style.borderColor=accentOf(n); el.dataset.id=n.id;
+    let outHtml="";
+    if(p.output){
+      if(brk){
+        outHtml = SLD.outTaps(n).map(t=>{ const b=(n.breakers||[]).find(b=>b.id===t.breaker)||{}; const st=b.status||"closed";
+          return `<div class="port out tap ${st}" style="left:${t.x-n.x}px" data-port="${n.id}" data-role="out" data-breaker="${t.breaker}" title="${b.label||""} · ${b.amp||""}A · ${b.poles||""}P · ${st}"></div>`; }).join("")
+          + `<div class="brkbus"></div>`;
+      } else {
+        outHtml = `<div class="port out ${gc}" data-port="${n.id}" data-role="out" title="output"></div>`;
+      }
+    }
+    el.innerHTML=`<div class="hd" data-drag="${n.id}">${GL[n.type]||""}<span class="nm">${n.name}</span><button class="del" data-del="${n.id}">✕</button></div>
+      <div class="db"><span>${n.rating||n.type}</span><span>${brk?(n.mainAmp?'<b>'+n.mainAmp+' A</b>':''):(n.kw?'<b>'+n.kw+' kW</b>':'')}</span></div>
+      ${p.input?`<div class="port in ${gc}" data-port="${n.id}" data-role="in" title="input"></div>`:""}
+      ${outHtml}`;
+    cv.appendChild(el);
+  });
+  // connector end-handles (grab to re-route) — inset slightly ALONG the wire so the
+  // wire still touches the card (no air gap) but the handle doesn't cover the port
+  G.edges.forEach(e=>{ const w=wireGeom(e); if(!w)return; const off=Math.min(15,Math.max(7,Math.abs(w.y2-w.y1)*0.34));
+    mkHandle(cv,e.id,"from",w.x1,w.y1+off); mkHandle(cv,e.id,"to",w.x2,w.y2-off); });
+  wire(); drawLines(); renderInspector(); renderKpis();
+}
+function mkHandle(cv,eid,end,x,y){ const h=document.createElement("div"); h.className="wh"; h.style.left=x+"px"; h.style.top=y+"px"; h.dataset.wh=eid; h.dataset.end=end; cv.appendChild(h); }
+
+// ── Event wiring (re-attached each render) ──────────────────────────────────
+function wire(){
+  document.querySelectorAll("[data-drag]").forEach(h=>h.addEventListener("pointerdown",onCardDown));
+  document.querySelectorAll(".bus").forEach(el=>el.addEventListener("pointerdown",onBusDown));
+  document.querySelectorAll(".n").forEach(el=>el.addEventListener("click",e=>{ if(e.target.closest("[data-del],.port"))return; sel=el.dataset.id; selEdge=null; render(); }));
+  document.querySelectorAll(".bus").forEach(el=>el.addEventListener("click",e=>{ e.stopPropagation(); sel=el.dataset.bus; selEdge=null; render(); }));
+  document.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); const id=b.dataset.del; if(commitResult(SLD.removeNode(G,id))&&sel===id)sel=null; }));
+  document.querySelectorAll(".port").forEach(pt=>pt.addEventListener("pointerdown",onPortDown));
+  document.querySelectorAll(".wh").forEach(h=>h.addEventListener("pointerdown",onHandleDown));
+  document.querySelectorAll("[data-add]").forEach(c=>c.addEventListener("click",()=>{ const r=SLD.addNode(G,c.dataset.add,690,440); if(r.ok){ pushUndo(); G=r.graph; sel=r.id; selEdge=null; afterMutate(); } else toast(r.reason); }));
+  document.querySelectorAll("[data-add-bus]").forEach(c=>c.addEventListener("click",()=>{ const r=SLD.addBus(G,560,300,"BUS"); if(r.ok){ pushUndo(); G=r.graph; sel=r.id; selEdge=null; afterMutate(); } }));
+}
+
+// ── Move a card / bus ───────────────────────────────────────────────────────
+let drag=null, didUndo=false;
+function onCardDown(e){ const n=SLD.findNode(G,e.currentTarget.dataset.drag); const c=canvasXY(e); drag={kind:"n",o:n,dx:c.x-n.x,dy:c.y-n.y}; didUndo=false; e.currentTarget.setPointerCapture(e.pointerId); sel=n.id; selEdge=null; render(); }
+function onBusDown(e){ if(e.target.closest(".wh,.port"))return; const b=SLD.findBus(G,e.currentTarget.dataset.bus); const c=canvasXY(e); drag={kind:"b",o:b,dx:c.x-b.x,dy:c.y-b.y}; didUndo=false; e.currentTarget.setPointerCapture(e.pointerId); sel=b.id; selEdge=null; render(); }
+
+// ── Create a connector (drag a port) / re-route one (drag an end-handle) ────
+let wiring=null;
+function onPortDown(e){ e.stopPropagation(); const el=e.currentTarget; const id=el.dataset.port, role=el.dataset.role, breaker=el.dataset.breaker||null; const n=SLD.findNode(G,id); const g=SLD.geo(n);
+  const anchor = role==="out"? (breaker? SLD.tapPos(n,breaker) : {x:g.cx,y:g.bot}) : {x:g.cx,y:g.top};
+  wiring={mode:"create", id, role, breaker, anchor:{x:anchor.x,y:anchor.y}, moved:false}; el.setPointerCapture(e.pointerId); startRubber(wiring.anchor, canvasXY(e));
+}
+function onHandleDown(e){ e.stopPropagation(); const eid=e.currentTarget.dataset.wh, end=e.currentTarget.dataset.end; const edge=G.edges.find(x=>x.id===eid); if(!edge)return;
+  selEdge=eid; const w=wireGeom(edge); const fixed = end==="from"? {x:w.x2,y:w.y2} : {x:w.x1,y:w.y1};
+  wiring={mode:"reroute", eid, end, anchor:fixed, moved:false}; e.currentTarget.setPointerCapture(e.pointerId); startRubber(fixed, canvasXY(e)); drawLines(); // redraw lines only — keep the handle element (and its pointer capture) alive
+}
+function startRubber(a,c){ $("drag").innerHTML=`<path id="rub" d="M ${a.x} ${a.y} L ${c.x} ${c.y}" stroke="var(--accent)" stroke-width="1.8" stroke-dasharray="4 3" fill="none"/>`; }
+function moveRubber(c,ok){ const a=wiring.anchor; $("drag").innerHTML=`<path d="M ${a.x} ${a.y} L ${c.x} ${c.y}" stroke="${ok?'var(--ok)':'var(--bad)'}" stroke-width="1.8" stroke-dasharray="4 3" fill="none"/>`; }
+function clearRubber(){ $("drag").innerHTML=""; }
+/** The {fromBreaker} option for a create/reroute, given the drop target `t`. */
+function breakerOpt(t){
+  if(wiring.mode==="create"){ if(wiring.role==="out"&&wiring.breaker) return {fromBreaker:wiring.breaker}; if(wiring.role==="in"&&t&&t.breaker) return {fromBreaker:t.breaker}; return undefined; }
+  if(wiring.end==="from") return t&&t.breaker? {fromBreaker:t.breaker} : undefined;
+  const edge=G.edges.find(x=>x.id===wiring.eid); return edge&&edge.fromBreaker? {fromBreaker:edge.fromBreaker} : undefined;
+}
+function previewOk(t){
+  const opts=breakerOpt(t);
+  if(wiring.mode==="create"){ const from=wiring.role==="out"?wiring.id:t.id, to=wiring.role==="out"?t.id:wiring.id; return SLD.canConnect(G,from,to,opts).ok; }
+  const without={...G, edges:G.edges.filter(x=>x.id!==wiring.eid)};
+  const edge=G.edges.find(x=>x.id===wiring.eid); const from=wiring.end==="from"?t.id:edge.from, to=wiring.end==="to"?t.id:edge.to;
+  return SLD.canConnect(without,from,to,opts).ok;
+}
+function highlightTarget(t){
+  document.querySelectorAll(".port.tgt").forEach(x=>x.classList.remove("tgt"));
+  document.querySelectorAll(".bus.drop,.n.drop").forEach(x=>x.classList.remove("drop"));
+  if(!t)return;
+  if(SLD.findBus(G,t.id)){ const el=document.querySelector(`.bus[data-bus="${t.id}"]`); if(el)el.classList.add("drop"); return; }
+  let dot;
+  if(t.port==="output"&&t.breaker) dot=document.querySelector(`.port[data-port="${t.id}"][data-breaker="${t.breaker}"]`);
+  else dot=document.querySelector(`.n[data-id="${t.id}"] .port.${t.port==="input"?"in":"out"}`);
+  if(dot)dot.classList.add("tgt"); else { const nel=document.querySelector(`.n[data-id="${t.id}"]`); if(nel)nel.classList.add("drop"); }
+}
+function finishWiring(t){
+  if(!wiring.moved || !t){ render(); return; }            // a plain click (no drag) or dropped on empty → no change
+  const opts=breakerOpt(t);
+  if(wiring.mode==="create"){ const from=wiring.role==="out"?wiring.id:t.id, to=wiring.role==="out"?t.id:wiring.id; commitResult(SLD.addEdge(G,from,to,opts)); }
+  else { commitResult(SLD.moveEdge(G,wiring.eid,wiring.end,t.id,opts)); }
+}
+
+// ── Global pointer handlers (cover card-move AND wiring) ────────────────────
+window.addEventListener("pointermove",e=>{
+  if(drag){ if(!didUndo){pushUndo();didUndo=true;} const c=canvasXY(e); drag.o.x=Math.max(0,c.x-drag.dx); drag.o.y=Math.max(0,c.y-drag.dy);
+    const el=drag.kind==="b"?document.querySelector(`.bus[data-bus="${drag.o.id}"]`):document.querySelector(`.n[data-id="${drag.o.id}"]`); if(el){el.style.left=drag.o.x+"px";el.style.top=drag.o.y+"px";}
+    drawLines(); return;
+  }
+  if(wiring){ const c=canvasXY(e); if(Math.hypot(c.x-wiring.anchor.x,c.y-wiring.anchor.y)>5)wiring.moved=true; const t=SLD.hitTestPort(G,c.x,c.y); highlightTarget(t); moveRubber(c, t?previewOk(t):false); }
+});
+window.addEventListener("pointerup",e=>{
+  if(drag){ drag=null; render(); return; }
+  if(wiring){ const c=canvasXY(e); const t=SLD.hitTestPort(G,c.x,c.y); finishWiring(t); wiring=null; clearRubber(); highlightTarget(null); }
+});
+
+// ── Inspector (edit fields + read-only connector list with ✕) ───────────────
+function f(l,v,oc){return `<div class="field"><label>${l}</label><input value="${v}" onchange="${oc}"></div>`;}
+function fs(l,opts,val,oc){return `<div class="field"><label>${l}</label><select onchange="${oc}">${opts.map(o=>`<option ${o===val?'selected':''}>${o}</option>`).join("")}</select></div>`;}
+function entName(id){ const n=SLD.findNode(G,id); if(n)return n.name; const b=SLD.findBus(G,id); return b?b.name:id; }
+function connBlock(id){
+  const feeders=G.edges.filter(e=>e.to===id), down=G.edges.filter(e=>e.from===id);
+  const row=(e,other)=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:1px 0"><span>${entName(other)}</span><button class="btn" style="padding:0 6px" onclick="rmEdge('${e.id}')">✕</button></div>`;
+  const list=(arr,key)=> arr.length? arr.map(e=>row(e, e[key])).join("") : `<div class="note" style="opacity:.6">—</div>`;
+  return `<h2 style="margin-top:11px">Connectors</h2><div class="note">Feeders (input)</div>${list(feeders,"from")}<div class="note" style="margin-top:6px">Downstream (output)</div>${list(down,"to")}`;
+}
+function breakerBlock(n){
+  const fedTo=(brId)=>{ const e=G.edges.find(e=>e.from===n.id&&e.fromBreaker===brId); return e? entName(e.to):""; };
+  const rows=(n.breakers||[]).map(b=>`
+    <div class="brk">
+      <input value="${b.label}" style="width:38px" title="label" onchange="setBrk('${n.id}','${b.id}','label',this.value)">
+      <input value="${b.amp}" style="width:48px" title="amps" onchange="setBrk('${n.id}','${b.id}','amp',+this.value)">
+      <select style="width:42px" title="poles" onchange="setBrk('${n.id}','${b.id}','poles',+this.value)">${[1,2,3].map(p=>`<option ${p===b.poles?'selected':''}>${p}</option>`).join("")}</select>
+      <select title="status" onchange="setBrk('${n.id}','${b.id}','status',this.value)">${["closed","open","spare"].map(s=>`<option ${s===b.status?'selected':''}>${s}</option>`).join("")}</select>
+      <span class="note" style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${fedTo(b.id)}">${fedTo(b.id)||"—"}</span>
+      <button class="btn" style="padding:0 6px" onclick="rmBrk('${n.id}','${b.id}')">✕</button>
+    </div>`).join("");
+  return `<h2 style="margin-top:11px">Breaker schedule</h2>
+    <div class="g2">${f("Main amp",n.mainAmp||"","setN('"+n.id+"','mainAmp',+this.value)")}${f("Voltage",n.voltage||"","setN('"+n.id+"','voltage',this.value)")}</div>
+    <div class="note" style="margin-bottom:3px">Feeders — label · A · poles · status · feeds</div>
+    ${rows}
+    <button class="btn" style="margin-top:2px" onclick="addBrk('${n.id}')">+ add breaker</button>`;
+}
+function setBrk(id,br,k,v){ commitResult(SLD.setBreaker(G,id,br,k,v)); }
+function addBrk(id){ commitResult(SLD.addBreaker(G,id)); }
+function rmBrk(id,br){ commitResult(SLD.removeBreaker(G,id,br)); }
+function renderInspector(){
+  const ins=$("inspector");
+  const b=SLD.findBus(G,sel);
+  if(b){ ins.innerHTML=`<h2>Bus</h2>${f("Name",b.name,"setB('"+b.id+"','name',this.value)")}<div class="g2">${f("Voltage",b.kv,"setB('"+b.id+"','kv',this.value)")}${f("Width",b.w,"setB('"+b.id+"','w',+this.value)")}</div>${connBlock(b.id)}<button class="btn" style="margin-top:9px" onclick="delEnt('${b.id}')">Delete bus</button>`; return; }
+  const n=SLD.findNode(G,sel);
+  if(!n){ ins.innerHTML=`<h2>Element</h2><p class="note"><b>Wire:</b> drag a card's port (top = input, bottom = output) onto another port or busbar. <b>Re-route:</b> grab a connector's end-handle and pull it to another card. <b>Delete a connector:</b> click its wire (turns red). Loads hang at the bottom; the manifold is excluded from the power view (passive).</p>`; return; }
+  ins.innerHTML=`<h2>Element — ${n.type}</h2>
+    ${f("Name",n.name,"setN('"+n.id+"','name',this.value)")}
+    <div class="g2">${f("Rating",n.rating||"","setN('"+n.id+"','rating',this.value)")}${f("Power (kW)",n.kw,"setN('"+n.id+"','kw',+this.value)")}</div>
+    ${fs("Redundancy",["N","N+1","2N","4-to-make-3"],n.red,"setN('"+n.id+"','red',this.value)")}
+    ${n.kind==="load"?fs("Load group",["IT","MECH","NET"],n.grp,"setN('"+n.id+"','grp',this.value)"):""}
+    ${f("Catalog key",n.catalogKey||"","setN('"+n.id+"','catalogKey',this.value)")}
+    ${f("Product (vendor · model)",n.product||"","setN('"+n.id+"','product',this.value)")}
+    ${isBrk(n)?breakerBlock(n):""}
+    ${connBlock(n.id)}
+    <button class="btn" style="margin-top:9px" onclick="delEnt('${n.id}')">Delete</button>`;
+}
+function rmEdge(eid){ commitResult(SLD.removeEdge(G,eid)); if(selEdge===eid)selEdge=null; }
+function setN(id,k,v){ const n=SLD.findNode(G,id); if(!n)return; pushUndo(); n[k]=v; afterMutate(); }
+function setB(id,k,v){ const b=SLD.findBus(G,id); if(!b)return; pushUndo(); b[k]=v; afterMutate(); }
+function delEnt(id){ if(commitResult(SLD.removeNode(G,id))&&sel===id){ sel=null; render(); } }
+
+function renderKpis(){
+  const loads=G.nodes.filter(n=>n.kind==="load");
+  const sumKW=g=>loads.filter(n=>!g||n.grp===g).reduce((a,n)=>a+(n.kw||0),0);
+  const it=sumKW("IT"),mech=sumKW("MECH"),net=sumKW("NET"),tot=it+mech+net;
+  $("kpis").innerHTML=[
+    ["IT load",(it/1000).toFixed(2)+" MW"],["Mechanical",(mech/1000).toFixed(2)+" MW"],["Network",net+" kW"],
+    ["Total facility",(tot/1000).toFixed(2)+" MW"],["UPS","4-to-make-3"],["Distribution","2N (A/B)"],["Sources","Utility ∥ Gen"],
+  ].map(([s,v])=>`<div class="kpi"><b class="mono">${v}</b><span>${s}</span></div>`).join("");
+}
+
+// ── Topology library (localStorage) — save once, reuse across projects ──────
+const LIBKEY="sld.topologies";
+function lib(){ try{ return JSON.parse(localStorage.getItem(LIBKEY)||"{}"); }catch(_){ return {}; } }
+function libWrite(o){ localStorage.setItem(LIBKEY, JSON.stringify(o)); }
+function refreshLib(sel2name){ const names=Object.keys(lib()).sort(); $("load").innerHTML=`<option value="">Load…</option>`+names.map(n=>`<option ${n===sel2name?"selected":""}>${n}</option>`).join(""); }
+function saveTopo(){ const n=($("topoName").value||"").trim(); if(!n){ toast("name the topology first"); return; } const l=lib(); l[n]=SLD.snap(G); libWrite(l); refreshLib(n); toast("saved “"+n+"”"); }
+function loadTopo(n){ const l=lib(); if(!l[n])return; pushUndo(); G=SLD.restore(l[n]); sel=selEdge=null; afterMutate(); $("topoName").value=n; toast("loaded “"+n+"”"); }
+function delTopo(){ const n=$("load").value; if(!n)return; const l=lib(); delete l[n]; libWrite(l); refreshLib(); toast("deleted “"+n+"”"); }
+$("save").addEventListener("click",saveTopo);
+$("load").addEventListener("change",e=>{ if(e.target.value) loadTopo(e.target.value); });
+$("delTopo").addEventListener("click",delTopo);
+
+$("undo").addEventListener("click",undo);
+$("redo").addEventListener("click",redo);
+$("auto").addEventListener("click",()=>{ pushUndo(); G=SLD.seed(); sel=selEdge=null; afterMutate(); });
+document.addEventListener("keydown",e=>{ const a=document.activeElement; if(a&&(a.tagName==="INPUT"||a.tagName==="SELECT"))return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
+  if(e.key==="Delete"||e.key==="Backspace"){ if(selEdge){ e.preventDefault(); rmEdge(selEdge); } else if(sel){ e.preventDefault(); delEnt(sel); } }
+});
+render();
+refreshLib();
+// read-only hook for the e2e tests (no behaviour change)
+window.__sld = { graph: ()=>G };
+</script>
+</body>
+</html>

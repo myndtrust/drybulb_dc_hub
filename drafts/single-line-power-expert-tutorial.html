@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design a Data-Center Single-Line in One Sentence — A Drybulb Tutorial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16130d;
+    --paper:#f4efe4;
+    --paper-2:#ebe4d3;
+    --line:#cfc4ab;
+    --hot:#d4471d;        /* high-voltage amber-red */
+    --hot-2:#e8902a;      /* live conductor */
+    --cool:#2b5c66;       /* DC teal */
+    --muted:#6e6450;
+    --green:#3f6f3a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(212,71,29,.05), transparent 40%),
+      radial-gradient(circle at 88% 2%, rgba(43,92,102,.06), transparent 45%);
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:0 26px}
+  /* ---- masthead ---- */
+  header.mast{border-bottom:2px solid var(--ink);margin-top:30px}
+  .mast-row{display:flex;justify-content:space-between;align-items:baseline;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);padding-bottom:10px}
+  .mast-row .org{color:var(--hot);font-weight:600}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--hot);margin:30px 0 14px;font-weight:600}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(34px,6vw,62px);
+    line-height:1.02;letter-spacing:-.015em;margin:0 0 18px}
+  h1 .em{font-style:italic;font-weight:500;color:var(--hot)}
+  .deck{font-family:"Newsreader",serif;font-size:clamp(19px,2.4vw,24px);
+    line-height:1.4;color:#3a3327;font-weight:400;max-width:44ch}
+  .byline{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);margin:26px 0 0;
+    border-top:1px solid var(--line);padding-top:14px;display:flex;
+    justify-content:space-between;flex-wrap:wrap;gap:6px}
+  /* ---- body ---- */
+  article{padding:38px 0 10px}
+  article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(25px,3.6vw,34px);
+    line-height:1.1;margin:54px 0 6px;letter-spacing:-.01em}
+  article h2 .num{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--hot);
+    display:block;letter-spacing:.2em;margin-bottom:8px;font-weight:600}
+  article h3{font-family:"Fraunces",serif;font-weight:600;font-size:22px;margin:34px 0 2px}
+  article p{margin:16px 0}
+  article p.lead:first-of-type::first-letter{
+    font-family:"Fraunces",serif;font-weight:900;float:left;font-size:74px;line-height:.7;
+    padding:8px 10px 0 0;color:var(--hot)}
+  a{color:var(--hot);text-decoration:none;border-bottom:1px solid rgba(212,71,29,.35)}
+  a:hover{background:rgba(212,71,29,.08)}
+  sup.ref{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+    color:var(--hot);vertical-align:super;line-height:0}
+  sup.ref a{border:none}
+  strong{font-weight:600}
+  em{font-style:italic}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  /* prompt sample */
+  .prompt{font-family:"IBM Plex Mono",monospace;font-size:15px;background:#1f1b14;color:#f4efe4;
+    border-radius:4px;padding:14px 16px;margin:24px 0;line-height:1.5;overflow-x:auto}
+  .prompt .c{color:var(--hot-2)}
+  /* pull quote */
+  blockquote{margin:34px 0;padding:6px 0 6px 26px;border-left:3px solid var(--hot);
+    font-family:"Fraunces",serif;font-style:italic;font-size:25px;line-height:1.3;color:#2b2519}
+  blockquote .cite{display:block;font-family:"IBM Plex Mono",monospace;font-style:normal;
+    font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:12px}
+  /* callout box */
+  .box{background:var(--paper-2);border:1px solid var(--line);border-radius:3px;
+    padding:20px 22px;margin:30px 0;font-size:17px}
+  .box .lbl{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--hot);font-weight:600;margin-bottom:8px}
+  .box p{margin:8px 0}
+  /* steps */
+  .step{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--cool);font-weight:600;margin:0 0 -2px}
+  /* figures */
+  figure{margin:42px 0;}
+  figure svg{width:100%;height:auto;display:block;background:#fbf8f0;
+    border:1px solid var(--line);border-radius:4px}
+  figcaption{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted);
+    margin-top:12px;line-height:1.5}
+  figcaption b{color:var(--ink);font-weight:600}
+  /* tables */
+  .tbl-wrap{overflow-x:auto;margin:32px 0}
+  table{border-collapse:collapse;width:100%;font-size:15px;
+    font-family:"Newsreader",serif}
+  caption{caption-side:top;text-align:left;font-family:"IBM Plex Mono",monospace;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--hot);
+    font-weight:600;margin-bottom:10px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--ink)}
+  tbody tr:hover{background:rgba(212,71,29,.04)}
+  td.r,th.r{text-align:right;font-family:"IBM Plex Mono",monospace}
+  td .co{font-weight:600}
+  .tag{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.05em;
+    text-transform:uppercase;padding:2px 7px;border-radius:2px;display:inline-block;
+    white-space:nowrap}
+  .tag.hi{background:rgba(212,71,29,.12);color:var(--hot)}
+  .tag.md{background:rgba(232,144,42,.16);color:#9a5a12}
+  .tag.lo{background:rgba(63,111,58,.14);color:var(--green)}
+  /* refs */
+  .refs{border-top:2px solid var(--ink);margin-top:64px;padding-top:24px}
+  .refs h2{margin-top:0}
+  ol.reflist{font-family:"IBM Plex Mono",monospace;font-size:13px;line-height:1.55;
+    color:var(--muted);padding-left:30px}
+  ol.reflist li{margin:9px 0}
+  ol.reflist a{color:var(--cool);border:none;word-break:break-word}
+  .disc{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);
+    line-height:1.6;border-top:1px solid var(--line);margin-top:30px;padding:18px 0 60px}
+  hr.rule{border:none;border-top:1px solid var(--line);margin:46px 0}
+  @media(max-width:560px){
+    body{font-size:18px}
+    article p.lead:first-of-type::first-letter{font-size:60px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <div class="mast-row">
+    <span class="org">◢ Drybulb Tools</span>
+    <span>AI Factory · Electrical</span>
+    <span>Vol. 1 — June 2026</span>
+  </div>
+</header>
+
+<div class="kicker">Tutorial · AI Factory Single-Line</div>
+<h1>Design a data-center single-line <span class="em">in one sentence</span></h1>
+<p class="deck">Type “48&nbsp;MW GB300 campus, Tier&nbsp;III, distributed 4-to-make-3 UPS, 2N to the rack,” press Design, and Drybulb's Power Expert sizes the whole utility-to-chip chain, draws a valid single-line, and writes the investor brief — in under a second.</p>
+<div class="byline">
+  <span>Tools Walkthrough · Drybulb</span>
+  <span>≈ 9 min read · Updated June 21, 2026</span>
+</div>
+
+<article>
+
+<p class="lead">A power single-line is the first artifact every data-center project argues over and the last one anybody enjoys drawing. It is where capacity, redundancy, and capital cost all become concrete — and where a sales conversation either earns trust or loses it. Drybulb's <strong>AI Factory Single-line</strong> tool now ships with a <strong>Power Expert</strong>: a natural-language front end that turns a one-sentence brief into a sized, electrically-valid topology you can edit on a canvas and roll straight into the cost model. This is a walkthrough of how to use it.</p>
+
+<p>The Power Expert encodes the canonical hyperscale distribution chain described in SemiAnalysis's <em>Datacenter Anatomy</em><sup class="ref"><a href="#r-semi">1</a></sup> and the Uptime Institute tier definitions<sup class="ref"><a href="#r-uptime">2</a></sup>. It is not a chatbot that improvises — it is a deterministic engineering generator with a language parser bolted to the front. Same sentence in, same single-line out, every time, and it will never hand you a diagram that fails its own electrical checks. We'll come back to why that matters for putting it in front of investors.</p>
+
+<figure>
+<svg viewBox="0 0 860 445" role="img" aria-label="The single-line the Power Expert generates: utility and BESS into a main-tie-main MV substation (MV SWBD-A and MV SWBD-B joined by a normally-open tie), a four-to-make-three transformer-UPS layer, 480 V generators on a paralleling switchboard, 2N LV switchboards, RPP row panels, and dual-corded racks">
+  <style>
+    .t{font-family:"IBM Plex Mono",monospace;fill:#16130d}
+    .lbl{font-size:11px}
+    .sm{font-size:9.5px;fill:#6e6450}
+    .bx{fill:#fbf8f0;stroke:#cfc4ab;stroke-width:1.2}
+    .src{fill:#f6e7df;stroke:#d4471d}
+    .mv{fill:#efe7f6;stroke:#6d28d9}
+    .ups{fill:#e7eff0;stroke:#2b5c66}
+    .ld{fill:#eef2e9;stroke:#3f6f3a}
+    .wire{stroke:#6e6450;stroke-width:1.4;fill:none}
+    .wa{stroke:#d4471d;stroke-width:1.6;fill:none}
+    .wb{stroke:#2b5c66;stroke-width:1.6;fill:none}
+    .gen{stroke:#3f6f3a;stroke-width:1.5;fill:none}
+    .tie{stroke:#16130d;stroke-width:1.4;fill:none;stroke-dasharray:5 3}
+  </style>
+  <!-- sources: utility + BESS at the interconnection (PCC) -->
+  <rect class="bx src" x="70" y="14" width="150" height="30" rx="3"/><text class="t lbl" x="145" y="33" text-anchor="middle">Utility 230 kV</text>
+  <rect class="bx src" x="600" y="14" width="190" height="30" rx="3"/><text class="t lbl" x="695" y="33" text-anchor="middle">BESS · grid interconnect</text>
+  <!-- main transformers, utility feeds both -->
+  <rect class="bx" x="90" y="64" width="110" height="26" rx="3"/><text class="t sm" x="145" y="81" text-anchor="middle">Main Tx A</text>
+  <rect class="bx" x="470" y="64" width="110" height="26" rx="3"/><text class="t sm" x="525" y="81" text-anchor="middle">Main Tx B</text>
+  <path class="wire" d="M145,44 L145,64"/><path class="wire" d="M145,54 L525,54 L525,64"/>
+  <!-- main-tie-main MV boards + normally-open tie -->
+  <rect class="bx mv" x="70" y="106" width="150" height="30" rx="3"/><text class="t lbl" x="145" y="125" text-anchor="middle">MV SWBD-A</text>
+  <rect class="bx mv" x="450" y="106" width="150" height="30" rx="3"/><text class="t lbl" x="525" y="125" text-anchor="middle">MV SWBD-B</text>
+  <path class="wire" d="M145,90 L145,106"/><path class="wire" d="M525,90 L525,106"/>
+  <path class="tie" d="M220,121 L300,121"/><rect class="bx" x="300" y="112" width="60" height="18" rx="2"/><text class="t sm" x="330" y="125" text-anchor="middle">TIE N/O</text><path class="tie" d="M360,121 L450,121"/>
+  <!-- BESS at PCC → MV interconnection -->
+  <path class="wire" d="M695,44 L695,96 L560,96 L560,106"/><text class="sm t" x="600" y="92">PCC</text>
+  <!-- 4-to-make-3 transformer+UPS blocks (2 under each MV board) -->
+  <rect class="bx ups" x="70" y="162" width="100" height="28" rx="3"/><text class="t sm" x="120" y="180" text-anchor="middle">Tx+UPS 1</text>
+  <rect class="bx ups" x="180" y="162" width="100" height="28" rx="3"/><text class="t sm" x="230" y="180" text-anchor="middle">Tx+UPS 2</text>
+  <rect class="bx ups" x="450" y="162" width="100" height="28" rx="3"/><text class="t sm" x="500" y="180" text-anchor="middle">Tx+UPS 3</text>
+  <rect class="bx ups" x="560" y="162" width="120" height="28" rx="3"/><text class="t sm" x="620" y="180" text-anchor="middle">Tx+UPS 4 (spare)</text>
+  <path class="wire" d="M120,136 L120,162"/><path class="wire" d="M200,136 L200,150 L230,150 L230,162"/>
+  <path class="wire" d="M500,136 L500,162"/><path class="wire" d="M540,136 L540,150 L620,150 L620,162"/>
+  <!-- 480 V generators → paralleling board -->
+  <rect class="bx src" x="310" y="150" width="120" height="26" rx="3"/><text class="t sm" x="370" y="167" text-anchor="middle">Gensets · 480 V</text>
+  <rect class="bx" x="300" y="196" width="140" height="26" rx="3"/><text class="t sm" x="370" y="213" text-anchor="middle">GEN PARALLEL SWBD</text>
+  <path class="gen" d="M370,176 L370,196"/>
+  <!-- 2N LV distribution boards -->
+  <rect class="bx" x="90" y="248" width="150" height="30" rx="3"/><text class="t lbl" x="165" y="267" text-anchor="middle">SWBD-A</text>
+  <rect class="bx" x="450" y="248" width="150" height="30" rx="3"/><text class="t lbl" x="525" y="267" text-anchor="middle">SWBD-B</text>
+  <path class="wire" d="M120,190 L120,248"/><path class="wire" d="M230,190 L230,248"/>
+  <path class="wire" d="M500,190 L500,248"/><path class="wire" d="M620,190 L620,248"/>
+  <path class="gen" d="M370,222 L370,238 L200,238 L200,248"/><path class="gen" d="M370,238 L470,238 L470,248"/>
+  <text class="sm t" x="252" y="234">4-to-make-3: every UPS feeds both LV boards; gensets back them up</text>
+  <!-- RPP row panels -->
+  <rect class="bx" x="90" y="304" width="88" height="26" rx="3"/><text class="t sm" x="134" y="321" text-anchor="middle">RPP-A1</text>
+  <rect class="bx" x="196" y="304" width="88" height="26" rx="3"/><text class="t sm" x="240" y="321" text-anchor="middle">RPP-A2</text>
+  <rect class="bx" x="450" y="304" width="88" height="26" rx="3"/><text class="t sm" x="494" y="321" text-anchor="middle">RPP-B1</text>
+  <rect class="bx" x="556" y="304" width="88" height="26" rx="3"/><text class="t sm" x="600" y="321" text-anchor="middle">RPP-B2</text>
+  <path class="wa" d="M134,278 L134,304"/><path class="wa" d="M240,278 L240,304"/>
+  <path class="wb" d="M494,278 L494,304"/><path class="wb" d="M600,278 L600,304"/>
+  <!-- dual-corded racks -->
+  <rect class="bx ld" x="250" y="378" width="80" height="34" rx="3"/><text class="t sm" x="290" y="393" text-anchor="middle">GB300</text><text class="t sm" x="290" y="405" text-anchor="middle">120 kW</text>
+  <rect class="bx ld" x="440" y="378" width="80" height="34" rx="3"/><text class="t sm" x="480" y="393" text-anchor="middle">GB300</text><text class="t sm" x="480" y="405" text-anchor="middle">120 kW</text>
+  <path class="wa" d="M134,330 L134,358 L275,358 L275,378"/>
+  <path class="wb" d="M494,330 L494,358 L305,358 L305,378"/>
+  <path class="wa" d="M240,330 L240,366 L465,366 L465,378"/>
+  <path class="wb" d="M600,330 L600,366 L495,366 L495,378"/>
+  <text class="sm t" x="290" y="372" text-anchor="middle">each rack dual-corded (2N)</text>
+  <text class="sm t" x="636" y="392">A-side</text><rect class="src" x="682" y="384" width="14" height="8"/>
+  <text class="sm t" x="636" y="410">B-side</text><rect class="ups" x="682" y="402" width="14" height="8"/>
+</svg>
+<figcaption><b>The shape the Power Expert draws.</b> Utility → two main transformers → a <b>main-tie-main</b> MV substation (MV SWBD-A / MV SWBD-B joined by a normally-open tie), with <b>BESS</b> at the interconnection (PCC). Below: a <b>4-to-make-3</b> distributed-redundant transformer+UPS layer feeding <b>2N</b> LV switchboards, <b>480 V generators</b> on a paralleling board backing up the LV side, then RPP row panels and racks fed by one A-side and one B-side cord. One representative power block; campus multipliers (here ×20 pods) live in the equipment schedule.</figcaption>
+</figure>
+
+<h2><span class="num">§ 01</span>Open the tool</h2>
+<p>Sign in and go to <strong>Tools → AI Factory Single-line</strong> (<span class="mono">/dashboard/tools/single-line</span>). It opens on a worked default — the NVIDIA DGX SuperPOD reference shape, GB300 NVL72 racks — so you always have a valid starting point. Two strips sit above the canvas: the <strong>toolbar</strong> (Save, Load, undo/redo, AutoBuild, Clear) and, just beneath it, the <strong>Power Expert</strong> bar. That second strip is the one we want.</p>
+
+<h2><span class="num">§ 02</span>Describe your facility</h2>
+<p class="step">Step · the prompt</p>
+<p>Type a brief into the Power Expert field and press <strong>Design</strong> (or hit Enter). You can write the way you'd brief a colleague:</p>
+
+<div class="prompt">48 MW <span class="c">GB300</span> campus, <span class="c">Tier III</span>, <span class="c">N+1</span> generation, distributed <span class="c">4-to-make-3</span> UPS, <span class="c">2N</span> to the rack</div>
+
+<p>You don't have to fill in everything. Anything you leave out takes a sourced default — distributed 4-to-make-3 UPS, 2N distribution, Tier III, PUE 1.2, GB300 racks. Three example chips under the field load instantly if you'd rather start from one and tweak. Here's the grammar the parser actually understands:</p>
+
+<div class="box">
+  <div class="lbl">What the Power Expert reads</div>
+  <p><strong>Capacity.</strong> Any “<span class="mono">N MW</span>.” Say “critical” or “IT” and it's read as IT load; say “facility,” “total,” or “grid” and it's treated as facility power and back-solved to IT through the PUE.</p>
+  <p><strong>PUE.</strong> “<span class="mono">PUE 1.25</span>.” Defaults to 1.2.</p>
+  <p><strong>Platform.</strong> <span class="mono">GB300</span> (120 kW/rack), <span class="mono">GB200</span> (132 kW), <span class="mono">Vera Rubin / NVL144</span> (200 kW), or an explicit “<span class="mono">N kW/rack</span>.”</p>
+  <p><strong>UPS redundancy.</strong> <span class="mono">distributed / 4-to-make-3</span>, <span class="mono">3-to-make-2</span>, <span class="mono">2N</span>, <span class="mono">N+1</span>, or <span class="mono">catcher / N+2C</span>.</p>
+  <p><strong>Generation &amp; distribution.</strong> <span class="mono">N+1</span> or <span class="mono">2N</span> generation; <span class="mono">2N</span> or <span class="mono">N</span> to the rack. Generators sit on the <span class="mono">480 V</span> site voltage by default — say “<span class="mono">MV generators</span>” to put them on the medium-voltage bus instead.</p>
+  <p><strong>BESS.</strong> On by default at the interconnection (PCC); opt out with “<span class="mono">no BESS</span>” / “<span class="mono">no battery</span>.”</p>
+  <p><strong>Tier &amp; cooling.</strong> <span class="mono">Tier I–IV</span>; <span class="mono">liquid</span>, <span class="mono">hybrid</span>, or <span class="mono">air</span>. A name in quotes or “<span class="mono">&lt;Name&gt; campus</span>” becomes the design title.</p>
+</div>
+
+<h2><span class="num">§ 03</span>Read what it built</h2>
+<p class="step">Step · the design + the brief</p>
+<p>The canvas redraws to your topology and a green toast confirms the headline — for the prompt above, <span class="mono">designed 57.6 MW · 400 racks · 28,800 GPUs</span>. A <strong>Design brief</strong> panel opens in the top-right corner with the numbers you'd put in front of a non-engineer: facility and IT megawatts, rack and GPU counts, the topology in one line, the Tier rationale, and a major-equipment schedule. Hit <strong>Copy</strong> to drop the whole brief (as Markdown) into a deck or email.</p>
+
+<p>Read the single-line top to bottom and it matches the brief block for block. At the top, utility feeds two main transformers into a <strong>main-tie-main</strong> MV substation — <strong>MV SWBD-A</strong> and <strong>MV SWBD-B</strong> joined by a normally-open tie breaker, the secondary-selective scheme that lets you lose a transformer (or take one down for maintenance) without dropping the load.<sup class="ref"><a href="#r-mikeholt">3</a></sup> A <strong>BESS</strong> sits at the interconnection (the point of common coupling) for grid services and faster utility interconnection.<sup class="ref"><a href="#r-flexgen">5</a></sup> Below the MV boards, the <strong>4-to-make-3 UPS layer</strong> is transformer-plus-UPS blocks split across the two MV buses: any three of four carry the load, so each UPS runs near 75% — cheaper per megawatt than a fully duplicated 2N bank.<sup class="ref"><a href="#r-semi">1</a></sup> Standby <strong>generators sit on the 480 V site-distribution voltage</strong>, paralleled on a generator switchboard that backs up the LV side.<sup class="ref"><a href="#r-gensource">4</a></sup> Finally, <strong>2N distribution</strong> splits into A and B switchboards, then RPP row panels, and every rack is <strong>dual-corded</strong> — one breaker from an A panel, one from a B panel.</p>
+
+<blockquote>The diagram shows one representative power block; the schedule carries the full count. That's how engineers actually read a single-line — “typical pod, twenty total.”<span class="cite">Why 48 MW doesn't draw 400 rack icons</span></blockquote>
+
+<h2><span class="num">§ 04</span>Refine it on the canvas</h2>
+<p class="step">Step · direct edit</p>
+<p>The generated design is a normal editable graph, not a picture. Everything on the canvas is live:</p>
+<p><strong>Drag</strong> cards to lay them out. <strong>Click a card</strong> to open the inspector, where you can rename it, set a voltage or rating, add or remove feeder <strong>breakers</strong>, and — on a compute rack — apply an AI-rack spec that snaps the kW and auto-sizes the feeding circuit. <strong>Drag from a port</strong> to wire a new connection; the wire previews green when the connection is legal and red when it isn't. <strong>Click a wire</strong> to select it, then delete or re-route it. Every edit is undoable (<span class="mono">Ctrl/⌘+Z</span>), and a dev-time validator runs after each change so an illegal topology can't sneak in. If you wire something the engine won't accept — a loop, a reversed feed, a second circuit off a breaker already in use — it refuses the edit and tells you why instead of silently corrupting the graph.</p>
+
+<h2><span class="num">§ 05</span>Roll it up and share it</h2>
+<p class="step">Step · cost model + library</p>
+<p>The left rail keeps a running roll-up — rack count, GPUs, IT megawatts, and network-rack counts — that feeds the Drybulb <a href="/dashboard/tools/cost-model">Cost Model</a>, so the topology you drew and the capital number you quote come from the same source. Name the design and click <strong>Save</strong> to keep it in your library; <strong>Load</strong> brings it back later. Iterating on a variant is just editing the prompt — change “distributed 4-to-make-3” to “catcher” and Design again to compare a reserve-UPS scheme against the distributed one.</p>
+
+<h2><span class="num">§ 06</span>A worked example, end to end</h2>
+<p>Here is exactly what the prompt from §02 produces — the equipment schedule straight out of the brief panel. These are sized engineering estimates, not a procurement BOM, but they're computed, not guessed: two MV switchboards for the main-tie-main substation, pods from the 2.5&nbsp;MVA standard block, gensets from facility load over 3&nbsp;MW (on the 480&nbsp;V side), UPS blocks from the 4-to-make-3 rule, distribution doubled for 2N, and a BESS at the interconnection.</p>
+
+<div class="tbl-wrap">
+<table>
+  <caption>48 MW GB300 · Tier III · main-tie-main MV · N+1 gen (480 V) · 4-to-make-3 UPS · 2N + BESS — 57.6 MW facility, 400 racks, 28,800 GPUs, 20 pods</caption>
+  <thead><tr><th>Equipment</th><th class="r">Qty</th><th>Unit rating</th><th>Redundancy</th><th>Lead / risk</th></tr></thead>
+  <tbody>
+    <tr><td class="co">HV substation transformer</td><td class="r">2</td><td>75 MVA</td><td>N+1</td><td><span class="tag hi">18–24 mo · high</span></td></tr>
+    <tr><td class="co">MV switchboard (main-tie-main)</td><td class="r">2</td><td>13.8 kV · A/B + tie</td><td>main-tie-main</td><td><span class="tag hi">~50 wk · high</span></td></tr>
+    <tr><td class="co">BESS (grid interconnect / PCC)</td><td class="r">1</td><td>57.6 MW · grid services + ride-through</td><td>—</td><td><span class="tag md">12–18 mo · med</span></td></tr>
+    <tr><td class="co">Standby genset</td><td class="r">21</td><td>3 MW · 480 V</td><td>N+1</td><td><span class="tag hi">18 mo · high</span></td></tr>
+    <tr><td class="co">Generator paralleling switchboard</td><td class="r">2</td><td>480 V · paralleling</td><td>—</td><td><span class="tag lo">low</span></td></tr>
+    <tr><td class="co">Unit-sub transformer (MV→LV)</td><td class="r">28</td><td>2.5 MVA</td><td>4-to-make-3</td><td><span class="tag md">med</span></td></tr>
+    <tr><td class="co">Static UPS block</td><td class="r">28</td><td>2.5 MVA</td><td>4-to-make-3</td><td><span class="tag md">med</span></td></tr>
+    <tr><td class="co">UPS power module</td><td class="r">168</td><td>400 kVA</td><td>4-to-make-3</td><td><span class="tag lo">low</span></td></tr>
+    <tr><td class="co">LV distribution switchboard</td><td class="r">40</td><td>480 V · 3200 A</td><td>2N</td><td><span class="tag lo">low</span></td></tr>
+    <tr><td class="co">Remote power panel (RPP)</td><td class="r">80</td><td>415/240 V</td><td>2N</td><td><span class="tag lo">low</span></td></tr>
+    <tr><td class="co">Compute rack</td><td class="r">400</td><td>120 kW</td><td>2N cords</td><td>—</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Two HV transformers and twenty-one gensets are where the schedule flags your <em>real</em> risk — the long-lead, hard-to-procure items — while the BESS at the interconnection is increasingly what unblocks the utility connection in the first place. That's the conversation the brief is built to start.</p>
+
+<h2><span class="num">§ 07</span>Why it stays honest in front of investors</h2>
+<p>Three design choices make the Power Expert safe to demo, not just clever. First, it's <strong>deterministic</strong>: the same brief always produces the same single-line and the same schedule, because a sizing function — not an improvising model — does the engineering. Second, it <strong>self-validates</strong>: the generator builds the graph and runs the single-line engine's own checks before anything touches the canvas; if a design wouldn't pass, the tool declines rather than showing you a broken diagram. Third, it's <strong>sourced</strong>: every rating, pod size, and redundancy rule traces back to a knowledge base distilled from the SemiAnalysis electrical anatomy<sup class="ref"><a href="#r-semi">1</a></sup> and the Uptime tiers<sup class="ref"><a href="#r-uptime">2</a></sup>, with estimates labeled as estimates. You can hand the brief to a banker and defend every line.</p>
+
+<p>What it is <em>not</em> is a substitute for a basis of design. The schedule is a fast, defensible first pass — use it to frame scale, compare redundancy schemes, and seed the cost model, then verify against the governing NVIDIA reference architecture and a real electrical engineer before anyone breaks ground.</p>
+
+<hr class="rule">
+<p>Open the tool, type one sentence about the factory you're trying to build, and press Design. You'll have a single-line and a brief before you've finished describing it out loud.</p>
+
+</article>
+
+<section class="refs">
+<h2>References</h2>
+<ol class="reflist">
+  <li id="r-semi">SemiAnalysis — <em>Datacenter Anatomy Part 1: Electrical Systems</em>. <a href="https://newsletter.semianalysis.com/p/datacenter-anatomy-part-1-electrical">newsletter.semianalysis.com/p/datacenter-anatomy-part-1-electrical</a></li>
+  <li id="r-uptime">Uptime Institute — <em>Tier Classification System</em>. <a href="https://uptimeinstitute.com/tiers">uptimeinstitute.com/tiers</a></li>
+  <li id="r-mikeholt">Mike Holt Forums — <em>Double-ended switchgear (main-tie-main) design</em>. <a href="https://forums.mikeholt.com/threads/double-ended-switchgear-design.930/">forums.mikeholt.com/threads/double-ended-switchgear-design.930</a></li>
+  <li id="r-gensource">Generator Source — <em>Paralleling Switchgear: Powering Hyperscale Data Center Growth</em>. <a href="https://generatorsource.com/industries-served/data-centers/paralleling-switchgear-explained-how-we-power-hyperscale-data-center-growth/">generatorsource.com/…/paralleling-switchgear-explained</a></li>
+  <li id="r-flexgen">FlexGen — <em>Why Battery Energy Storage Is the Future of Data Center UPS Solutions</em>. <a href="https://www.flexgen.com/resources/blog/expert-qa-why-battery-energy-storage-future-data-center-ups-solutions">flexgen.com/resources/blog/expert-qa-why-battery-energy-storage-future-data-center-ups-solutions</a></li>
+  <li id="r-lselectric">LS Electric — <em>Ring Main Units in Modern Electrical Distribution</em>. <a href="https://www.lselectricamerica.com/blog/ring-main-unit/">lselectricamerica.com/blog/ring-main-unit</a></li>
+  <li id="r-core">CoreSite — <em>What is Data Center Redundancy? N, N+1, 2N, 2N+1</em>. <a href="https://www.coresite.com/blog/data-center-redundancy-n-1-vs-2n-1">coresite.com/blog/data-center-redundancy-n-1-vs-2n-1</a></li>
+  <li id="r-nv">NVIDIA — <em>DGX SuperPOD Reference Architecture (GB300 / B300)</em>. <a href="https://docs.nvidia.com/dgx-superpod/">docs.nvidia.com/dgx-superpod</a></li>
+</ol>
+</section>
+
+<p class="disc"><b>Methodology &amp; caveats.</b> The Power Expert sizes a representative power block and reports campus quantities from a deterministic generator (capacity → pods → redundancy blocks → distribution). Equipment ratings, pod sizes, and redundancy templates are an engineering synthesis of the cited public sources for configuration and estimation — not a procurement bill of materials, and not a substitute for a stamped basis of design. Lead-time and risk flags are directional. Verify all quantities and ratings against the governing NVIDIA reference architecture and a licensed electrical engineer before use in design or investment decisions.</p>
+
+<p class="disc"><em>Drybulb publishes deep technical writing and tools on AI factory and data center engineering. Questions or topics you'd like to see covered? <a href="/contact">Get in touch</a>.</em></p>
+
+</div>
+</body>
+</html>

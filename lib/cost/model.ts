@@ -87,6 +87,12 @@ export interface CostResult {
   facilityCapexPerW: number;
   capexBreakdown: CapexSegment[];
 
+  /** GPU re-spend over the horizon: undiscounted total, its present value, and
+   *  the lifecycle capital (upfront + refresh PV). */
+  refreshSpend: number;
+  refreshPV: number;
+  lifecycleCapexPV: number;
+
   energy: EnergyModel;
   avgUtil: number;
   peakUtil: number;
@@ -177,18 +183,23 @@ export function computeCost(
   const annualOpex = energy.annualEnergyCost + annualOtherOpex;
   const annualProfit = energy.annualRevenue - annualOpex;
 
+  const r = loc.discountRatePct / 100;
+  const gpuCapex = categoryPerW(loc, "gpus", capacityW) * capacityW;
+
   const cashFlow: CashFlowPoint[] = [];
   let cumulative = -totalCapex;
   cashFlow.push({ year: 0, net: -totalCapex, cumulative });
   let paybackYears: number | null = null;
-  let lifetimeProfit = 0;
+  let lifetimeNet = 0;
+  let refreshSpend = 0; // undiscounted total GPU re-spend over the horizon
+  let refreshPV = 0; // its present value at the discount rate
   for (let y = 1; y <= loc.analysisYears; y++) {
     const refresh =
-      loc.gpuRefreshYears > 0 && y % loc.gpuRefreshYears === 0
-        ? categoryPerW(loc, "gpus", capacityW) * capacityW
-        : 0;
+      loc.gpuRefreshYears > 0 && y % loc.gpuRefreshYears === 0 ? gpuCapex : 0;
+    refreshSpend += refresh;
+    refreshPV += refresh / Math.pow(1 + r, y);
     const net = annualProfit - refresh;
-    lifetimeProfit += annualProfit;
+    lifetimeNet += net; // nets the refresh spend, so ROI reflects it
     const prev = cumulative;
     cumulative += net;
     cashFlow.push({ year: y, net, cumulative });
@@ -196,9 +207,9 @@ export function computeCost(
       paybackYears = y - 1 + (0 - prev) / (cumulative - prev);
     }
   }
-  const roiPct = totalCapex > 0 ? ((lifetimeProfit - totalCapex) / totalCapex) * 100 : 0;
+  // ROI on the upfront capex, after funding GPU refreshes across the horizon.
+  const roiPct = totalCapex > 0 ? ((lifetimeNet - totalCapex) / totalCapex) * 100 : 0;
 
-  const r = loc.discountRatePct / 100;
   let pvOpex = 0;
   let pvEnergy = 0;
   for (let t = 1; t <= loc.analysisYears; t++) {
@@ -206,7 +217,9 @@ export function computeCost(
     pvOpex += annualOpex / d;
     pvEnergy += energy.annualITMWh / d;
   }
-  const lcoeNumeratorPV = totalCapex + pvOpex;
+  // Lifecycle capital = upfront capex + the present value of GPU refresh spend.
+  const lifecycleCapexPV = totalCapex + refreshPV;
+  const lcoeNumeratorPV = lifecycleCapexPV + pvOpex;
   const lcoePerMWh = pvEnergy > 0 ? lcoeNumeratorPV / pvEnergy : 0;
 
   return {
@@ -218,6 +231,9 @@ export function computeCost(
     capexPerW: totalCapex / capacityW,
     facilityCapexPerW: facilityPerW,
     capexBreakdown,
+    refreshSpend,
+    refreshPV,
+    lifecycleCapexPV,
     energy,
     avgUtil: energy.avgUtil,
     peakUtil,
@@ -253,6 +269,7 @@ export interface TotalResult {
   locationCount: number;
   totalCapacityMW: number;
   totalCapex: number;
+  lifecycleCapexPV: number;
   capexPerW: number;
   avgPue: number;
   annualEnergyCost: number;
@@ -344,6 +361,7 @@ export function computePortfolio(
       locationCount: results.length,
       totalCapacityMW,
       totalCapex,
+      lifecycleCapexPV: sum((r) => r.lifecycleCapexPV),
       capexPerW: totalCapacityW > 0 ? totalCapex / totalCapacityW : 0,
       avgPue,
       annualEnergyCost,
