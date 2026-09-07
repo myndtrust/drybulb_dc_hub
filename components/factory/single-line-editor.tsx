@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow, Background, Controls, MiniMap, type Connection, type Edge, type Node,
-  type NodeChange, type EdgeChange,
+  type NodeChange, type EdgeChange, type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
   seed, snap, restore, addEdge, moveEdge, removeEdge, removeNode, addNode, addBus, duplicateNode,
-  findNode, findBus, applyRackSpecObj, PAL,
+  findNode, findBus, applyRackSpecObj, PAL, EQW, EQH,
   groupBounds, createGroup, removeGroup, renameGroup, setGroupColor, moveGroup, extractGroup, instantiateGroup, duplicateGroup,
   type SldGraph, type OpResult,
 } from "@/lib/factory/sld";
@@ -16,7 +16,7 @@ import { rollupGraph } from "@/lib/factory/project";
 import { design, parseBrief } from "@/lib/factory/topology";
 import { RACK_SPECS, RACK_SPEC_BY_KEY, type RackSpec } from "@/lib/factory/rack-specs.gen";
 import { listGroups, saveGroup, deleteGroup, type SavedGroup } from "@/lib/factory/groups";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { createClient, getSessionSafe, isSupabaseConfigured } from "@/lib/supabase/client";
 import { NODE_TYPES } from "./nodes";
 import { Inspector } from "./inspector";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,11 @@ import { Button } from "@/components/ui/button";
 const LIBKEY = "sld.app.topologies";
 const RACKKEY = "sld.rackSpecs";
 const slug = (s: string) => "custom-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+// Drag-and-drop from the palette: the dragged payload is the PAL element type,
+// or this sentinel for the bus/busbar (which isn't a PAL entry).
+const DRAG_MIME = "application/sld-element-type";
+const DRAG_BUS = "__bus__";
 
 /** The default single-line: the seed with its racks specced to GB300 NVL72, so the
  *  power/cooling interface shows immediately. Added racks still start generic. */
@@ -83,13 +88,14 @@ export function SingleLineEditor() {
   const [signedIn, setSignedIn] = useState(false);
   const undoRef = useRef<string[]>([]);
   const redoRef = useRef<string[]>([]);
+  const rfInstance = useRef<ReactFlowInstance<Node, Edge> | null>(null);
 
   // account-global group library (Supabase, owner-RLS)
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     const sb = createClient();
     const load = (ok: boolean) => { setSignedIn(ok); if (ok) listGroups().then(setSavedGroups).catch((e) => console.error("listGroups", e)); else setSavedGroups([]); };
-    sb.auth.getSession().then(({ data }) => load(Boolean(data.session)));
+    getSessionSafe().then(({ session }) => load(Boolean(session)));
     const { data: sub } = sb.auth.onAuthStateChange((_e, s) => load(Boolean(s)));
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -100,7 +106,7 @@ export function SingleLineEditor() {
   const canAccount = isSupabaseConfigured ? signedIn : false;
 
   const nodes = useMemo(() => toRfNodes(graph), [graph]);
-  const edges = useMemo(
+  const edges = useMemo<Edge[]>(
     () => toRfEdges(graph).map((e) => {
       const ge = graph.edges.find((x) => x.id === e.id);
       const on = e.id === selEdgeId;
@@ -180,8 +186,35 @@ export function SingleLineEditor() {
   const onEdgeClick = useCallback((_: unknown, edge: Edge) => { setSelEdgeId(edge.id); setSelId(null); }, []);
 
   // — palette / library / autobuild —
-  const add = (type: string) => { const r = addNode(graph, type, 640, 360); if (r.ok) { apply(r); setSelId(r.id ?? null); } };
-  const addABus = () => { const r = addBus(graph, 560, 300, "BUS"); if (r.ok) apply(r); };
+  // Click adds at a fixed spot; drag-and-drop from the palette places it under
+  // the cursor (screenToFlowPosition needs the live instance, set by onInit).
+  const add = (type: string, at?: { x: number; y: number }) => {
+    const p = at ?? { x: 640, y: 360 };
+    const r = addNode(graph, type, p.x, p.y);
+    if (r.ok) { apply(r); setSelId(r.id ?? null); setSelEdgeId(null); setSelGroup(null); }
+  };
+  const addABus = (at?: { x: number; y: number }) => {
+    const p = at ?? { x: 560, y: 300 };
+    const r = addBus(graph, p.x, p.y, "BUS");
+    if (r.ok) { apply(r); setSelId(r.id ?? null); setSelEdgeId(null); setSelGroup(null); }
+  };
+  const paletteDragStart = (type: string) => (e: React.DragEvent) => {
+    e.dataTransfer.setData(DRAG_MIME, type);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const onCanvasDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+  const onCanvasDrop = (e: React.DragEvent) => {
+    const type = e.dataTransfer.getData(DRAG_MIME);
+    if (!type || !rfInstance.current) return;
+    e.preventDefault();
+    const p = rfInstance.current.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const at = { x: p.x - EQW / 2, y: p.y - EQH / 2 }; // center the card under the cursor
+    if (type === DRAG_BUS) addABus(at); else add(type, at);
+  };
   const duplicate = (id: string) => { const r = duplicateNode(graph, id); if (r.ok) { apply(r); setSelId(r.id ?? null); setSelEdgeId(null); } };
   // — groups —
   const groupSelected = () => {
@@ -302,10 +335,26 @@ export function SingleLineEditor() {
         {/* palette */}
         <aside className="overflow-auto border-r p-2">
           <h3 className="mb-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Add element</h3>
+          <p className="mb-1.5 text-[10px] text-muted-foreground">Click to drop at center, or drag onto the canvas to place it.</p>
           {Object.entries(PAL).map(([t, p]) => (
-            <button key={t} onClick={() => add(t)} className="mb-1 block w-full rounded-md border px-2 py-1 text-left text-[11px] hover:bg-muted">{p.label}</button>
+            <button
+              key={t}
+              draggable
+              onDragStart={paletteDragStart(t)}
+              onClick={() => add(t)}
+              className="mb-1 block w-full cursor-grab rounded-md border px-2 py-1 text-left text-[11px] hover:bg-muted active:cursor-grabbing"
+            >
+              {p.label}
+            </button>
           ))}
-          <button onClick={addABus} className="mb-1 block w-full rounded-md border px-2 py-1 text-left text-[11px] hover:bg-muted">Bus / busbar (any tap)</button>
+          <button
+            draggable
+            onDragStart={paletteDragStart(DRAG_BUS)}
+            onClick={() => addABus()}
+            className="mb-1 block w-full cursor-grab rounded-md border px-2 py-1 text-left text-[11px] hover:bg-muted active:cursor-grabbing"
+          >
+            Bus / busbar (any tap)
+          </button>
           <div className="mt-3 rounded-md bg-muted/50 p-2 text-[10px] text-muted-foreground">
             <div className="font-semibold text-foreground">Rolls up to cost model</div>
             <div>Racks: {roll.rackCount} · GPUs: {roll.gpus}</div>
@@ -315,11 +364,12 @@ export function SingleLineEditor() {
         </aside>
 
         {/* canvas */}
-        <div className="relative">
+        <div className="relative" onDragOver={onCanvasDragOver} onDrop={onCanvasDrop}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
             nodeTypes={NODE_TYPES}
+            onInit={(inst) => { rfInstance.current = inst; }}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

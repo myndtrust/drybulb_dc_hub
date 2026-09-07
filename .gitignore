@@ -15,6 +15,9 @@
 /test-results/
 /playwright-report/
 
+# local reference-architecture stash, at any depth (e.g. docs/.reference_archs/)
+.reference_archs/
+
 # next.js
 /.next/
 /out/

@@ -94,7 +94,7 @@ export function ContactForm({ defaultEngagement = "general" }: { defaultEngageme
         </div>
         <div>
           <label htmlFor="engagement" className={labelClass}>
-            What's this about?
+            What&apos;s this about?
           </label>
           <select
             id="engagement"

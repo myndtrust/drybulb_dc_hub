@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   createClient,
+  getSessionSafe,
   isSupabaseConfigured,
   signInWithGoogle,
   signOut,
@@ -19,8 +20,8 @@ export function AuthButton() {
       return;
     }
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setEmail(data.session?.user?.email ?? null);
+    getSessionSafe().then(({ session }) => {
+      setEmail(session?.user?.email ?? null);
       setReady(true);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {

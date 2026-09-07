@@ -66,13 +66,18 @@ test("every UPS scheme × capacity emits a graph that passes sld.validate()", ()
   }
 });
 
-test("2N dual-cords each rack and builds SWBD-B; N single-cords", () => {
+test("2N dual-cords each rack and builds LV SWBD-B; N single-cords", () => {
   const g2 = buildTopology({ itMW: 12, redundancy: { distribution: "2N" } });
   const gN = buildTopology({ itMW: 12, redundancy: { distribution: "N" } });
   assert.equal(feeders(g2, "rack 1"), 2);
   assert.equal(feeders(gN, "rack 1"), 1);
+  assert.ok(g2.nodes.some((n) => n.name === "LV SWBD-B"));
+  assert.ok(!gN.nodes.some((n) => n.name === "LV SWBD-B"));
+  // SWBD-A/B (the transfer switchboards upstream of the UPS) follow the UPS
+  // units' own MV-side split, not the downstream distribution scheme — both
+  // exist either way.
   assert.ok(g2.nodes.some((n) => n.name === "SWBD-B"));
-  assert.ok(!gN.nodes.some((n) => n.name === "SWBD-B"));
+  assert.ok(gN.nodes.some((n) => n.name === "SWBD-B"));
 });
 
 test("design(): from a prompt-derived spec, ok=true and brief carries the headline", () => {
@@ -82,7 +87,7 @@ test("design(): from a prompt-derived spec, ok=true and brief carries the headli
   assert.match(d.brief, /MW facility/);
 });
 
-test("main-tie-main MV: two MV boards + tie; BESS at PCC; gensets at LV not MV", () => {
+test("main-tie-main MV: two MV boards + tie; BESS at PCC; gensets at LV transfer switchboards, not MV", () => {
   const g = buildTopology(parseBrief("48 MW GB300 campus, distributed 4-to-make-3 UPS, 2N to the rack"));
   const mvBoards = g.nodes.filter((n) => n.type === "switchboard" && /MV SWBD-[AB]/.test(n.name));
   assert.equal(mvBoards.length, 2, "two MV switchboards");
@@ -94,7 +99,48 @@ test("main-tie-main MV: two MV boards + tie; BESS at PCC; gensets at LV not MV",
   const gen = g.nodes.find((n) => n.type === "genset")!;
   const genTargets = g.edges.filter((e) => e.from === gen.id).map((e) => g.nodes.find((n) => n.id === e.to)!);
   assert.ok(genTargets.every((t) => !/MV SWBD/.test(t.name)), "gensets do not feed an MV board");
-  assert.ok(genTargets.some((t) => /GEN PARALLEL/.test(t.name)), "gensets feed the 480 V paralleling board");
+  assert.ok(genTargets.some((t) => /^SWBD-[AB]$/.test(t.name)), "gensets feed the SWBD-A/B transfer switchboards, upstream of the UPS");
+});
+
+test("SWBD-A/B are a genuine transfer, not a paralleling bus: transferSource + exactly two incomers", () => {
+  // "N" redundancy: one unit-sub transformer per side, so SWBD-A/B wire straight
+  // to their side's lone transformer — no aggregation board needed. Built from a
+  // direct SpecInput, not parseBrief("... N ups") — that phrase doesn't match
+  // any UPS-scheme regex and silently falls through to the distributed-4to3
+  // default, which would give this sub-case zero real coverage.
+  const gN = buildTopology({ itMW: 20, redundancy: { ups: "N" } });
+  assert.equal(gN.nodes.filter((n) => /^Normal bus [AB]$/.test(n.name)).length, 0, "no aggregation board when each side has exactly one transformer");
+  const xferN = gN.nodes.filter((n) => /^SWBD-[AB]$/.test(n.name));
+  assert.equal(xferN.length, 2);
+  for (const n of xferN) {
+    assert.equal(n.transferSource, true, n.name);
+    const incomers = gN.edges.filter((e) => e.to === n.id).length;
+    assert.equal(incomers, 2, n.name + ": normal + emergency, nothing else");
+  }
+  assert.equal(validate(gN).ok, true);
+
+  // "distributed-4to3": 2 unit-sub transformers per side — SWBD-A/B must still
+  // see exactly 2 incomers, via the "Normal bus" aggregation step.
+  const g4 = buildTopology(parseBrief("48 MW GB300 campus, distributed 4-to-make-3 UPS"));
+  const norm = g4.nodes.filter((n) => /^Normal bus [AB]$/.test(n.name));
+  assert.equal(norm.length, 2, "an aggregation board per side, since each side has >1 transformer");
+  const xfer4 = g4.nodes.filter((n) => /^SWBD-[AB]$/.test(n.name));
+  for (const n of xfer4) {
+    assert.equal(n.transferSource, true, n.name);
+    const incomers = g4.edges.filter((e) => e.to === n.id).length;
+    assert.equal(incomers, 2, n.name + ": the aggregation bus + the generator, nothing else");
+  }
+  assert.equal(validate(g4).ok, true);
+});
+
+test("transferSource: a legacy graph with a third incomer on the transfer board fails validation", () => {
+  const g = buildTopology({ itMW: 20, redundancy: { ups: "N" } });
+  const swbdA = g.nodes.find((n) => n.name === "SWBD-A")!;
+  const stray = g.nodes.find((n) => n.type === "bess") || g.nodes[0];
+  g.edges.push({ id: "e-stray", from: stray.id, to: swbdA.id });
+  const v = validate(g);
+  assert.equal(v.ok, false);
+  assert.ok(v.errors.some((e) => /SWBD-A: transfer board has 3 incomers/.test(e)));
 });
 
 test("no bess opt-out and MV-gen override are honored", () => {

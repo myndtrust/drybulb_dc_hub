@@ -1,8 +1,8 @@
 {
   "$schema": "./power-equipment.schema.md",
   "version": 1,
-  "updated": "2026-07-11",
-  "note": "Structured, sourced knowledge base for the power-topology design agent (/design-power-topology). Captures the utility-to-chip distribution chain, equipment classes with real ratings + lead times, standard electrical pod blocks, redundancy templates, and Uptime tiers. The deterministic generator (drafts/sld/topology.js) reads this to SIZE a power chain and emit a valid single-line (drafts/sld/engine.js format). `catalogKey` maps a class to data/equipment-catalog.json so the cost model reuses the same pricing/products. Every numeric claim carries a `source`. Primary source for the chain + redundancy is SemiAnalysis 'Datacenter Anatomy Part 1: Electrical Systems'; verify exact ratings against the governing NVIDIA RA + project basis of design.",
+  "updated": "2026-07-12",
+  "note": "Structured, sourced knowledge base for the power-topology design agent (/design-power-topology). Captures the utility-to-chip distribution chain, equipment classes with real ratings + lead times, standard electrical pod blocks, redundancy templates, and Uptime tiers. The deterministic generator (drafts/sld/topology.js) reads this to SIZE a power chain and emit a valid single-line (drafts/sld/engine.js format). `catalogKey` maps a class to data/equipment-catalog.json so the cost model reuses the same pricing/products. Every numeric claim carries a `source`. Primary source for the chain + redundancy is SemiAnalysis 'Datacenter Anatomy Part 1: Electrical Systems'. `architecture_templates.dsx_vr` + the dsx_* equipment classes encode the NVIDIA DSX Vera Rubin electrical reference design (source `siemens_dsx`; distilled prose in docs/ai-factory/dsx-vr-architecture.md) — the M2 target topology. Verify exact ratings against the governing NVIDIA RA + project basis of design.",
 
   "sources": {
     "semi": "https://newsletter.semianalysis.com/p/datacenter-anatomy-part-1-electrical",
@@ -17,7 +17,8 @@
     "gensource": "https://generatorsource.com/industries-served/data-centers/paralleling-switchgear-explained-how-we-power-hyperscale-data-center-growth/",
     "shanhua": "https://shanhuachina.com/blog/high-voltage-generator-for-data-center/",
     "flexgen": "https://www.flexgen.com/resources/blog/expert-qa-why-battery-energy-storage-future-data-center-ups-solutions",
-    "orrick": "https://www.orrick.com/en/Insights/2025/11/Powering-Data-Centers"
+    "orrick": "https://www.orrick.com/en/Insights/2025/11/Powering-Data-Centers",
+    "siemens_dsx": "Siemens UL Reference Design for DSX Vera Rubin NVL72, 100 MW (S&L job DAT-SII-2026-054, 05/2026, 18 sheets) — docs/.reference_archs/Siemens-Schematics-for-DSX-VR.pdf (licensed, gitignored; sheet-by-sheet map in docs/ai-factory/dsx-vr-architecture.md)"
   },
 
   "voltage_levels": [
@@ -109,6 +110,197 @@
       "connection": "mv_pcc", "duration_hr": [0.5, 8],
       "note": "Ties in at the MV interconnection / point of common coupling (PCC), behind the meter. Buffers between grid-accepted power and internal load; provides fast frequency response, load smoothing, and reactive support — which accelerates grid interconnection (increasingly required by connection codes). A 4-8 h system can also serve the UPS ride-through role (bridge to genset start), i.e. a diesel/UPS alternative.",
       "confidence": "sourced", "source": "flexgen"
+    },
+
+    {
+      "key": "dsx_main_transformer", "label": "Utility main transformer (DSX-VR)", "stage": "substation",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": [90, 120, 150], "step": "utility primary → 38 kV lineup (SUB1.T.A / SUB1.T.B)",
+      "note": "One per utility primary; two per site. Sheet E5.0.1 labels read '90/120/150 KVA' — unit typo for MVA (see docs/ai-factory/dsx-vr-architecture.md §6).",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_mv_lineup", "label": "38 kV switchgear lineup (Siemens 8DA10)", "stage": "mv",
+      "catalogKey": "switchgear", "kind": "switchgear", "breakered": true,
+      "voltage_kv": [38], "main_bus_a": 2500, "fault_ka": 40,
+      "feeder_positions": 16, "feeder_a": 1200,
+      "note": "SUB1.MSG.A / SUB1.MSG.B: 2500 A main (x-52-1), 16 × 1200 A positions — x-52-2 station aux, x-52-3…15 ring feeders, x-52-16/17 BESS — plus the on-site gen block on a 2500 A x-52-18, a 2500 A tie breaker, and future space. Two lineups per site. Sheet E5.0.1 (B-side BESS tags carry a duplicate-label typo, see doc §6).",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_tie_switchgear", "label": "38 kV tie switchgear (SUB1.MSG.T)", "stage": "mv",
+      "catalogKey": "switchgear", "kind": "switchgear",
+      "voltage_kv": [38], "main_bus_a": 2500, "fault_ka": 40,
+      "note": "Links MSG.A and MSG.B through two normally-open 2500 A breakers (A-52T-1 / B-52T-1); the 15 MVA backup-generation block lands here via 4 × 1200 A gen breakers (4th drawn dashed = future). Sheet E5.0.1.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_backup_gen_block", "label": "MV backup-generation block (tie bus)", "stage": "generation",
+      "catalogKey": "generators", "kind": "source",
+      "rating_mva": 15, "scheme": "N+1", "gen_voltage_kv": [13.8, 34.5], "stepup": "XFO-BU-Gen 13.8–34.5 kV",
+      "note": "Sized per E5.0.1 note 1: backup generation ≈ 6% of total IT load + 40% × (6% load) of mechanical load — the core slice only (≈ 0.06 × IT × 1.4 ≈ 8.7 MW at 103 MW IT; 15 MVA drawn = N+1 headroom). Note 2: may be replaced by equivalent on-site base generation.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_onsite_gen_block", "label": "On-site generation block (optional)", "stage": "generation",
+      "catalogKey": "generators", "kind": "source", "catalog_todo": true,
+      "rating_mva": 75, "per": "lineup",
+      "note": "Optional 75 MVA block per 38 kV lineup. Note 3: a mix of resources — thermal units, HRSG, fuel cells, solar. Sheet E5.0.1.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_bess_block", "label": "BESS block 37.5 MW / 2 h (DSX-VR)", "stage": "interconnection",
+      "catalogKey": "bess", "kind": "source", "catalog_todo": true,
+      "rating_mw": 37.5, "duration_hr": 2, "unit_mwh": 7.5, "stepup": "XFO-BESS-Core 5 × 8.3 MVA, 34.5 kV",
+      "max_per_feeder_mw": 37.5, "typical_blocks_per_lineup": 2,
+      "note": "Note 6: sizing per customer requirements, up to 37.5 MW per 1200 A feeder — enables fully flexible/curtailable load operation and supports grid-interconnection acceleration. Connects at dedicated MV feeders, never behind a DU transformer. Sheet E5.0.1.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_rmu_skid", "label": "RMU skid — 34.5 kV 4-way switch (600 A)", "stage": "mv",
+      "catalogKey": "switchgear", "kind": "switchgear",
+      "voltage_kv": [34.5], "ways": 4, "way_a": 600,
+      "note": "Skid-mounted ring main unit: two ring ways + local transformer tee-offs. Six per deployment unit (RMU1–6), plus 6 core-load skids per site. Sheets E5.0.1/E5.0.2 skid boxes; views 1–6.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_mvt_compute", "label": "Compute MVT 4.2 MVA, 34.5 kV→480 V (VPI)", "stage": "unit_sub",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": 4.2, "step": "34.5 kV → 480 V (Δ)", "construction": "VPI dry-type, skid-mounted",
+      "note": "One per MSB-GPU; four per DU (RMU1–4). Grid-direct compute — no UPS downstream. Views 1–4.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_mvt_support", "label": "Support MVT 2.0 MVA, 34.5 kV→415/240 V (VPI)", "stage": "unit_sub",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": 2.0, "step": "34.5 kV → 415/240 V (#4/0 CU ground)",
+      "note": "Two per DU, on the RMU1 and RMU3 skids; feeds MSB-SUPP. Views 1 & 3.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_mvt_chiller", "label": "Chiller MVT 4.2 MVA, 34.5 kV→2.4/4.16 kV (VPI)", "stage": "unit_sub",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": 4.2, "step": "34.5 kV → 2.4/4.16 kV (Δ-Y, #4/0 CU)",
+      "note": "Two per DU (RMU5, RMU6); feeds MSB-CHILLERS (MV chillers). View 5.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_mvt_mech", "label": "Mech MVT 1.5 MVA, 34.5 kV→480 V (VPI)", "stage": "unit_sub",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": 1.5, "step": "34.5 kV → 480 V (Δ)",
+      "note": "Two per DU (RMU5, RMU6); feeds MSB-MECH. CONTRADICTION IN SOURCE: campus sheets label the secondary 415 V, Views 5–6 and the MSB-MECH board rating say 480 V; 480 V adopted — confirm per doc §6. Core variant MVT-6 is 34.5 kV → 277/480 V 3Ph-4W. View 5; MSB-MECH1 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_mvt_core_it", "label": "Core-IT MVT 4.2 MVA, 34.5 kV→415 V (MVT-1…4)", "stage": "unit_sub",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": 4.2, "step": "34.5 kV → 415 V (Δ-Y)",
+      "note": "One per MSB-SUPP1…4 (core 'NETWORK/CONTROL/SHARE'). CONTRADICTION IN SOURCE: letter sheets also carry a 'MVT-1 / 415V / 3 MVA' callout beside the 4.2 MVA symbol; 4.2 adopted (2-of-3 labels, matches the 5000 A board) — confirm per doc §6. MSB-SUPP1 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_mvt_core_chiller", "label": "Core chiller MVT-5, 3 MVA, 34.5 kV→2.4/4.16 kV", "stage": "unit_sub",
+      "catalogKey": "transformers", "kind": "transformer",
+      "rating_mva": 3.0, "step": "34.5 kV → 2.4/4.16 kV",
+      "note": "Feeds the core MSB-CHILLER boards (dual interlocked 600 A incomers with GS-5/GS-7). MSB-CHILLERS 1&2 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_msb_gpu", "label": "MSB-GPU — 5000 A, 480 V, 3Ph-3W", "stage": "lv",
+      "catalogKey": "lv", "kind": "switchboard", "breakered": true,
+      "voltage_v": 480, "main_a": 5000, "main_frame": "5000AF/5000AT LSI", "wires": "3Ph-3W",
+      "feeders": "8 × 1200AF/1000AT LSI → RPP 1000 A", "metered": true,
+      "note": "Compute switchboard; four per DU, one per 4.2 MVA compute MVT. Grid-direct (no UPS). View 1 (sheet main reads '5000AT/5000AT' — frame/trip typo normalized, doc §6).",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_msb_supp", "label": "MSB-SUPP (DU) — 3000 A, 415/240 V, 3Ph-4W", "stage": "lv",
+      "catalogKey": "lv", "kind": "switchboard", "breakered": true,
+      "voltage_v": "415/240", "main_a": 3000, "main_frame": "3000AF/2500AT LSIG", "wires": "3Ph-4W",
+      "feeders": "4 × 1200AF/800AT LSIG → RPP 800 A",
+      "note": "DU support-load board; two per DU (RMU1/RMU3 skids). View 1 & 3.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_msb_chiller", "label": "MSB-CHILLERS — 1200 A, 2.4/4.16 kV, 3Ph-4W", "stage": "lv",
+      "catalogKey": "switchgear", "kind": "switchboard", "breakered": true,
+      "voltage_kv": [4.16], "main_a": 1200, "main_frame": "800 A '52'", "wires": "3Ph-4W",
+      "feeders": "4 × 200 A '52' → MV chillers",
+      "note": "MV chiller board; two per DU (chillers 1–4 / 5–8). Core variant: dual interlocked 600 A '52' incomers (MVT-5 / GS-5·GS-7). View 5; MSB-CHILLERS 1&2 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_msb_mech", "label": "MSB-MECH — 2000 A, 480 V, 3Ph-3W", "stage": "lv",
+      "catalogKey": "lv", "kind": "switchboard", "breakered": true,
+      "voltage_v": 480, "main_a": 2000, "main_frame": "2000AF/2000AT LSI", "wires": "3Ph-3W",
+      "feeders": "2 × 1200AF/800AT LSI + 4 × 400AF/225AT LSI → mech equipment",
+      "note": "DU mechanical board; two per DU. Core variant MSB-MECH1/2: 277/480 V 3Ph-4W, dual interlocked 2000AF/2000AT LSIG incomers (MVT-6 / GS-6·GS-8), feeders 1200AF/800AT LSIG. View 5; MSB-MECH1 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_msb_core_it", "label": "MSB-SUPP1…4 (core IT) — 5000 A, 415 V, 3Ph-4W", "stage": "lv",
+      "catalogKey": "lv", "kind": "switchboard", "breakered": true,
+      "voltage_v": 415, "main_a": 5000, "wires": "3Ph-4W",
+      "incomers": "dual interlocked 5000AF/5000AT LSIG (MVT / generator) + 5000AF/5000AT bus sections",
+      "feeders": "4 × 600AF/400AT LSI → RPP 400 A · 2 × 2000AF/2000AT LSIG → busway 2000 A · 4 × 3000AF/2500AT LSIG (dedicated input + output breaker per UPS) · 150AF/125AT gen aux · 5000AF/5000AT load bank",
+      "note": "Core 'NETWORK/CONTROL/SHARE' board — the only UPS-backed boards in the design (2 × 1.5 MVA per board). Four per site. MSB-SUPP1 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_rpp_gpu", "label": "RPP 1000 A (compute rows)", "stage": "distribution",
+      "catalogKey": "lv", "kind": "panel", "breakered": true,
+      "rating_a": 1000, "voltage_v": 480,
+      "note": "Eight per MSB-GPU (32 per DU). View 1.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_rpp_supp", "label": "RPP 800 A (support)", "stage": "distribution",
+      "catalogKey": "lv", "kind": "panel", "breakered": true,
+      "rating_a": 800, "voltage_v": "415/240",
+      "note": "Four per MSB-SUPP (8 per DU). View 1.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_rpp_core", "label": "RPP 400 A (core IT)", "stage": "distribution",
+      "catalogKey": "lv", "kind": "panel", "breakered": true,
+      "rating_a": 400, "voltage_v": "415/240",
+      "note": "Four per MSB-SUPP1…4 (16 per site). MSB-SUPP1 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_core_ups", "label": "Core UPS 1.5 MVA (double-conversion, Li-ion)", "stage": "ups",
+      "catalogKey": "ups", "kind": "ups",
+      "rating_mva": 1.5, "battery": "Li-ion strings", "bypass": "AC-input bypass jumper",
+      "note": "Two per core-IT board (8 per site) — the ONLY UPS in the DSX-VR design; compute is grid-direct. MSB-SUPP1 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_gen_core_it", "label": "Core-IT generator GS-1…4 — 2.8 MW/3.5 MVA, 415/240 V (opt.)", "stage": "generation",
+      "catalogKey": "generators", "kind": "source",
+      "rating_mw": 2.8, "rating_mva": 3.5, "voltage_v": "415/240",
+      "note": "Optional (note 4: backup generation at LV level for core load); interlocked second incomer of MSB-SUPP1…4 via 5000AF/5000AT LSIG-100%; load-bank camlock connectors + generator enclosure panel. MSB-SUPP1 sheet (campus label reads '2.8 MVA (OPT.)' — letter-sheet MW/MVA values adopted, doc §6).",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_gen_core_chiller", "label": "Core chiller generator GS-5/GS-7 — 2.8 MW/3.5 MVA, 2.4/4.16 kV (opt.)", "stage": "generation",
+      "catalogKey": "generators", "kind": "source",
+      "rating_mw": 2.8, "rating_mva": 3.5, "voltage_kv": [4.16],
+      "note": "Optional; interlocked second incomer of the core MSB-CHILLER boards via 600AF/600AT LSIG-100%; load-bank camlocks. MSB-CHILLERS 1&2 / 3&4 sheets.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_gen_core_mech", "label": "Core mech generator GS-6/GS-8 — 1.5 MW/1.875 MVA, 277/480 V (opt.)", "stage": "generation",
+      "catalogKey": "generators", "kind": "source",
+      "rating_mw": 1.5, "rating_mva": 1.875, "voltage_v": "277/480",
+      "note": "Optional; interlocked second incomer of MSB-MECH1/2 via 2000AF/2000AT LSIG-100%; load-bank camlocks. MSB-MECH1/2 sheets.",
+      "confidence": "sourced", "source": "siemens_dsx"
+    },
+    {
+      "key": "dsx_busway_core", "label": "Core busway 2000 A, 415/240 V, 3Ph-4W", "stage": "distribution",
+      "catalogKey": "busway", "kind": "distribution",
+      "rating_a": 2000, "voltage_v": "415/240",
+      "note": "Two per core-IT board, on 2000AF/2000AT LSIG feeders. MSB-SUPP1 sheet.",
+      "confidence": "sourced", "source": "siemens_dsx"
     }
   ],
 
@@ -134,11 +326,17 @@
       "key": "2N", "label": "System-plus-system (2N)",
       "note": "Two fully independent A/B systems end-to-end. Highest availability (Tier IV), highest CapEx. Applied at the UPS + distribution layers (see redundancy_templates).",
       "confidence": "sourced", "source": "coresite"
+    },
+    {
+      "key": "dsx-vr-loop", "label": "DSX-VR dual-lineup + dual-ended 34.5 kV loops",
+      "mv_boards": 2, "tie": "separate tie switchgear (SUB1.MSG.T), two normally-open 2500 A breakers, backup-gen block on the tie bus",
+      "note": "Two independent 38 kV lineups (each from its own utility primary) distribute through dual-ended open-loop rings at 34.5 kV: each ring leaves an A-lineup 1200 A feeder, daisy-chains one RMU position across four deployment units, and lands on a B-lineup feeder. Normal state is radial (one open point per ring); the second end is the maintenance/failure path. Concurrent maintainability lives at MV — no 2N duplication of the LV plant, and compute is grid-direct (UPS/generators exist only on the core block).",
+      "confidence": "sourced", "source": "siemens_dsx"
     }
   ],
 
   "generator_voltage": [
-    { "key": "LV", "label": "Low-voltage gensets (≈480 V)", "default": true, "rating_kva": [1500, 4000], "note": "400/480 V gensets parallel on a generator paralleling switchboard at the site-distribution voltage and back up the LV boards; feeding the MV bus requires step-up. Common practice — the Drybulb default.", "source": "gensource" },
+    { "key": "LV", "label": "Low-voltage gensets (≈480 V)", "default": true, "rating_kva": [1500, 4000], "note": "400/480 V gensets land on a TRANSFER switchboard (SWBD-A/B) upstream of each side's UPS, switching that UPS's source between normal (the unit-sub transformer(s), aggregated through a Normal bus when there's more than one per side) and emergency (the generator) — never both live. This is the Drybulb default; feeding the MV bus instead requires step-up. [assumption] the transfer arrangement itself is Drybulb's modeling choice, corrected 2026-09 from an earlier paralleling-switchboard draft (`gensource` describes hyperscale generator PARALLELING switchgear generally, not this specific transfer topology — cited for genset class/rating context, not as the source for the transfer-vs-parallel choice).", "source": "gensource" },
     { "key": "MV", "label": "Medium-voltage gensets (3.3-13.8 kV)", "default": false, "note": "Direct MV gensets feed the MV bus without step-up transformers; chosen on large (>10-20 MW) campuses to cut cable/transformer-yard cost.", "source": "shanhua" }
   ],
 
@@ -171,6 +369,77 @@
     { "label": "Meta traditional", "kw": 30, "source": "semi" },
     { "label": "Google typical", "kw": 40, "source": "semi" },
     { "label": "NVIDIA GB300 NVL72 (this RA)", "kw": 120, "source": "data/reference-architectures.json" },
-    { "label": "NVIDIA GB200 NVL72", "kw": 132, "source": "semi" }
-  ]
+    { "label": "NVIDIA GB200 NVL72", "kw": 132, "source": "semi" },
+    { "label": "NVIDIA Vera Rubin NVL144 (VR200)", "kw": 200, "source": "data/rack-specs.json" }
+  ],
+
+  "architecture_templates": {
+    "dsx_vr": {
+      "label": "NVIDIA DSX Vera Rubin — 100 MW reference design (Siemens UL)",
+      "source": "siemens_dsx",
+      "confidence": "sourced",
+      "doc": "docs/ai-factory/dsx-vr-architecture.md",
+      "site": {
+        "it_mw_nominal": 103,
+        "pue_range": [1.2, 1.5],
+        "utility_primaries": 2,
+        "main_transformer": { "equipment": "dsx_main_transformer", "qty": 2 },
+        "mv_lineups": { "equipment": "dsx_mv_lineup", "qty": 2, "bus_kv": 38, "bus_a": 2500, "fault_ka": 40, "feeder_a": 1200, "feeder_positions_each": 16 },
+        "tie": { "equipment": "dsx_tie_switchgear", "qty": 1, "normally_open": true },
+        "backup_generation": {
+          "equipment": "dsx_backup_gen_block", "qty": 1, "location": "tie_bus", "rating_mva": 15, "scheme": "N+1",
+          "sizing_note_verbatim": "BACKUP GENERATION ≈ 6% OF TOTAL IT LOAD + 40% × (6% LOAD) OF MECHANICAL LOAD.",
+          "sizing_formula_mw": "0.06 * it_mw * 1.40",
+          "substitution": "may be replaced by equivalent on-site base generation (note 2)"
+        },
+        "bess": { "equipment": "dsx_bess_block", "optional": true, "blocks_per_lineup": 2, "block_mw": 37.5, "duration_hr": 2, "max_per_feeder_mw": 37.5 },
+        "onsite_generation": { "equipment": "dsx_onsite_gen_block", "optional": true, "per_lineup_mva": 75, "mix": ["thermal", "HRSG", "fuel_cells", "solar"] },
+        "distribution": { "topology": "dsx-vr-loop", "ring_kv": 34.5, "rings_per_du_group": 6, "dus_per_group": 4, "dual_ended": true }
+      },
+      "deployment_unit": {
+        "qty_at_nominal": 8,
+        "it_mw_each_derived": 12.9,
+        "identical_note": "DU1–DU4 electrically identical to DU5–DU8 excluding core IT (note 5)",
+        "grid_direct_compute": true,
+        "ups_in_du": false,
+        "generators_in_du": false,
+        "skids": [
+          { "rmu": "RMU1", "equipment": "dsx_rmu_skid", "transformers": ["dsx_mvt_compute", "dsx_mvt_support"], "boards": ["dsx_msb_gpu", "dsx_msb_supp"] },
+          { "rmu": "RMU2", "equipment": "dsx_rmu_skid", "transformers": ["dsx_mvt_compute"], "boards": ["dsx_msb_gpu"] },
+          { "rmu": "RMU3", "equipment": "dsx_rmu_skid", "transformers": ["dsx_mvt_compute", "dsx_mvt_support"], "boards": ["dsx_msb_gpu", "dsx_msb_supp"] },
+          { "rmu": "RMU4", "equipment": "dsx_rmu_skid", "transformers": ["dsx_mvt_compute"], "boards": ["dsx_msb_gpu"] },
+          { "rmu": "RMU5", "equipment": "dsx_rmu_skid", "transformers": ["dsx_mvt_chiller", "dsx_mvt_mech"], "boards": ["dsx_msb_chiller", "dsx_msb_mech"] },
+          { "rmu": "RMU6", "equipment": "dsx_rmu_skid", "transformers": ["dsx_mvt_chiller", "dsx_mvt_mech"], "boards": ["dsx_msb_chiller", "dsx_msb_mech"] }
+        ],
+        "per_du_totals": {
+          "msb_gpu": 4, "msb_supp": 2, "msb_chiller": 2, "msb_mech": 2,
+          "rpp_gpu_1000a": 32, "rpp_supp_800a": 8, "mv_chillers": 8,
+          "compute_mva": 16.8, "support_mva": 4.0, "chiller_mva": 8.4, "mech_mva": 3.0
+        }
+      },
+      "core": {
+        "qty_per_site": 1, "purpose": "'NETWORK/CONTROL/SHARE' (E5.0.1) — the only UPS- and generator-backed load",
+        "it_skids": {
+          "qty": 4, "rmu": "dsx_rmu_skid", "transformer": "dsx_mvt_core_it", "board": "dsx_msb_core_it",
+          "ups_per_board": { "equipment": "dsx_core_ups", "qty": 2 },
+          "generator_optional": "dsx_gen_core_it",
+          "rpp_400a_per_board": 4, "busway_2000a_per_board": 2
+        },
+        "mech_skids": {
+          "qty": 2,
+          "chiller": { "transformer": "dsx_mvt_core_chiller", "board": "dsx_msb_chiller", "board_variant": "dual interlocked 600 A incomers", "generator_optional": "dsx_gen_core_chiller" },
+          "mech": { "transformer_note": "MVT-6 1.5 MVA 34.5 kV→277/480 V", "board": "dsx_msb_mech", "board_variant": "277/480 V 3Ph-4W, dual interlocked 2000 A incomers", "generator_optional": "dsx_gen_core_mech" }
+        }
+      },
+      "invariants": [
+        "Compute path = utility → 38 kV lineup → 34.5 kV ring → RMU → 4.2 MVA MVT → MSB-GPU → RPP 1000 A → rack; no UPS/genset/ATS on this path",
+        "Every ring is dual-ended (A-feeder + B-feeder) with a normal open point",
+        "UPS only downstream of core-IT 415 V boards; generators only as interlocked second incomers of core boards or the 15 MVA backup block on the tie",
+        "Voltage discipline: 38 kV bus / 34.5 kV rings; 480 V 3Ph-3W compute + DU mech; 415/240 V 3Ph-4W support + core IT; 2.4/4.16 kV chillers; 277/480 V core mech",
+        "DU quantization: whole DUs only (fixed skid/board/RPP kit); exactly one core block per site",
+        "BESS on dedicated MV feeders ≤ 37.5 MW each, never behind a DU transformer; on-site generation at MV; backup block on the tie",
+        "Schedule and graph derive from one spec: per-DU kit × DU count + core + site gear"
+      ]
+    }
+  }
 }

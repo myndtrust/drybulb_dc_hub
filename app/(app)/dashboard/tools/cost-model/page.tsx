@@ -64,7 +64,7 @@ import { COOLING_SYSTEMS } from "@/lib/pue/equipment-defaults";
 import { fetchStationIndex, fetchStationWeather } from "@/lib/pue/tmy3";
 import { LocationSelect } from "@/components/pue/location-select";
 import type { CoolingType, HourlyWeather, TmyStation } from "@/lib/pue/types";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { createClient, getSessionSafe, isSupabaseConfigured } from "@/lib/supabase/client";
 import { PremiumGate } from "@/components/app/premium-gate";
 
 // Hex palette for canvas charts (services + locations).
@@ -889,7 +889,7 @@ function CostModelTool() {
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
+    getSessionSafe().then(({ session }) => setSignedIn(Boolean(session)));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSignedIn(Boolean(s)));
     return () => sub.subscription.unsubscribe();
   }, []);

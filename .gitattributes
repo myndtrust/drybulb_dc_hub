@@ -1,0 +1,17 @@
+# Keep text files LF in the repo AND the working tree (stops the per-file
+# "LF will be replaced by CRLF" warning storm on Windows autocrlf setups).
+* text=auto eol=lf
+
+# Windows scripts that genuinely need CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binaries — never translate
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

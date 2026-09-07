@@ -8,7 +8,7 @@ import {
 } from "./sld";
 
 function twoRackGraph() {
-  let g = seed();
+  const g = seed();
   const ids = g.nodes.filter((n) => n.type === "rack").slice(0, 2).map((n) => n.id);
   return { g, ids };
 }

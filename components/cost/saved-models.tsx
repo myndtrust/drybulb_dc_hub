@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   createClient,
+  getSessionSafe,
   isSupabaseConfigured,
   signInWithGoogle,
 } from "@/lib/supabase/client";
@@ -56,8 +57,8 @@ export function SavedModels({
       return;
     }
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      const isIn = Boolean(data.session);
+    getSessionSafe().then(({ session }) => {
+      const isIn = Boolean(session);
       setSignedIn(isIn);
       setReady(true);
       if (isIn) refresh();

@@ -65,6 +65,44 @@ gcloud storage ls gs://drybulb-jobs/archive/ --project wordpress103020
 
 ---
 
+## ⏰ Weekly schedule (Cloud Scheduler)
+
+The job also runs automatically every **Friday 6:00 AM Eastern** via a Cloud Scheduler
+job that POSTs to the Cloud Run Jobs API with OAuth as the scraper service account
+(which holds `roles/run.invoker` on the job).
+
+| Thing | Value |
+|---|---|
+| Scheduler job | `datacenter-jobs-scraper-weekly` (us-central1) |
+| Cron | `0 6 * * 5` (`America/New_York`) |
+| Target | `POST https://run.googleapis.com/v2/projects/wordpress103020/locations/us-central1/jobs/datacenter-jobs-scraper:run` |
+
+```powershell
+# Inspect / pause / resume / force-run
+gcloud scheduler jobs describe datacenter-jobs-scraper-weekly --location us-central1 --project wordpress103020
+gcloud scheduler jobs pause    datacenter-jobs-scraper-weekly --location us-central1 --project wordpress103020
+gcloud scheduler jobs resume   datacenter-jobs-scraper-weekly --location us-central1 --project wordpress103020
+gcloud scheduler jobs run      datacenter-jobs-scraper-weekly --location us-central1 --project wordpress103020
+```
+
+One-time setup (already done — kept for reproducibility):
+
+```powershell
+gcloud services enable cloudscheduler.googleapis.com --project wordpress103020
+
+gcloud run jobs add-iam-policy-binding datacenter-jobs-scraper --region us-central1 --project wordpress103020 `
+  --member "serviceAccount:jobs-scraper@wordpress103020.iam.gserviceaccount.com" --role roles/run.invoker
+
+gcloud scheduler jobs create http datacenter-jobs-scraper-weekly --location us-central1 --project wordpress103020 `
+  --schedule "0 6 * * 5" --time-zone "America/New_York" `
+  --uri "https://run.googleapis.com/v2/projects/wordpress103020/locations/us-central1/jobs/datacenter-jobs-scraper:run" `
+  --http-method POST `
+  --oauth-service-account-email "jobs-scraper@wordpress103020.iam.gserviceaccount.com" `
+  --description "Weekly refresh of the drybulb.com datacenter jobs feed"
+```
+
+---
+
 ## 🔁 Redeploy after changing scraper code
 
 Whenever you edit anything under `scrapers/datacenter_jobs/` (new company, new logic,

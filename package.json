@@ -6,7 +6,7 @@
     "dev": "concurrently \"velite --watch\" \"next dev\" --names velite,next --prefix-colors cyan,green",
     "build": "velite && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "test": "node --test --import tsx lib/factory/*.test.ts && node --test drafts/sld/*.test.js",
     "test:e2e": "playwright test"

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   createClient,
+  getSessionSafe,
   isSupabaseConfigured,
   signInWithGoogle,
 } from "@/lib/supabase/client";
@@ -28,6 +29,7 @@ export function PremiumGate({
 }) {
   const [signedIn, setSignedIn] = useState(false);
   const [ready, setReady] = useState(false);
+  const [unreachable, setUnreachable] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -35,13 +37,16 @@ export function PremiumGate({
       return;
     }
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setSignedIn(Boolean(data.session));
+    getSessionSafe().then(({ session, unreachable }) => {
+      setSignedIn(Boolean(session));
+      setUnreachable(unreachable);
       setReady(true);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) =>
-      setSignedIn(Boolean(session)),
-    );
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      // A later successful callback clears the unreachable state.
+      if (session) setUnreachable(false);
+      setSignedIn(Boolean(session));
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -57,6 +62,30 @@ export function PremiumGate({
   }
 
   if (hasAccess(slug, signedIn)) return <>{children}</>;
+
+  // Sign-in can't be reached, so entitlement is unknown rather than denied. Say so
+  // instead of showing a sign-in button that cannot succeed.
+  if (unreachable) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-16">
+        <Card>
+          <CardContent className="py-10 text-center">
+            <Badge variant="outline" className="mb-4 font-mono text-xs">
+              Sign-in unavailable
+            </Badge>
+            <h1 className="mb-3 text-2xl font-bold tracking-tight">{toolTitle}</h1>
+            <p className="mx-auto mb-6 max-w-md text-muted-foreground">
+              We couldn&apos;t reach the sign-in service, so we can&apos;t confirm your
+              access. This is usually temporary.
+            </p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-16">

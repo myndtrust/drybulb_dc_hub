@@ -16,7 +16,7 @@ test("rollupGraph: GB300 golden anchors (8 racks / 576 GPU / 0.96 MW)", () => {
   assert.equal(roll.itKW, 960); // 8 × 120 kW
   assert.equal(roll.itKW / 1000, 0.96);
   assert.equal(roll.counts["ups"], 4);
-  assert.equal(roll.counts["switchboard"], 5); // MV-A/B + LV SWBD-A/B + gen paralleling
+  assert.equal(roll.counts["switchboard"], 8); // MV-A/B + Normal bus A/B + SWBD-A/B (transfer, upstream of UPS) + LV SWBD-A/B
   assert.equal(roll.counts["rpp"], 4);
 });
 

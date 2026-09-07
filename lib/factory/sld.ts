@@ -57,6 +57,29 @@ export interface SldNode {
   /** Rack power + cooling interface (copied from the rack/network spec, then editable). */
   powerIf?: RackPower;
   coolingIf?: RackCooling;
+  /** Feeders on this card are sized by DIVERSITY, so Σ(feeder trips) exceeding the
+   *  main is normal practice and not an over-subscription. Set on switchgear whose
+   *  sourced schedule says so — a 38 kV lineup with 16 × 1200 A positions behind a
+   *  2500 A bus, or the DSX-VR core board carrying UPS in/out, busways, RPPs and a
+   *  load-bank breaker on a 5000 AT main. It suppresses the capacity WARNING only;
+   *  `mainAmp` keeps its sourced value so the model and the inspector still carry it. */
+  diversity?: boolean;
+  /** Board with a dual interlocked incomer pair — the DSX-VR core-board pattern
+   *  (transformer incomer / generator incomer). The model records the arrangement
+   *  and checks the incomer count; the interlock itself (only one closed at a
+   *  time) is not checked, because incoming breakers live on the feeding card.
+   *  Checked only under `architecture: "dsx-vr"` (validateDsx) — do not reuse on
+   *  a legacy graph; see `transferSource` for the architecture-agnostic version. */
+  interlocked?: boolean;
+  /** A TRANSFER board — e.g. a generator transfer switchboard upstream of a UPS,
+   *  selecting the UPS's source between "normal" (utility/transformer-derived)
+   *  and "emergency" (generator) — never both. Same shape as `interlocked`
+   *  (exactly two external incomers, checked structurally) but checked in every
+   *  architecture, not gated to dsx-vr: legacy `ups-chain` graphs use this one.
+   *  As with `interlocked`, the exclusivity itself (only one source live) is NOT
+   *  simulated via breaker state — the model records the arrangement and its
+   *  incomer count only. */
+  transferSource?: boolean;
 }
 
 export interface SldBus {
@@ -91,12 +114,20 @@ export interface SldGroup {
   color?: string;
 }
 
+/** Which reference architecture a graph is drawn to. Undefined = the legacy
+ *  UPS-chain design, which validates under the structural rules only.
+ *  `modular-pod`: a second grid-direct pattern (see validateGridDirect) — no
+ *  UPS anywhere (not even a core block, unlike dsx-vr), single-corded racks,
+ *  ATS backup reserved for mechanical load only. */
+export type SldArchitecture = "ups-chain" | "dsx-vr" | "modular-pod";
+
 export interface SldGraph {
   nodes: SldNode[];
   edges: SldEdge[];
   busbars: SldBus[];
   uid: number;
   groups?: SldGroup[];
+  architecture?: SldArchitecture;
 }
 
 /** A self-contained, position-normalised subgraph saved to the group library. */
@@ -130,10 +161,13 @@ export const PAL: Record<string, PalEntry> = {
   genset: { label: "On-site generation", kw: 0, kind: "src" },
   bess: { label: "BESS (battery energy storage)", kw: 0, kind: "src" },
   paralleling: { label: "Paralleling / ATS", kw: 0, kind: "eq" },
+  rmu: { label: "RMU (ring main unit · 4-way)", kw: 0, kind: "eq", breakered: true },
   transformer: { label: "Transformer", kw: 0, kind: "eq" },
   ups: { label: "Transformer + UPS", kw: 0, kind: "eq" },
   switchboard: { label: "Switchboard", kw: 0, kind: "eq", breakered: true },
   rpp: { label: "RPP (remote power panel)", kw: 0, kind: "eq", breakered: true },
+  busway: { label: "Busway (plug-in tap run)", kw: 0, kind: "eq", breakered: true },
+  loadbank: { label: "Load bank (test connection)", kw: 0, kind: "load" },
   rack: { label: "AI compute rack (generic)", kw: 120, kind: "load", grp: "IT" },
   "netrack-ew": { label: "Network rack — East/West (compute fabric)", kw: 12, kind: "load", grp: "NET" },
   "netrack-ns": { label: "Network rack — North/South (front-end/storage/mgmt)", kw: 8, kind: "load", grp: "NET" },
@@ -163,13 +197,28 @@ export function busGeo(b: SldBus) {
   return { x: b.x, y: b.y, w: b.w, h: BUSH, cx: b.x + b.w / 2, top: b.y, bot: b.y + BUSH };
 }
 
-// Breaker-bank defaults per breakered type.
-interface BrkCfg { n: number; lab: string; amp: number; mainAmp: number; voltage: string; }
+// Breaker-bank defaults per breakered type. `mainAmp` is the aggregate rating the
+// over-subscription check measures served load against; omit it for gear that has
+// no single limiting main.
+interface BrkCfg { n: number; lab: string; amp: number; mainAmp?: number; voltage: string; }
 const BRK_CFG: Record<string, BrkCfg> = {
   switchboard: { n: 8, lab: "F", amp: 800, mainAmp: 3200, voltage: "480 V" },
   rpp: { n: 4, lab: "C", amp: 100, mainAmp: 400, voltage: "415/240 V" },
+  // Ring main unit: a switch, not a panel. Each way is independently rated (600 A
+  // on the DSX-VR 34.5 kV skids) and the ring bus is continuous, so there is no
+  // main-breaker rating to size the ways against.
+  rmu: { n: 4, lab: "W", amp: 600, voltage: "34.5 kV" },
+  // Only the run rating is sourced (DSX-VR core busway, 2000 A 415/240 V 3Ph-4W);
+  // plug-in tap boxes vary by project, so the tap defaults are generic.
+  busway: { n: 4, lab: "T", amp: 400, mainAmp: 2000, voltage: "415/240 V" },
 };
 function brkCfg(type: string): BrkCfg { return BRK_CFG[type] || { n: 4, lab: "F", amp: 400, mainAmp: 1000, voltage: "480 V" }; }
+/** Default voltage + aggregate rating for a breakered card type — one source of
+ *  truth for every builder that makes nodes (sld.mkNode and topology.mk). */
+export function breakeredDefaults(type: string): { voltage: string; mainAmp?: number } {
+  const c = brkCfg(type);
+  return c.mainAmp != null ? { voltage: c.voltage, mainAmp: c.mainAmp } : { voltage: c.voltage };
+}
 export function defaultBreakers(type: string): Breaker[] {
   const c = brkCfg(type); const out: Breaker[] = [];
   for (let i = 1; i <= c.n; i++) out.push({ id: "b" + i, label: c.lab + i, amp: c.amp, poles: 3, status: "closed" });
@@ -302,7 +351,7 @@ export function mkNode(idStr: string, type: string, name: string | null, x: numb
   const p = PAL[type];
   const n: SldNode = { id: idStr, type, name: name || p.label, x, y, kw: p.kw || 0, kind: p.kind, red: "2N", catalogKey: "", product: "", rating: "" };
   if (p.grp) n.grp = p.grp;
-  if (p.breakered) { const c = brkCfg(type); n.voltage = c.voltage; n.mainAmp = c.mainAmp; n.breakers = defaultBreakers(type); }
+  if (p.breakered) { const c = brkCfg(type); n.voltage = c.voltage; if (c.mainAmp != null) n.mainAmp = c.mainAmp; n.breakers = defaultBreakers(type); }
   return Object.assign(n, extra || {});
 }
 
@@ -363,17 +412,24 @@ export function aggregateRatingA(g: SldGraph, id: string): number | undefined {
   if (n) return isBreakered(n) ? n.mainAmp : undefined;
   return findBus(g, id)?.ratingA;
 }
+/** A test connection carries no service load: a load bank is energised only with
+ *  the board otherwise unloaded, so counting its breaker would over-subscribe every
+ *  board that has one (the DSX-VR core board's load-bank breaker equals its main). */
+function isTestConnection(n: SldNode | null): boolean { return n?.type === "loadbank"; }
 /** Amps an element serves: a breakered node = Σ of its USED feeder breakers; a
  *  busbar/busway = Σ of the per-side demand of the loads it feeds. */
 export function servedAmps(g: SldGraph, id: string): number {
   const n = findNode(g, id);
   if (n && isBreakered(n)) {
     let a = 0;
-    for (const b of n.breakers || []) if (g.edges.some((e) => e.from === id && e.fromBreaker === b.id)) a += b.amp || 0;
+    for (const b of n.breakers || []) {
+      const fed = g.edges.find((e) => e.from === id && e.fromBreaker === b.id);
+      if (fed && !isTestConnection(findNode(g, fed.to))) a += b.amp || 0;
+    }
     return a;
   }
   let a = 0;
-  for (const e of g.edges) { if (e.from !== id) continue; const to = findNode(g, e.to); if (to && to.kind === "load") a += loadSideAmps(to); }
+  for (const e of g.edges) { if (e.from !== id) continue; const to = findNode(g, e.to); if (to && to.kind === "load" && !isTestConnection(to)) a += loadSideAmps(to); }
   return a;
 }
 
@@ -522,6 +578,280 @@ export function setBreaker(g: SldGraph, nodeId: string, brId: string, key: keyof
   return { ok: true, graph: ng };
 }
 
+// ── DSX-VR architecture invariants ────────────────────────────────────────────
+// The graph-checkable rules from docs/ai-factory/dsx-vr-architecture.md §5 (the
+// distilled Siemens DSX Vera Rubin reference design). These apply ONLY to graphs
+// tagged `architecture: "dsx-vr"` — a legacy UPS-chain design is a different, and
+// still valid, topology, so it keeps validating under the structural rules alone.
+
+/** Nominal (line-line) volts from a label like "38 kV", "415/240 V", "2.4/4.16 kV".
+ *  Only number groups carrying a voltage unit count, so an annotated label such as
+ *  "34.5 kV, 40 kA" or "480 V · 3200 A" reads as a voltage and not as its ampacity.
+ *  Within one group ("2.4/4.16 kV") the values are a line-neutral/line-line pair,
+ *  so the larger is nominal. */
+export function nominalVolts(label?: string | null): number | null {
+  if (!label) return null;
+  let best: number | null = null;
+  for (const m of label.matchAll(/(\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)*)\s*(kv|v)\b/gi)) {
+    const group = Math.max(...m[1].split("/").map((s) => parseFloat(s)));
+    const volts = group * (m[2].toLowerCase() === "kv" ? 1000 : 1);
+    best = best == null ? volts : Math.max(best, volts);
+  }
+  return best;
+}
+
+/** Voltage of a card or a busbar, in volts. */
+export function voltageOf(g: SldGraph, id: string): number | null {
+  const n = findNode(g, id);
+  if (n) return nominalVolts(n.voltage);
+  const b = findBus(g, id);
+  return b ? nominalVolts(b.kv) : null;
+}
+
+/** §4 voltage discipline: the levels the reference design uses inside the fence.
+ *  2400 is the line-neutral half of the 2.4/4.16 kV chiller system, accepted so a
+ *  board labelled only "2.4 kV" is not reported as off-standard. The utility
+ *  primary is deliberately absent — E5.0.1 leaves site utility ratings to
+ *  project-specific analysis, and §4's table starts at the 38 kV lineup. */
+const DSX_VOLTS = new Set([38000, 34500, 13800, 4160, 2400, 480, 415]);
+const DSX_VOLTS_LABEL = "38 kV / 34.5 kV / 13.8 kV / 2.4-4.16 kV / 480 V / 415/240 V";
+/** Site MV distribution level. 4.16 kV is a chiller utilization voltage, not a
+ *  distribution level, so a DU chiller board must not satisfy an "at MV" test. */
+const MV_SITE_MIN_V = 13800;
+/** The level generation may connect at. §1 puts BOTH sourced blocks on the 38 kV
+ *  substation — the 15 MVA backup block on the tie (through XFO-BU-Gen) and the
+ *  optional 75 MVA on-site block at a lineup end. The 34.5 kV rings deliberately do
+ *  NOT qualify: a ring is the compute path, and §5 invariant 3 allows generation
+ *  only at a core board or the tie. Testing "is it MV?" would clear a genset teed
+ *  straight onto a ring, which is exactly what the rule exists to stop. */
+const GEN_SOURCE_MIN_V = 38000;
+/** Equipment that must never appear on the compute path (§5.1). */
+const NOT_ON_COMPUTE = new Set(["ups", "genset", "paralleling"]);
+
+export function validateDsx(g: SldGraph): { errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const nameOf = (id: string) => ent(g, id)?.name ?? id;
+
+  // Two adjacency views. `all` is topology; `live` drops edges through an open
+  // breaker, because an open breaker carries no power and so does not put what
+  // lies beyond it on the path. The tie breakers and a ring's normal open point
+  // are both normally open — that is what keeps the backup-generation block off
+  // the compute path no matter which direction the bidirectional tie is drawn.
+  const isOpen = (e: SldEdge) => (findNode(g, e.from)?.breakers || []).some((b) => b.id === e.fromBreaker && b.status === "open");
+  const all = new Map<string, string[]>();
+  const live = new Map<string, string[]>();
+  const link = (m: Map<string, string[]>, e: SldEdge) => { if (!m.has(e.from)) m.set(e.from, []); m.get(e.from)!.push(e.to); };
+  for (const e of g.edges) { link(all, e); if (!isOpen(e)) link(live, e); }
+  const walk = (adj: Map<string, string[]>, roots: string[]): Set<string> => {
+    const seen = new Set<string>(); const st = [...roots];
+    while (st.length) { const u = st.pop()!; for (const v of adj.get(u) || []) if (!seen.has(v)) { seen.add(v); st.push(v); } }
+    return seen;
+  };
+
+  // Grid-direct compute vs core IT. A dual interlocked incomer pair is the
+  // signature of the core block and of nothing else in this design (§3), so it is
+  // what separates the two — `grp: "IT"` cannot, because a core-IT rack is IT too
+  // and is legitimately UPS-backed. A load counts as core only when EVERY path
+  // feeding it passes through a core board; if any path from a source reaches it
+  // without crossing one, it is grid-direct and §5.1 governs it. Asking the
+  // simpler question — "is it downstream of a core board?" — would let a single
+  // stray wire out of the core block reclassify a GPU rack and exempt it.
+  const coreBoards = new Set(g.nodes.filter((n) => n.interlocked).map((n) => n.id));
+  const gridDirect = new Set<string>();
+  const roots = g.nodes.filter((n) => n.kind === "src").map((n) => n.id);
+  while (roots.length) {
+    const u = roots.pop()!;
+    for (const v of all.get(u) || []) {
+      if (coreBoards.has(v) || gridDirect.has(v)) continue;
+      gridDirect.add(v); roots.push(v);
+    }
+  }
+  const computeLoads = new Set(
+    g.nodes.filter((n) => n.kind === "load" && n.grp === "IT" && gridDirect.has(n.id)).map((n) => n.id),
+  );
+
+  /** The voltage a connection lands on, looking through equipment that carries no
+   *  voltage tag of its own. The BESS and backup-generation blocks connect through
+   *  a step-up (XFO-BESS-Core, XFO-BU-Gen), so the level that matters is the board
+   *  one hop past the transformer. Null means "not tagged anywhere downstream" —
+   *  unknown, which the rules below treat as unproven rather than as a violation. */
+  const landingVolts = (id: string, depth = 3): number | null => {
+    const v = voltageOf(g, id);
+    if (v != null) return v;
+    if (depth <= 0) return null;
+    for (const to of all.get(id) || []) { const dv = landingVolts(to, depth - 1); if (dv != null) return dv; }
+    return null;
+  };
+
+  // §5.1 — compute is grid-direct: utility → lineup → ring → RMU → MVT → MSB-GPU
+  // → RPP → rack, with no UPS, generator or ATS anywhere on that path. This is
+  // what makes the 1.2–1.5 PUE band and the curtailable-load strategy possible.
+  //
+  // Checked per connection, because what the rule forbids is a backup device
+  // INTERPOSED in the path, not a source at the head of it. Generation landing at
+  // site MV — the 15 MVA backup block on the tie, or the optional 75 MVA on-site
+  // base-generation block at a lineup (§1, notes 2 & 3) — is a source: it feeds the
+  // whole site, compute included, and the reference design draws it that way. §5.3
+  // governs where it may land. A genset on an LV board still fires here.
+  for (const n of g.nodes) {
+    if (!NOT_ON_COMPUTE.has(n.type)) continue;
+    for (const e of g.edges) {
+      if (e.from !== n.id || isOpen(e)) continue;
+      if (n.type === "genset" && (landingVolts(e.to) ?? 0) >= GEN_SOURCE_MIN_V) continue;
+      const hit = [e.to, ...walk(live, [e.to])].find((id) => computeLoads.has(id));
+      if (hit) {
+        errors.push(`${n.name} feeds compute load ${nameOf(hit)} — DSX-VR compute is grid-direct (no UPS, generator or ATS on the compute path)`);
+        break;
+      }
+    }
+  }
+
+  // §5.2 — every 34.5 kV ring is dual-ended: it leaves an A-lineup feeder,
+  // daisy-chains the same RMU position across the DUs, and lands on a B-lineup
+  // feeder, with a normally-open point so the operating state stays radial.
+  const rmuIds = new Set(g.nodes.filter((n) => n.type === "rmu").map((n) => n.id));
+  const chain = new Map<string, number>();
+  let chains = 0;
+  for (const id of rmuIds) {
+    if (chain.has(id)) continue;
+    const c = chains++; const st = [id];
+    while (st.length) {
+      const u = st.pop()!; if (chain.has(u)) continue; chain.set(u, c);
+      for (const e of g.edges) {
+        if (e.from === u && rmuIds.has(e.to) && !chain.has(e.to)) st.push(e.to);
+        if (e.to === u && rmuIds.has(e.from) && !chain.has(e.from)) st.push(e.from);
+      }
+    }
+  }
+  for (let c = 0; c < chains; c++) {
+    const members = [...chain].filter(([, k]) => k === c).map(([id]) => id);
+    const mset = new Set(members);
+    const label = members.map(nameOf).join(" → ");
+    const ends = new Set(g.edges.filter((e) => mset.has(e.to) && !rmuIds.has(e.from)).map((e) => e.from));
+    if (ends.size < 2) {
+      errors.push(`ring ${label}: fed from ${ends.size} source${ends.size === 1 ? "" : "s"} — a DSX-VR ring must be dual-ended, landing on a feeder at each end`);
+    } else if (!g.edges.filter((e) => mset.has(e.to)).some(isOpen)) {
+      // A closed 34.5 kV loop parallels two sources: fault duty and coordination
+      // both change, so §5.2 states the open point as part of the invariant.
+      errors.push(`ring ${label}: no normally-open point — a dual-ended ring must operate radially`);
+    }
+  }
+
+  // §5.3 — the only UPS in the design sit on the interlocked 415 V core-IT boards,
+  // and generators appear only as the interlocked second incomer of a core board
+  // or as the MV backup block at the tie. Testing the board's *voltage* alone is
+  // not enough: a DU MSB-SUPP is 415/240 V too, and a DU MSB-CHILLERS is at MV.
+  // §2's defining rule is that a DU contains no UPS, generator or ATS at all.
+  for (const n of g.nodes) {
+    if (n.type === "ups") {
+      for (const e of g.edges.filter((x) => x.to === n.id)) {
+        const src = findNode(g, e.from);
+        if (src?.interlocked && voltageOf(g, e.from) === 415) continue;
+        errors.push(`${n.name} is fed from ${nameOf(e.from)} — the only DSX-VR UPS sit on the interlocked 415 V core-IT boards (a deployment unit carries none)`);
+      }
+    }
+    if (n.type === "genset") {
+      for (const e of g.edges.filter((x) => x.from === n.id)) {
+        if (findNode(g, e.to)?.interlocked) continue;
+        const v = landingVolts(e.to);
+        if (v == null || v >= GEN_SOURCE_MIN_V) continue;
+        errors.push(`${n.name} → ${nameOf(e.to)}: a DSX-VR generator must land on an interlocked core board, or on the 38 kV substation (tie or lineup) — never on a ring or inside a deployment unit`);
+      }
+    }
+    // §5.6 — BESS connects at a dedicated MV feeder, never behind a DU transformer.
+    if (n.type === "bess") {
+      for (const e of g.edges.filter((x) => x.from === n.id)) {
+        const v = landingVolts(e.to);
+        if (v == null || v >= MV_SITE_MIN_V) continue;
+        errors.push(`${n.name} → ${nameOf(e.to)}: BESS connects at a dedicated MV feeder, never behind a DU transformer`);
+      }
+    }
+  }
+
+  // §5.4 — voltage discipline, over the levels §4 governs.
+  for (const n of g.nodes) {
+    if (!n.voltage || n.type === "utility") continue;
+    if (!DSX_VOLTS.has(nominalVolts(n.voltage) ?? -1)) errors.push(`${n.name}: ${n.voltage} is outside the DSX-VR voltage discipline (${DSX_VOLTS_LABEL})`);
+  }
+  for (const b of g.busbars) {
+    if (!b.kv) continue;
+    if (!DSX_VOLTS.has(nominalVolts(b.kv) ?? -1)) errors.push(`${b.name}: ${b.kv} is outside the DSX-VR voltage discipline (${DSX_VOLTS_LABEL})`);
+  }
+
+  // A ring main unit has a fixed number of ways (4 on the DSX-VR skids): ring-in +
+  // ring-out + the transformer tee-offs must all fit the switch. The incoming
+  // connection occupies a way even though the model gives it a separate port.
+  for (const n of g.nodes) {
+    if (n.type !== "rmu") continue;
+    const ways = (n.breakers || []).length;
+    if (!ways) continue;
+    const incomers = g.edges.filter((e) => e.to === n.id).length;
+    const teeOffs = (n.breakers || []).filter((b) => g.edges.some((e) => e.from === n.id && e.fromBreaker === b.id)).length;
+    if (incomers + teeOffs > ways) errors.push(`${n.name}: ${incomers + teeOffs} circuits on a ${ways}-way ring main unit — ring-in, ring-out and tee-offs must fit the switch`);
+  }
+
+  // Core boards are dual-fed through a mechanical interlock (transformer incomer /
+  // generator incomer). Only *external* incomers count: the sourced board also has
+  // a dedicated output breaker per UPS, so a return path must not read as a third
+  // source. (The DAG cannot draw that return today — see the M2 status note.)
+  for (const n of g.nodes) {
+    if (!n.interlocked) continue;
+    const fed = walk(all, [n.id]);
+    const incomers = g.edges.filter((e) => e.to === n.id && !fed.has(e.from)).length;
+    if (incomers !== 2) errors.push(`${n.name}: interlocked board has ${incomers} incomer${incomers === 1 ? "" : "s"} — the DSX-VR core pattern is exactly two (transformer / generator)`);
+  }
+
+  return { errors, warnings };
+}
+
+/** The `modular-pod` half of the architecture-specific rules — a second
+ *  grid-direct pattern generalized from field observation of large modular
+ *  GPU-cluster builds (see lib/factory/grid-direct-topology.ts), distinct from
+ *  DSX-VR in one respect that matters: there is no UPS ANYWHERE in this design,
+ *  not even a single core block, and racks are single-corded rather than
+ *  dual-fed. Redundancy lives at the row/pod level (switchboard A vs B), and the
+ *  only backed-up load is mechanical. */
+export function validateGridDirect(g: SldGraph): { errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+
+  // Rule 1 — no UPS anywhere. This is the defining difference from dsx-vr, which
+  // still UPS-backs its one core block.
+  for (const n of g.nodes) {
+    if (n.type === "ups") errors.push(`${n.name}: a UPS has no place in the modular-pod pattern — compute is grid-direct end to end, with no exception for a core block`);
+  }
+
+  // Rule 2 — an ATS/transfer switch (type "paralleling") exists here only to
+  // back up mechanical load. If it can reach anything else — directly or through
+  // whatever it feeds — that is the UPS-chain's generator-backup pattern
+  // leaking into a design that deliberately does not have one.
+  const adj = new Map<string, string[]>();
+  for (const e of g.edges) { if (!adj.has(e.from)) adj.set(e.from, []); adj.get(e.from)!.push(e.to); }
+  const reach = (root: string): Set<string> => {
+    const seen = new Set<string>(); const st = [root];
+    while (st.length) { const u = st.pop()!; for (const v of adj.get(u) || []) if (!seen.has(v)) { seen.add(v); st.push(v); } }
+    return seen;
+  };
+  for (const n of g.nodes) {
+    if (n.type !== "paralleling") continue;
+    for (const id of reach(n.id)) {
+      const t = findNode(g, id);
+      if (t && t.kind === "load" && t.grp !== "MECH") errors.push(`${n.name}: an ATS/transfer switch feeds ${t.name}, a non-mechanical load — this pattern reserves transfer-switch backup for mechanical (chiller) load only`);
+    }
+  }
+
+  // Rule 3 — compute/network load is single-corded: exactly one feeder. A
+  // second feeder would silently smuggle in 2N-to-rack, the pattern this
+  // architecture deliberately replaces with row/pod-level (A vs B) redundancy.
+  for (const n of g.nodes) {
+    if (n.kind !== "load" || (n.grp !== "IT" && n.grp !== "NET")) continue;
+    const incomers = g.edges.filter((e) => e.to === n.id).length;
+    if (incomers !== 1) errors.push(`${n.name}: ${incomers} feeders — compute/network load in the modular-pod pattern is single-corded (row-level A/B redundancy, not 2N-to-rack)`);
+  }
+
+  return { errors, warnings: [] };
+}
+
 // ── Invariant checker ─────────────────────────────────────────────────────────
 export interface ValidateResult { ok: boolean; errors: string[]; warnings: string[]; }
 export function validate(g: SldGraph): ValidateResult {
@@ -556,6 +886,7 @@ export function validate(g: SldGraph): ValidateResult {
   // amps exceed its aggregate rating (a non-blocking design warning).
   const distIds = g.nodes.filter((n) => isBreakered(n)).map((n) => n.id).concat(g.busbars.map((b) => b.id));
   for (const id of distIds) {
+    if (findNode(g, id)?.diversity) continue; // feeders sized by diversity, not by sum
     const rating = aggregateRatingA(g, id);
     if (rating == null || rating <= 0) continue;
     const served = servedAmps(g, id);
@@ -567,6 +898,38 @@ export function validate(g: SldGraph): ValidateResult {
       const feeders = g.edges.filter((e) => e.to === n.id).length;
       if (feeders < n.powerIf.feeds) warnings.push(`${n.name}: ${n.powerIf.feeds - feeders} of ${n.powerIf.feeds} power connectors missing`);
     }
+  }
+  // transferSource: a generator-transfer board (normal source / emergency
+  // generator, never both) must have exactly two EXTERNAL incomers — same shape
+  // as DSX-VR's `interlocked` core-board check, but universal (every
+  // architecture, not gated to dsx-vr) since this is the legacy ups-chain
+  // generator's own pattern. "External" excludes anything downstream of the
+  // board itself, matching the interlocked check's own return-path tolerance.
+  if (g.nodes.some((n) => n.transferSource)) {
+    const adjAll = new Map<string, string[]>();
+    for (const e of g.edges) { if (!adjAll.has(e.from)) adjAll.set(e.from, []); adjAll.get(e.from)!.push(e.to); }
+    const feedsOf = (root: string): Set<string> => {
+      const seen = new Set<string>(); const st = [root];
+      while (st.length) { const u = st.pop()!; for (const v of adjAll.get(u) || []) if (!seen.has(v)) { seen.add(v); st.push(v); } }
+      return seen;
+    };
+    for (const n of g.nodes) {
+      if (!n.transferSource) continue;
+      const fed = feedsOf(n.id);
+      const incomers = g.edges.filter((e) => e.to === n.id && !fed.has(e.from)).length;
+      if (incomers !== 2) errors.push(`${n.name}: transfer board has ${incomers} incomer${incomers === 1 ? "" : "s"} — a transfer selects between exactly two sources (normal / emergency)`);
+    }
+  }
+  // architecture-specific invariants on top of the structural rules
+  if (g.architecture === "dsx-vr") {
+    const d = validateDsx(g);
+    errors.push(...d.errors);
+    warnings.push(...d.warnings);
+  }
+  if (g.architecture === "modular-pod") {
+    const d = validateGridDirect(g);
+    errors.push(...d.errors);
+    warnings.push(...d.warnings);
   }
   return { ok: errors.length === 0, errors, warnings };
 }
@@ -617,10 +980,23 @@ export function restore(s: string): SldGraph { return JSON.parse(s); }
 //    MV SWBD-A / MV SWBD-B, joined by a normally-open TIE breaker.
 //  • BESS ties in at the MV interconnection (point of common coupling) for grid
 //    services + faster interconnection.
-//  • Each MV board feeds unit-sub transformers → UPS; the 4 UPS tie into the LV
-//    distribution boards SWBD-A/B (4-to-make-3 distributed-redundant, 2N to rack).
-//  • GENERATORS are on the 480 V site-distribution voltage: gensets parallel on a
-//    GEN PARALLEL SWBD that backs up the LV boards (not the MV side).
+//  • Each MV board feeds unit-sub transformers, which aggregate on a per-side
+//    "Normal bus" (the normal-source input), before SWBD-A/B (a TRANSFER
+//    switchboard per side, upstream of the UPS — see below) → UPS; the 4 UPS
+//    tie into the LV distribution boards (4-to-make-3 distributed-redundant,
+//    2N to rack).
+//  • GENERATORS are on the 480 V site-distribution voltage. SWBD-A/B switch each
+//    UPS's source between normal (that side's Normal bus, fed from the unit-sub
+//    transformers) and emergency (the generator) — a TRANSFER function, not a
+//    paralleling one: `transferSource: true` + exactly two external incomers is
+//    checked structurally (sld.validate), which is what makes this a transfer
+//    and not just two sources wired onto a common, permanently co-energized
+//    bus. They sit upstream of the UPS, never at the LV boards the UPS output
+//    feeds: landing there would strand the UPS during the transfer and let
+//    load ride raw generator power with no conditioning, defeating the reason
+//    a UPS is there. (As with DSX-VR's `interlocked` core board, the exclusivity
+//    itself — only one source live — is not simulated via breaker state; the
+//    model records the arrangement, not the switching action.)
 // Every board output is a feeder BREAKER; extra breakers stay as user-editable spares.
 export function seed(): SldGraph {
   const g: SldGraph = { nodes: [], edges: [], busbars: [], uid: 0 };
@@ -647,39 +1023,66 @@ export function seed(): SldGraph {
   const xs = [150, 340, 760, 950];
   for (let i = 0; i < 4; i++) {
     txX.push(N("transformer", "Transformer " + (i + 1), xs[i], 250, { rating: "2.5 MVA" }));
-    upsX.push(N("ups", "UPS " + (i + 1) + " (4N3)", xs[i], 322, { rating: "1500 kVA" }));
+    upsX.push(N("ups", "UPS " + (i + 1) + " (4N3)", xs[i], 520, { rating: "1500 kVA" }));
   }
 
-  // generators on the 480 V site-distribution voltage
-  const gen = N("genset", "On-site generation", 540, 300, { rating: "N × 3 MW · 480 V" });
-  const genPar = N("switchboard", "GEN PARALLEL SWBD · 480 V", 500, 376, { voltage: "480 V", mainAmp: 4000, rating: "480 V · paralleling" });
+  // Normal bus A/B: aggregates that side's unit-sub transformer secondaries
+  // (~3007 A FLA each at 480 V, two per side ≈ 6014 A — standard-frame rounded
+  // to 8000 A, the same rule topology.ts's stdAmp() applies to the identical
+  // physical case, ceil not floor: a board must never be rated below its actual
+  // incoming current) into the SINGLE normal-source incomer SWBD-A/B needs to
+  // stay a genuine two-source transfer rather than an N-way bus. Plain edges
+  // (unbreakered, N-to-1) — the same shape LV SWBD-A/B already uses for their 4
+  // UPS incomers below.
+  const normA = N("switchboard", "Normal bus A", 245, 340, { voltage: "480 V", mainAmp: 8000, rating: "480 V · 8000 A · aggregated unit-sub secondaries" });
+  const normB = N("switchboard", "Normal bus B", 855, 340, { voltage: "480 V", mainAmp: 8000, rating: "480 V · 8000 A · aggregated unit-sub secondaries" });
 
-  // LV distribution boards
-  const swA = N("switchboard", "SWBD-A", 250, 452, { voltage: "480 V", rating: "480 V · 3200 A" });
-  const swB = N("switchboard", "SWBD-B", 900, 452, { voltage: "480 V", rating: "480 V · 3200 A" });
+  // generators on the 480 V site-distribution voltage, upstream of the UPS.
+  const gen = N("genset", "On-site generation", 540, 340, { rating: "N × 3 MW · 480 V" });
+  // SWBD-A/B: the transfer switchboards. `transferSource: true` (not DSX-VR's
+  // `interlocked` — that field is read by validateDsx regardless of
+  // architecture, and the legacy seed's own negative gate test relies on it
+  // NOT firing here) requires exactly two external incomers: Normal bus (this
+  // side's transformers) and the generator. mainAmp sized to what these boards
+  // actually deliver downstream — 2 × 1500 kVA UPS @ 480 V ≈ 3608 A — not to
+  // the (mutually exclusive, never-simultaneous) upstream source capacity.
+  const swbdA = N("switchboard", "SWBD-A", 150, 430, { voltage: "480 V", mainAmp: 4000, transferSource: true, rating: "480 V · 4000 A · transfer — normal (transformer) / emergency (generator)" });
+  const swbdB = N("switchboard", "SWBD-B", 900, 430, { voltage: "480 V", mainAmp: 4000, transferSource: true, rating: "480 V · 4000 A · transfer — normal (transformer) / emergency (generator)" });
 
-  const rA1 = N("rpp", "RPP-A1", 150, 544), rA2 = N("rpp", "RPP-A2", 470, 544);
-  const rB1 = N("rpp", "RPP-B1", 800, 544), rB2 = N("rpp", "RPP-B2", 1120, 544);
+  // LV distribution boards — the UPS OUTPUT feeds these, downstream of the UPS.
+  const lvA = N("switchboard", "LV SWBD-A", 250, 630, { voltage: "480 V", rating: "480 V · 3200 A" });
+  const lvB = N("switchboard", "LV SWBD-B", 900, 630, { voltage: "480 V", rating: "480 V · 3200 A" });
 
-  const racks: SldNode[] = []; for (let i = 0; i < 8; i++) racks.push(N("rack", "GB300 rack " + (i + 1), 150 + i * 112, 652));
-  const chiller = N("chiller", "Chiller plant", 1060, 652), cdu = N("cdu", "CDU", 1160, 652), crah = N("crah", "CRAH", 1250, 652);
-  const spine = N("spine", "Spine", 1340, 652), leaf = N("leaf", "Leaf", 1430, 652);
+  const rA1 = N("rpp", "RPP-A1", 150, 722), rA2 = N("rpp", "RPP-A2", 470, 722);
+  const rB1 = N("rpp", "RPP-B1", 800, 722), rB2 = N("rpp", "RPP-B2", 1120, 722);
+
+  const racks: SldNode[] = []; for (let i = 0; i < 8; i++) racks.push(N("rack", "GB300 rack " + (i + 1), 150 + i * 112, 830));
+  const chiller = N("chiller", "Chiller plant", 1060, 830), cdu = N("cdu", "CDU", 1160, 830), crah = N("crah", "CRAH", 1250, 830);
+  const spine = N("spine", "Spine", 1340, 830), leaf = N("leaf", "Leaf", 1430, 830);
 
   // utility → main transformers → MV boards; BESS at the interconnection; MV tie
   E(util, txMainA); E(util, txMainB); E(txMainA, mvA); E(txMainB, mvB);
   E(bess, mvA);            // BESS at PCC (rides the tie to MV-B)
   EB(mvA, "b3", mvB);      // normally-open bus tie
-  // MV boards → unit-sub transformers (feeder breakers) → UPS
+  // MV boards → unit-sub transformers (feeder breakers) → Normal bus A/B
+  // (aggregated) → SWBD-A/B (transfer: normal bus / emergency generator) → UPS.
   txX.forEach((tx, i) => EB(txHome[i], txBrk[i], tx));
-  txX.forEach((tx, i) => E(tx, upsX[i]));
+  E(txX[0], normA); E(txX[1], normA); E(txX[2], normB); E(txX[3], normB);
+  // Normal bus's single feed to its transfer board is its own feeder breaker
+  // (per this file's own convention); the generator has no breaker bank of its
+  // own (genset carries no breakers anywhere in this codebase), so its feed
+  // stays a plain edge — same as every other genset output edge here.
+  EB(normA, "b1", swbdA); setBrk(normA, "b1", "NORMAL", "closed");
+  EB(normB, "b1", swbdB); setBrk(normB, "b1", "NORMAL", "closed");
+  E(gen, swbdA); E(gen, swbdB); // the emergency source — exactly two external incomers per transfer board
+  EB(swbdA, "b1", upsX[0]); EB(swbdA, "b2", upsX[1]);
+  EB(swbdB, "b1", upsX[2]); EB(swbdB, "b2", upsX[3]);
   // 4 UPS tie into both LV boards (4-to-make-3 distributed-redundant)
-  upsX.forEach((u) => { E(u, swA); E(u, swB); });
-  // gensets → 480 V paralleling board → LV boards (LV backup)
-  E(gen, genPar); EB(genPar, "b1", swA); EB(genPar, "b2", swB);
+  upsX.forEach((u) => { E(u, lvA); E(u, lvB); });
 
   const mechNet = [chiller, cdu, crah, spine, leaf];
-  EB(swA, "b1", rA1); EB(swA, "b2", rA2); mechNet.forEach((l, i) => EB(swA, "b" + (i + 3), l));
-  EB(swB, "b1", rB1); EB(swB, "b2", rB2); mechNet.forEach((l, i) => EB(swB, "b" + (i + 3), l));
+  EB(lvA, "b1", rA1); EB(lvA, "b2", rA2); mechNet.forEach((l, i) => EB(lvA, "b" + (i + 3), l));
+  EB(lvB, "b1", rB1); EB(lvB, "b2", rB2); mechNet.forEach((l, i) => EB(lvB, "b" + (i + 3), l));
 
   for (let i = 0; i < 4; i++) { EB(rA1, "b" + (i + 1), racks[i]); EB(rB1, "b" + (i + 1), racks[i]); }
   for (let i = 0; i < 4; i++) { EB(rA2, "b" + (i + 1), racks[i + 4]); EB(rB2, "b" + (i + 1), racks[i + 4]); }
