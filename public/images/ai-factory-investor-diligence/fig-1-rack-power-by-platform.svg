@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 406" role="img" aria-label="Published maximum rack power by platform: AMD Helios 246 kW, NVIDIA Vera Rubin NVL72 188 to 227 kW, NVIDIA GB300 NVL72 142 kW, AMD MI355X OEM rack 120 kW, NVIDIA DGX B300 rack about 56 kW, AMD MI350X air rack not published">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 406" role="img" aria-label="Published maximum rack power by platform: AMD Helios 246 kW, NVIDIA Vera Rubin NVL72 188 to 227 kW, NVIDIA GB300 NVL72 142 kW, AMD MI355X OEM rack 120 kW, NVIDIA DGX B300 rack about 56 kW, AMD MI350X air-cooled OEM rack about 48 kW with 32 GPUs">
 <style>.t{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:#16130d}.m{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:#6e6450}</style>
 <rect width="860" height="406" fill="#fbf8f0"/>
 <text class="t" x="24" y="32" font-size="15" font-weight="600">Published rack power, kW</text>
@@ -32,8 +32,8 @@
 <text class="t" x="258" y="268" font-size="12.5" text-anchor="end">NVIDIA DGX B300 (4 per rack)</text>
 <rect x="270" y="254" width="118.5" height="20" rx="4" fill="#00809c"/>
 <text class="t" x="396.5" y="268" font-size="12">~56 kW</text>
-<text class="t" x="258" y="314" font-size="12.5" text-anchor="end">AMD MI350X (air)</text>
-<line x1="270" y1="300" x2="270" y2="320" stroke="#d4471d" stroke-width="3"/>
-<text class="m" x="282" y="314" font-size="12">rack kW not published; 1 kW TDP per GPU, up to 64 GPUs per air rack</text>
+<text class="t" x="258" y="314" font-size="12.5" text-anchor="end">AMD MI350X (air, OEM rack)</text>
+<rect x="270" y="300" width="102.5" height="20" rx="4" fill="#d4471d"/>
+<text class="t" x="380.5" y="314" font-size="12">~48 kW (32 GPUs)</text>
 <text class="m" x="24" y="390" font-size="11">Published per-rack power (maxima where stated); light segment = Max-Q to Max-P. Not like-for-like.</text>
 </svg>
