@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 520" role="img" aria-label="Voltage ride-through envelopes plotted as minimum voltage the load must ride through versus time on a log scale. ERCOT NOGRR 282 adopted: 0 pu to 0.15 s, 0.35 pu to 0.25 s, 0.5 pu to 0.5 s, 0.8 pu to 2 s, then 0.9 pu continuous; 1.2 pu for 1 s. PJM D-2 proposed: 0 pu to 0.25 s, then identical to ERCOT. CAISO straw proposed: 0 pu to 0.15 s, 0.25 pu to 1.2 s, 0.5 pu to 3 s, 0.7 pu to 6 s, then 0.9 pu; 1.2 pu for 2 s. The July 2024 fault dips at 0.25 to 0.40 pu for 42 to 66 ms are marked, as are AEMC draft deep-sag times of 0.14 and 0.24 s.">
+  <style>
+    .t{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:#16130d}
+    .m{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:#6e6450}
+  </style>
+  <rect width="860" height="520" fill="#fbf8f0"/>
+  <text class="t" x="24" y="30" font-size="15" font-weight="600">Voltage ride-through envelopes for large computational loads</text>
+  <!-- legend -->
+  <line x1="24" y1="52" x2="56" y2="52" stroke="#d4471d" stroke-width="3.5"/><text class="t" x="62" y="56" font-size="11.5">ERCOT NOGRR 282 (adopted)</text>
+  <line x1="290" y1="52" x2="322" y2="52" stroke="#00809c" stroke-width="2.2" stroke-dasharray="7 4"/><text class="t" x="328" y="56" font-size="11.5">PJM Att. D-2 (proposed)</text>
+  <line x1="530" y1="52" x2="562" y2="52" stroke="#3f6f3a" stroke-width="2.2" stroke-dasharray="10 3 2 3"/><text class="t" x="568" y="56" font-size="11.5">CAISO straw (proposed)</text>
+  <!-- continuous band -->
+  <rect x="90" y="143" width="730" height="50.3" fill="#3f6f3a" opacity="0.08"/>
+  <text class="m" x="812" y="186" font-size="10.5" text-anchor="end">continuous operation, 0.9–1.1 pu</text>
+  <!-- gridlines -->
+  <g stroke="#e3dccb" stroke-width="1">
+    <line x1="90" y1="117.8" x2="820" y2="117.8"/><line x1="90" y1="168.2" x2="820" y2="168.2"/>
+    <line x1="90" y1="218.5" x2="820" y2="218.5"/><line x1="90" y1="268.9" x2="820" y2="268.9"/>
+    <line x1="90" y1="319.3" x2="820" y2="319.3"/><line x1="90" y1="369.6" x2="820" y2="369.6"/>
+    <line x1="197.6" y1="80" x2="197.6" y2="420"/><line x1="279.1" y1="80" x2="279.1" y2="420"/>
+    <line x1="360.5" y1="80" x2="360.5" y2="420"/><line x1="468.1" y1="80" x2="468.1" y2="420"/>
+    <line x1="549.5" y1="80" x2="549.5" y2="420"/><line x1="631" y1="80" x2="631" y2="420"/>
+    <line x1="738.6" y1="80" x2="738.6" y2="420"/>
+  </g>
+  <line x1="90" y1="420" x2="820" y2="420" stroke="#16130d" stroke-width="1.2"/>
+  <line x1="90" y1="80" x2="90" y2="420" stroke="#16130d" stroke-width="1.2"/>
+  <g class="m" font-size="11" text-anchor="end">
+    <text x="82" y="424">0</text><text x="82" y="373.6">0.2</text><text x="82" y="323.3">0.4</text>
+    <text x="82" y="272.9">0.6</text><text x="82" y="222.5">0.8</text><text x="82" y="172.2">1.0</text><text x="82" y="121.8">1.2</text>
+  </g>
+  <g class="m" font-size="11" text-anchor="middle">
+    <text x="90" y="438">0.02</text><text x="197.6" y="438">0.05</text><text x="279.1" y="438">0.1</text>
+    <text x="360.5" y="438">0.2</text><text x="468.1" y="438">0.5</text><text x="549.5" y="438">1</text>
+    <text x="631" y="438">2</text><text x="738.6" y="438">5</text><text x="820" y="438">10</text>
+  </g>
+  <text class="m" x="455" y="460" font-size="11.5" text-anchor="middle">Time from start of disturbance, seconds (log scale)</text>
+  <text class="m" x="30" y="250" font-size="11.5" text-anchor="middle" transform="rotate(-90 30 250)">Voltage at POI / SDP, pu</text>
+  <!-- region labels -->
+  <text class="m" x="812" y="380" font-size="10.5" text-anchor="end">below the line: trip or transfer permitted</text>
+  <text class="m" x="812" y="110" font-size="10.5" text-anchor="end">above the line: trip permitted</text>
+  <!-- AEMC OV marker -->
+  <line x1="90" y1="92.6" x2="300" y2="92.6" stroke="#6e6450" stroke-width="1.2" stroke-dasharray="2 3"/>
+  <text class="m" x="306" y="96" font-size="10">AEMC draft (automatic): OV ride-through aligned up to 1.30 pu</text>
+  <!-- envelopes -->
+  <path d="M90,420 H326.7 V331.9 H386.7 V294.1 H468.1 V218.5 H631 V193.3 H820" fill="none" stroke="#d4471d" stroke-width="3.5"/>
+  <path d="M90,117.8 H549.5 V143 H820" fill="none" stroke="#d4471d" stroke-width="3.5"/>
+  <path d="M90,420 H386.7 V294.1 H468.1 V218.5 H631 V193.3 H820" fill="none" stroke="#00809c" stroke-width="2.2" stroke-dasharray="7 4"/>
+  <path d="M90,117.8 H549.5 V143 H820" fill="none" stroke="#00809c" stroke-width="2.2" stroke-dasharray="7 4"/>
+  <path d="M90,420 H326.7 V357 H570.9 V294.1 H678.6 V243.7 H760 V193.3 H820" fill="none" stroke="#3f6f3a" stroke-width="2.2" stroke-dasharray="10 3 2 3"/>
+  <path d="M90,117.8 H631 V143 H820" fill="none" stroke="#3f6f3a" stroke-width="2.2" stroke-dasharray="10 3 2 3"/>
+  <!-- July 2024 dip box -->
+  <rect x="177.1" y="319.3" width="53.1" height="37.7" fill="#d4471d" opacity="0.22" stroke="#d4471d" stroke-width="1"/>
+  <line x1="203" y1="319.3" x2="203" y2="296" stroke="#16130d" stroke-width="0.8"/>
+  <text class="t" x="100" y="276" font-size="10.5">Jul 10, 2024 fault shots:</text>
+  <text class="t" x="100" y="290" font-size="10.5">0.25–0.40 pu, 42–66 ms, six in 82 s</text>
+  <!-- Jul 2026 peak -->
+  <circle cx="90" cy="133.4" r="3.5" fill="#16130d"/>
+  <text class="t" x="98" y="137" font-size="10">≈1.138 pu peak, Jul 22, 2026 (duration not published)</text>
+  <!-- AEMC deep sag markers -->
+  <path d="M318.6,411 l5,5 l-5,5 l-5,-5 z" fill="#16130d"/>
+  <path d="M381.9,411 l5,5 l-5,5 l-5,-5 z" fill="#16130d"/>
+  <text class="t" x="394" y="410" font-size="10">◆ AEMC draft deep-sag withstand: 0.14 s (minimum) / 0.24 s (automatic)</text>
+  <text class="m" x="24" y="490" font-size="10.5">CAISO durations are cumulative over any 10 s window. PJM matches ERCOT above 0.5 pu (dashed line overlays the solid one).</text>
+  <text class="m" x="24" y="506" font-size="10.5">Ireland, Fingrid and ENTSO-E curves are not plotted: their breakpoints are published only as figures not extracted for this article.</text>
+</svg>

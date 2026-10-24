@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 470" role="img" aria-label="Timeline of customer-initiated data center load reductions. Northern Virginia: about 1,500 MW in July 2024, about 1,800 MW in February 2025, 540 MW in May 2025, 1,300 MW in June 2025, 500 MW sustained in April 2026 after setting changes, and about 3,800 to 3,900 MW in July 2026. Ireland: 74 to 480 MW across five events from 2022 to 2026, against a 900 MW load-rejection limit.">
+  <style>
+    .t{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:#16130d}
+    .m{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;fill:#6e6450}
+  </style>
+  <rect width="860" height="470" fill="#fbf8f0"/>
+  <text class="t" x="24" y="32" font-size="15" font-weight="600">Data center load lost per event, MW</text>
+  <rect x="520" y="21" width="13" height="13" rx="2" fill="#d4471d"/><text class="t" x="539" y="32" font-size="12">Northern Virginia (PJM)</text>
+  <rect x="716" y="21" width="13" height="13" rx="2" fill="#00809c"/><text class="t" x="735" y="32" font-size="12">Ireland</text>
+  <!-- gridlines -->
+  <g stroke="#e3dccb" stroke-width="1">
+    <line x1="80" y1="90" x2="830" y2="90"/><line x1="80" y1="160" x2="830" y2="160"/>
+    <line x1="80" y1="230" x2="830" y2="230"/><line x1="80" y1="300" x2="830" y2="300"/>
+  </g>
+  <line x1="80" y1="370" x2="830" y2="370" stroke="#16130d" stroke-width="1.2"/>
+  <g class="m" font-size="11" text-anchor="end">
+    <text x="72" y="374">0</text><text x="72" y="304">1,000</text><text x="72" y="234">2,000</text>
+    <text x="72" y="164">3,000</text><text x="72" y="94">4,000</text>
+  </g>
+  <g stroke="#16130d" stroke-width="1">
+    <line x1="80" y1="370" x2="80" y2="376"/><line x1="230" y1="370" x2="230" y2="376"/>
+    <line x1="380" y1="370" x2="380" y2="376"/><line x1="530" y1="370" x2="530" y2="376"/>
+    <line x1="680" y1="370" x2="680" y2="376"/><line x1="830" y1="370" x2="830" y2="376"/>
+  </g>
+  <g class="m" font-size="11" text-anchor="middle">
+    <text x="80" y="390">2022</text><text x="230" y="390">2023</text><text x="380" y="390">2024</text>
+    <text x="530" y="390">2025</text><text x="680" y="390">2026</text><text x="830" y="390">2027</text>
+  </g>
+  <!-- reference lines -->
+  <line x1="80" y1="307" x2="830" y2="307" stroke="#00809c" stroke-width="1.3" stroke-dasharray="5 4"/>
+  <text class="t" x="88" y="321" font-size="10.5" fill="#00809c">Ireland load-rejection limit: 900 MW</text>
+  <line x1="80" y1="146" x2="830" y2="146" stroke="#6e6450" stroke-width="1.2" stroke-dasharray="2 4"/>
+  <text class="m" x="88" y="140" font-size="10.5">ERCOT study: simultaneous loss of 3.2 GW "may pose significant reliability risk"</text>
+  <!-- Ireland bars -->
+  <g fill="#00809c">
+    <rect x="80" y="364.8" width="8" height="5.2"/>
+    <rect x="218.5" y="355.7" width="8" height="14.3"/>
+    <rect x="534" y="347.5" width="8" height="22.5"/>
+    <rect x="587" y="342.9" width="8" height="27.1"/>
+    <rect x="741" y="336.4" width="8" height="33.6"/>
+  </g>
+  <!-- Ireland values listed in footnote -->
+  <!-- Northern Virginia bars -->
+  <g fill="#d4471d">
+    <rect x="454.8" y="265" width="8" height="105"/>
+    <rect x="545" y="244" width="8" height="126"/>
+    <rect x="575" y="332.2" width="8" height="37.8"/>
+    <rect x="598" y="279" width="8" height="91"/>
+    <rect x="760" y="104" width="8" height="266"/>
+  </g>
+  <rect x="721" y="335" width="8" height="35" fill="#fbf8f0" stroke="#d4471d" stroke-width="1.5"/>
+  <!-- whiskers for conflicting values -->
+  <line x1="549" y1="244" x2="549" y2="265" stroke="#16130d" stroke-width="1"/>
+  <line x1="544" y1="265" x2="554" y2="265" stroke="#16130d" stroke-width="1"/>
+  <line x1="764" y1="97" x2="764" y2="104" stroke="#16130d" stroke-width="1"/>
+  <line x1="759" y1="97" x2="769" y2="97" stroke="#16130d" stroke-width="1"/>
+  <!-- labels -->
+  <text class="t" x="458.8" y="258" font-size="11" text-anchor="middle" font-weight="600">1.5 GW</text>
+  <text class="m" x="458.8" y="246" font-size="10" text-anchor="middle">Jul 2024</text>
+  <text class="t" x="549" y="237" font-size="11" text-anchor="middle" font-weight="600">1.8 GW*</text>
+  <text class="m" x="549" y="225" font-size="10" text-anchor="middle">Feb 2025</text>
+  <text class="t" x="579" y="325" font-size="10.5" text-anchor="middle">0.54</text>
+  <text class="t" x="610" y="274" font-size="10.5">1.3</text>
+  <text class="t" x="725" y="328" font-size="10.5" text-anchor="middle">0.5†</text>
+  <text class="t" x="752" y="112" font-size="11" text-anchor="end" font-weight="600">≈3.8–3.9 GW</text>
+  <text class="m" x="752" y="124" font-size="10" text-anchor="end">Jul 22, 2026 · two waves</text>
+  <!-- notes -->
+  <text class="m" x="24" y="418" font-size="10.5">* Feb 17, 2025: ~1,800 MW per NERC/PJM; ~1,500 MW per APPA (whisker). Jul 2026: ~3,800 MW (Aug deck) / ~3,900 MW (Sep deck).</text>
+  <text class="m" x="24" y="434" font-size="10.5">† Apr 18, 2026: sustained loss on a similar fault after sites lengthened dip-count timers (outlined bar).</text>
+  <text class="m" x="24" y="450" font-size="10.5">Ireland (MW, share of data center demand): 74 (16%), 204 (34%), 321 (44%), 387 (52%), 480 (52%). Bars slightly offset where dates coincide.</text>
+</svg>
