@@ -22,12 +22,13 @@ test("home page renders", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("marketing /tools lists the three tools", async ({ page }) => {
+test("marketing /tools lists the four tools", async ({ page }) => {
   const errors = watchForClientErrors(page);
   await page.goto("/tools");
   await expect(page.getByRole("heading", { name: /PUE Calculator/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Cost Model/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Single.line/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Rackline DCIM/i })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -56,6 +57,21 @@ test("Single-line page mounts (tool or members sign-in card)", async ({ page }) 
   await expect(
     page.getByText(/AI Factory\s*(—\s*)?Single-line/).first(),
   ).toBeVisible({ timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
+test("Rackline page mounts (tool or members sign-in card)", async ({ page }) => {
+  const errors = watchForClientErrors(page);
+  await page.goto("/dashboard/tools/rackline");
+  // Gate card and workbench header both carry the tool title as the h1.
+  await expect(page.getByRole("heading", { level: 1, name: "Rackline DCIM" })).toBeVisible({ timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
+test("Rackline invite page handles an unknown link without crashing", async ({ page }) => {
+  const errors = watchForClientErrors(page);
+  await page.goto("/invite/not-a-real-token");
+  await expect(page.getByText(/Project invite/)).toBeVisible({ timeout: 15_000 });
   expect(errors).toEqual([]);
 });
 

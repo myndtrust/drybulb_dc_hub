@@ -1,0 +1,8 @@
+# Build the rackline-api image from the repo root (the Dockerfile needs lib/rackline).
+#   gcloud builds submit . --config services/rackline-api/cloudbuild.yaml --project wordpress103020
+# then deploy the image (see services/rackline-api/README.md).
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "services/rackline-api/Dockerfile", "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/rackline/rackline-api:latest", "."]
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/rackline/rackline-api:latest

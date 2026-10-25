@@ -1,0 +1,24 @@
+{
+  "name": "rackline-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloud Run service for the Rackline DCIM tool: signed GCS file access, server-side PDF/DXF background processing, and layout sweeps.",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "type-check": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
+    "@napi-rs/canvas": "^0.1.65",
+    "pdfjs-dist": "4.10.38",
+    "tsx": "^4.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "typescript": "^5"
+  }
+}

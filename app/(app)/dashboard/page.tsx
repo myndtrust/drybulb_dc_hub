@@ -1,5 +1,7 @@
 import { Metadata } from "next";
 import { constructMetadata } from "@/lib/metadata";
+import { PendingInvites } from "@/components/rackline/pending-invites";
+import { ProjectNotices } from "@/components/rackline/project-notices";
 
 export const metadata: Metadata = constructMetadata({
   title: "Dashboard",
@@ -13,6 +15,10 @@ export const metadata: Metadata = constructMetadata({
 export default function DashboardPage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+      <div className="w-full max-w-xl text-left">
+        <ProjectNotices variant="list" />
+        <PendingInvites variant="list" />
+      </div>
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground max-w-md">

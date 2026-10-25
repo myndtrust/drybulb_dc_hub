@@ -1,0 +1,44 @@
+{
+  "name": "customer_base",
+  "owner": "eric@drybulb.com",
+  "access": "admin",
+  "units": "ft",
+  "notes": "Site name / address. Sources: <data-room docs used>.",
+  "library": {
+    "catalog": ["b300-air", "dgx-b200"],
+    "custom": [
+      {
+        "id": "client-node",
+        "name": "Vendor model (8× GPU, cooling, U)",
+        "cat": "compute",
+        "u": 8,
+        "kw": 12.0,
+        "psu": 6,
+        "psuW": 3200,
+        "liq": 0,
+        "ports": { "fabric": 8, "storage": 2, "mgmt": 1, "bmc": 1 },
+        "note": "Source: <datasheet URL>. kW est. from <basis>."
+      }
+    ]
+  },
+  "electrical": {
+    "nodes": [
+      { "id": "util", "type": "utility", "name": "Utility service", "v": 12470, "scc": 0 },
+      { "id": "mvsw", "type": "switch", "name": "MV switchgear", "v": 12470, "amps": 600 },
+      { "id": "tx1", "type": "xfmr", "name": "Transformer T1", "kva": 2500, "vp": 12470, "v": 415, "z": 5.75 },
+      { "id": "msb", "type": "swbd", "name": "LV main switchboard", "v": 415, "amps": 4000 },
+      { "id": "upsa", "type": "ups", "name": "UPS-A", "v": 415, "kva": 500, "eff": 0.96 },
+      { "id": "upsb", "type": "ups", "name": "UPS-B", "v": 415, "kva": 500, "eff": 0.96 },
+      { "id": "rppa", "type": "rpp", "name": "RPP-A", "v": 415, "amps": 400 },
+      { "id": "rppb", "type": "rpp", "name": "RPP-B", "v": 415, "amps": 400 },
+      { "id": "mp1", "type": "mech", "name": "Mechanical panel", "v": 415, "amps": 800, "auto": true, "kw": 0 }
+    ],
+    "links": [["util", "mvsw"], ["mvsw", "tx1"], ["tx1", "msb"], ["msb", "upsa"], ["upsa", "rppa"], ["msb", "upsb"], ["upsb", "rppb"], ["msb", "mp1"]]
+  },
+  "feeds": { "a": "rppa", "b": "rppb" },
+  "cooling": { "ambF": 95 },
+  "scenarios": [
+    { "name": "A · 1 node / rack, HAC", "nodes": 8, "model": "b300-air", "perRack": 1, "cooling": "hac", "pattern": "pod" },
+    { "name": "B · 2 nodes / rack, HAC", "nodes": 8, "model": "b300-air", "perRack": 2, "cooling": "hac", "pattern": "pod" }
+  ]
+}

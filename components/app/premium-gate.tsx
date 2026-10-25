@@ -9,8 +9,8 @@ import {
   createClient,
   getSessionSafe,
   isSupabaseConfigured,
-  signInWithGoogle,
 } from "@/lib/supabase/client";
+import { SignInOptions } from "@/components/app/sign-in";
 import { hasAccess, isPremium } from "@/lib/entitlements";
 
 /**
@@ -108,9 +108,7 @@ export function PremiumGate({
             <span className="font-medium text-foreground">free while in beta</span>{" "}
             — sign in to get instant access. No payment required today.
           </p>
-          <Button onClick={() => signInWithGoogle(`/dashboard/tools/${slug}`)}>
-            Sign in with Google
-          </Button>
+          <SignInOptions next={`/dashboard/tools/${slug}`} />
           <p className="mt-4 text-xs text-muted-foreground">
             Creating an account also lets you save and reload your models.
           </p>

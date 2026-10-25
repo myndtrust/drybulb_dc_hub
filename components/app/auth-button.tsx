@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   createClient,
   getSessionSafe,
   isSupabaseConfigured,
-  signInWithGoogle,
   signOut,
 } from "@/lib/supabase/client";
 
 export function AuthButton() {
   const [email, setEmail] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -45,8 +47,8 @@ export function AuthButton() {
   }
 
   return (
-    <Button size="sm" onClick={() => signInWithGoogle()}>
-      Sign in with Google
+    <Button size="sm" asChild>
+      <Link href={pathname === "/signin" ? "/signin" : `/signin?next=${encodeURIComponent(pathname)}`}>Sign in</Link>
     </Button>
   );
 }

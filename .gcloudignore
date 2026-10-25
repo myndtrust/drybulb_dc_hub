@@ -1,0 +1,11 @@
+# Cloud Build uploads from the repo root (services/rackline-api/cloudbuild.yaml).
+# The rackline-api image needs only its own service folder and the shared engine,
+# so upload nothing else.
+/*
+!/services/
+/services/*
+!/services/rackline-api/
+/services/rackline-api/node_modules/
+!/lib/
+/lib/*
+!/lib/rackline/

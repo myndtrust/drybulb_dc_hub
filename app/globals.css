@@ -200,3 +200,69 @@ body {
   margin-top: 3rem;
   margin-bottom: 3rem;
 }
+
+/* ── Rackline DCIM (components/rackline) ─────────────────────────────────────
+   Engineering colours with fixed meaning: A/B feeds, L1–L3 phases, hot/cold
+   aisles, pathway kinds and pass/check/fail status. Scoped to the tool. */
+.rackline {
+  --rl-canvas: oklch(0.985 0.003 150);
+  --rl-accent: #0c6a80;
+  --rl-accent-soft: #d6ebf0;
+  --rl-feedA: #2456c4;
+  --rl-feedB: #c24f17;
+  --rl-l1: #7a4b22;
+  --rl-l2: #d9730d;
+  --rl-l3: #b89500;
+  --rl-hot: #c7392f;
+  --rl-hot-soft: rgba(199, 57, 47, 0.12);
+  --rl-cold: #2575b5;
+  --rl-cold-soft: rgba(37, 117, 181, 0.12);
+  --rl-ok: #2c7a4c;
+  --rl-warn: #a86d12;
+  --rl-bad: #be3328;
+  --rl-ok-soft: #ddefe3;
+  --rl-warn-soft: #f6ebd3;
+  --rl-bad-soft: #f6dcd8;
+  --rl-grid: rgba(23, 32, 28, 0.06);
+  --rl-grid2: rgba(23, 32, 28, 0.13);
+  --rl-tray-fiber: #d69a00;
+  --rl-tray-ladder: #6b7a74;
+  --rl-tray-power: #8e44ad;
+  --rl-tray-busway: #b03a6f;
+  --rl-cat-compute: #d6ebf0;
+  --rl-cat-network: #f6ebd3;
+  --rl-cat-storage: #ddefe3;
+  --rl-cat-server: #e4e8e4;
+  --rl-cat-passive: #f7f8f5;
+}
+.dark .rackline {
+  --rl-canvas: oklch(0.17 0.004 150);
+  --rl-accent: #4db4cc;
+  --rl-accent-soft: #183840;
+  --rl-feedA: #76a0ff;
+  --rl-feedB: #f28c4e;
+  --rl-l1: #c99a6b;
+  --rl-l2: #f2a14b;
+  --rl-l3: #e3c84a;
+  --rl-hot: #f0685c;
+  --rl-hot-soft: rgba(240, 104, 92, 0.16);
+  --rl-cold: #5faae8;
+  --rl-cold-soft: rgba(95, 170, 232, 0.16);
+  --rl-ok: #5bc489;
+  --rl-warn: #e3b04f;
+  --rl-bad: #f2766b;
+  --rl-ok-soft: #173326;
+  --rl-warn-soft: #3a2e14;
+  --rl-bad-soft: #3d1d1a;
+  --rl-grid: rgba(226, 232, 229, 0.05);
+  --rl-grid2: rgba(226, 232, 229, 0.11);
+  --rl-tray-fiber: #f0b92e;
+  --rl-tray-ladder: #9aaba4;
+  --rl-tray-power: #b67bd1;
+  --rl-tray-busway: #e0709f;
+  --rl-cat-compute: #183840;
+  --rl-cat-network: #3a2e14;
+  --rl-cat-storage: #173326;
+  --rl-cat-server: #222c28;
+  --rl-cat-passive: #111816;
+}

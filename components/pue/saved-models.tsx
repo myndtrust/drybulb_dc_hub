@@ -6,8 +6,8 @@ import {
   createClient,
   getSessionSafe,
   isSupabaseConfigured,
-  signInWithGoogle,
 } from "@/lib/supabase/client";
+import { SignInOptions } from "@/components/app/sign-in";
 import {
   listModels,
   saveModel,
@@ -99,9 +99,7 @@ export function SavedModels({
         <p className="mb-3 text-sm text-muted-foreground">
           Sign in to save this configuration and reload it any time.
         </p>
-        <Button size="sm" onClick={() => signInWithGoogle()}>
-          Sign in with Google
-        </Button>
+        <SignInOptions size="sm" align="start" />
       </div>
     );
   }

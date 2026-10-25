@@ -59,3 +59,6 @@ public/data/datacenter_jobs_seed.json
 
 # velite generated output
 .velite
+
+# rackline-api Cloud Run service (services/rackline-api)
+services/*/node_modules/

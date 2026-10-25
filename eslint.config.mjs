@@ -32,6 +32,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Prototype sandbox (HTML drafts + CommonJS test rigs); not shipped product code.
     "drafts/**",
+    // Cloud Run services carry their own package.json / tsconfig.
+    "services/**",
   ]),
 ]);
 

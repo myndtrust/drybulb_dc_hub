@@ -52,10 +52,46 @@ export async function signInWithGoogle(next?: string) {
   const target =
     next ?? (typeof window !== "undefined" ? window.location.pathname : "/");
   const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(target)}`;
-  await createClient().auth.signInWithOAuth({
+  const supabase = createClient();
+  // Drop any current session (cookies only, this browser) so a failed or partial
+  // callback can never leave the previous account signed in.
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+  await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo },
+    // Always show Google's account chooser; otherwise Google silently reuses the
+    // browser's current Google account and switching accounts is impossible.
+    options: { redirectTo, queryParams: { prompt: "select_account" } },
   });
+}
+
+/**
+ * Email sign-in (also signs up new people): Supabase emails a one-time code plus a
+ * link. Typing the code works on any device; the link returns via /auth/callback
+ * and only works in this browser (PKCE). The emails are Supabase's "Confirm signup"
+ * (new people) and "Magic Link" (returning) templates; both must include
+ * {{ .Token }} for the code to appear.
+ */
+export async function sendEmailCode(email: string, next?: string): Promise<{ error: string | null }> {
+  const target = next ?? window.location.pathname;
+  const supabase = createClient();
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(target)}`,
+    },
+  });
+  return { error: error?.message ?? null };
+}
+
+/**
+ * Finish email sign-in with the code from the email. Returns Supabase's reason on
+ * failure (wrong / expired / superseded code) rather than throwing.
+ */
+export async function verifyEmailCode(email: string, code: string): Promise<{ error: string | null }> {
+  const { error } = await createClient().auth.verifyOtp({ email, token: code, type: "email" });
+  return { error: error?.message ?? null };
 }
 
 export async function signOut() {

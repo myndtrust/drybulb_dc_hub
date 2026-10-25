@@ -17,7 +17,7 @@ const cspReportOnly = [
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cloud.umami.is",
-  "connect-src 'self' https://*.supabase.co https://power.larc.nasa.gov https://storage.googleapis.com https://cloud.umami.is https://*.umami.dev",
+  "connect-src 'self' https://*.supabase.co https://*.run.app https://power.larc.nasa.gov https://storage.googleapis.com https://cloud.umami.is https://*.umami.dev",
   "worker-src 'self' blob:",
 ].join("; ");
 
