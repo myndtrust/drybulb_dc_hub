@@ -90,7 +90,7 @@ export function InviteFlow({ token }: { token: string }) {
             <h1 className="text-2xl font-bold tracking-tight">{inv?.project_name ?? "Shared project"}</h1>
             {inv && step !== "invalid" && (
               <p className="text-sm text-muted-foreground">
-                {inv.invited_by} invited you to {roleText[inv.role]} this project in Drybulb AI Factory Infrastructure Management. Sent to <span className="font-mono">{inv.email_hint}</span>.
+                {inv.invited_by} invited you to {roleText[inv.role]} this project in Drybulb AI Factory Infrastructure Design. Sent to <span className="font-mono">{inv.email_hint}</span>.
               </p>
             )}
           </div>

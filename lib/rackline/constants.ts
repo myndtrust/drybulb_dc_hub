@@ -7,7 +7,7 @@ import type {
 } from "./types";
 
 /** Product name shown to users (the codebase, routes and tables keep "rackline"). */
-export const TOOL_NAME = "Drybulb AI Factory Infrastructure Management";
+export const TOOL_NAME = "Drybulb AI Factory Infrastructure Design";
 
 export const FT = 0.3048;
 /** BTU/h per kW. */
