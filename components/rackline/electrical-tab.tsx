@@ -42,21 +42,33 @@ function newNode(t: ElecType, name: string, x: number, y: number): ElecNode {
   return n;
 }
 
+/** A connection being drawn or moved with the mouse. */
+type Wire =
+  | { mode: "new"; from: string }
+  | { mode: "rewire"; link: string; end: "from" | "to" }
+  | { mode: "feed"; rack: string; f: "A" | "B" };
+
 export function ElectricalTab(p: TabProps) {
-  const { scenario: S, an, commit, live, beginLive, endLive } = p;
+  const { scenario: S, an, commit, live, beginLive, endLive, toast } = p;
   const svgRef = useRef<SVGSVGElement>(null);
   const [v, setV] = useState<V>({ tx: 30, ty: 30, z: 1 });
   const [sel, setSel] = useState<string | null>(null);
   const [connMode, setConnMode] = useState(false);
   const [connFrom, setConnFrom] = useState<string | null>(null);
-  const drag = useRef<{ k: "pan"; sx: number; sy: number; tx: number; ty: number } | { k: "node"; id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const drag = useRef<
+    | { k: "pan"; sx: number; sy: number; tx: number; ty: number }
+    | { k: "node" | "racks"; id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean }
+    | { k: "wire"; w: Wire }
+    | null>(null);
+  /** Rubber band while a connection is dragged: anchor, pointer and the card under it. */
+  const [band, setBand] = useState<{ x1: number; y1: number; x2: number; y2: number; target: string | null } | null>(null);
   const E = S.electrical, R = an.elec;
   const node = E.nodes.find((n) => n.id === sel), link = E.links.find((l) => l.id === sel);
 
   const fit = useCallback(() => {
     const svg = svgRef.current;
     if (!svg || !E.nodes.length) return;
-    const xs = E.nodes.map((n) => n.x), ys = E.nodes.map((n) => n.y);
+    const xs = E.nodes.flatMap((n) => [n.x, n.x + (n.rackDx ?? 10)]), ys = E.nodes.flatMap((n) => [n.y, n.y + (n.rackDy ?? NH + 8)]);
     const x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + NW + 30, y0 = Math.min(...ys) - 30, y1 = Math.max(...ys) + NH + 170;
     const W = svg.clientWidth || 800, H = svg.clientHeight || 600;
     const z = Math.max(0.2, Math.min(1.4, Math.min(W / (x1 - x0), H / (y1 - y0))));
@@ -110,10 +122,61 @@ export function ElectricalTab(p: TabProps) {
     return [(e.clientX - r.left - v.tx) / v.z, (e.clientY - r.top - v.ty) / v.z];
   };
 
+  /** The card under a world point (top-most first). */
+  const nodeAt = (x: number, y: number) => [...E.nodes].reverse().find((n) => x >= n.x && x <= n.x + NW && y >= n.y && y <= n.y + NH) ?? null;
+  const startWire = (w: Wire, x1: number, y1: number, e: React.PointerEvent) => {
+    const [x, y] = toW(e);
+    drag.current = { k: "wire", w };
+    setBand({ x1, y1, x2: x, y2: y, target: null });
+  };
+
   const onDown = (e: React.PointerEvent<SVGSVGElement>) => {
     svgRef.current!.setPointerCapture(e.pointerId);
     const t = e.target as Element;
+    if (e.button === 0 && !connMode && !connFrom) {
+      // Drag an existing connection's end to another card.
+      const en = t.closest("[data-end]") as HTMLElement | null;
+      if (en) {
+        const [id, end] = en.dataset.end!.split(":") as [string, "from" | "to"];
+        const l = E.links.find((q) => q.id === id), a = l && by.get(l.from), b = l && by.get(l.to);
+        if (l && a && b) {
+          setSel(id);
+          // The band is anchored at the end that stays put.
+          if (end === "to") startWire({ mode: "rewire", link: id, end }, a.x + (ports.outP.get(id) ?? NW / 2), a.y + NH, e);
+          else startWire({ mode: "rewire", link: id, end }, b.x + (ports.inP.get(id) ?? NW / 2), b.y, e);
+          return;
+        }
+      }
+      // Drag from under a card to start a new connection.
+      const wr = t.closest("[data-wire]") as HTMLElement | null;
+      if (wr) {
+        const n = by.get(wr.dataset.wire!)!;
+        const [x] = toW(e);
+        setSel(n.id);
+        startWire({ mode: "new", from: n.id }, Math.max(n.x, Math.min(n.x + NW, x)), n.y + NH, e);
+        return;
+      }
+      // Drag one rack's A or B feed to another card.
+      const fd = t.closest("[data-feed]") as HTMLElement | null;
+      if (fd) {
+        const [rack, f] = fd.dataset.feed!.split(":") as [string, "A" | "B"];
+        const [x, y] = toW(e);
+        startWire({ mode: "feed", rack, f }, x, y, e);
+        return;
+      }
+    }
     const nd = t.closest("[data-node]") as HTMLElement | null, lk = t.closest("[data-link]") as HTMLElement | null;
+    const rg = t.closest("[data-racks]") as HTMLElement | null;
+    if (rg && e.button === 0 && !connMode && !connFrom) {
+      // Drag a node's rack list on its own; it stays attached to (and moves with) its node.
+      const id = rg.dataset.racks!;
+      const n = E.nodes.find((q) => q.id === id)!;
+      const w = toW(e);
+      setSel(id);
+      beginLive();
+      drag.current = { k: "racks", id, sx: w[0], sy: w[1], ox: n.rackDx ?? 10, oy: n.rackDy ?? NH + 8, moved: false };
+      return;
+    }
     if (nd && e.button === 0) {
       const id = nd.dataset.node!;
       if (connMode || connFrom) {
@@ -140,14 +203,58 @@ export function ElectricalTab(p: TabProps) {
     const d = drag.current;
     if (!d) return;
     if (d.k === "pan") { setV({ ...v, tx: d.tx + e.clientX - d.sx, ty: d.ty + e.clientY - d.sy }); return; }
+    if (d.k === "wire") {
+      const [x, y] = toW(e);
+      setBand((b) => b && { ...b, x2: x, y2: y, target: nodeAt(x, y)?.id ?? null });
+      return;
+    }
     const w = toW(e);
     d.moved = true;
     live((_p, s) => {
       const n = s.electrical.nodes.find((q) => q.id === d.id);
-      if (n) { n.x = Math.round((d.ox + w[0] - d.sx) / 10) * 10; n.y = Math.round((d.oy + w[1] - d.sy) / 10) * 10; }
+      if (!n) return;
+      const x = Math.round((d.ox + w[0] - d.sx) / 10) * 10, y = Math.round((d.oy + w[1] - d.sy) / 10) * 10;
+      if (d.k === "node") { n.x = x; n.y = y; } else { n.rackDx = x; n.rackDy = y; }
     });
   };
-  const onUp = () => { const d = drag.current; drag.current = null; if (d?.k === "node") endLive(d.moved); };
+  const onUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (d?.k === "wire") { setBand(null); dropWire(d.w, e); return; }
+    if (d && d.k !== "pan") endLive(d.moved);
+  };
+
+  /** Apply a dragged connection to the card it was dropped on. */
+  const dropWire = (w: Wire, e: React.PointerEvent) => {
+    const [x, y] = toW(e);
+    const t = nodeAt(x, y);
+    if (!t) return;
+    const name = (id: string) => by.get(id)?.name ?? "?";
+    const dup = (from: string, to: string, skip?: string) => E.links.some((l) => l.id !== skip && l.from === from && l.to === to);
+    if (w.mode === "new") {
+      if (t.id === w.from) return;
+      if (dup(w.from, t.id)) { toast(`${name(w.from)} already feeds ${t.name}`); return; }
+      const id = uid();
+      commit((_p, s) => { s.electrical.links.push({ id, from: w.from, to: t.id }); });
+      setSel(id);
+      toast(`Connected ${name(w.from)} → ${t.name}`);
+    } else if (w.mode === "rewire") {
+      const l = E.links.find((q) => q.id === w.link);
+      if (!l) return;
+      const from = w.end === "from" ? t.id : l.from, to = w.end === "to" ? t.id : l.to;
+      if ((w.end === "from" ? l.from : l.to) === t.id) return;
+      if (from === to) { toast("A connection can't start and end on the same equipment"); return; }
+      if (dup(from, to, l.id)) { toast(`${name(from)} already feeds ${name(to)}`); return; }
+      commit((_p, s) => { const q = s.electrical.links.find((z) => z.id === w.link); if (q) { q.from = from; q.to = to; } });
+      toast(`Reconnected: ${name(from)} → ${name(to)}`);
+    } else {
+      const r = S.racks.find((q) => q.id === w.rack);
+      if (!r) return;
+      const other = w.f === "A" ? r.feedB : r.feedA;
+      commit((_p, s) => { const q = s.racks.find((z) => z.id === w.rack); if (q) { if (w.f === "A") q.feedA = t.id; else q.feedB = t.id; } });
+      toast(`${r.name} feed ${w.f} now from ${t.name}${other === t.id ? ". A and B now share one source" : ""}`);
+    }
+  };
 
   const add = (t: ElecType) => {
     const svg = svgRef.current;
@@ -163,6 +270,25 @@ export function ElectricalTab(p: TabProps) {
 
   const by = new Map(E.nodes.map((n) => [n.id, n]));
   const r = node ? R[node.id] : undefined;
+
+  // Connectors: each node's inputs spread evenly along its top edge and its outputs along its bottom,
+  // ordered by where the other end sits so lines don't cross needlessly. A node feeding racks keeps
+  // one more output, last, for its rack lead.
+  const ports = (() => {
+    const inP = new Map<string, number>(), outP = new Map<string, number>(); // link id → x offset in its node
+    const rackX = new Map<string, number>(); // node id → x offset of the rack lead
+    const cx = (id: string) => (by.get(id)?.x ?? 0) + NW / 2;
+    const spread = (k: number, i: number) => ((i + 1) * NW) / (k + 1);
+    for (const n of E.nodes) {
+      const ins = E.links.filter((l) => l.to === n.id && by.has(l.from)).sort((a, b) => cx(a.from) - cx(b.from));
+      const outs = E.links.filter((l) => l.from === n.id && by.has(l.to)).sort((a, b) => cx(a.to) - cx(b.to));
+      const k = outs.length + ((R[n.id]?.racks.length ?? 0) > 0 ? 1 : 0);
+      ins.forEach((l, i) => inP.set(l.id, spread(ins.length, i)));
+      outs.forEach((l, i) => outP.set(l.id, spread(k, i)));
+      if (k > outs.length) rackX.set(n.id, spread(k, k - 1));
+    }
+    return { inP, outP, rackX };
+  })();
   const loaded = Object.values(R).filter((x) => x.cap);
 
   return (
@@ -174,10 +300,10 @@ export function ElectricalTab(p: TabProps) {
           </div>
           <div className="flex flex-wrap gap-1">
             <Btn on={connMode || !!connFrom} onClick={() => { setConnMode(!(connMode || connFrom)); setConnFrom(null); }}>Connect</Btn>
-            <Btn onClick={() => commit((_p, s) => autoLayoutElectrical(s.electrical))}>Auto-arrange</Btn>
+            <Btn onClick={() => commit((_p, s) => { autoLayoutElectrical(s.electrical); for (const n of s.electrical.nodes) { delete n.rackDx; delete n.rackDy; } })}>Auto-arrange</Btn>
             <Btn tone="danger" onClick={() => { commit((_p, s) => { s.electrical = defaultElectrical(); s.racks.forEach((q) => { q.feedA = "rppa"; q.feedB = "rppb"; }); }); setSel(null); }}>Reset to default 2N</Btn>
           </div>
-          <Hint>Connect: click upstream then downstream. Racks attach through their feed A and B sources (Power striping tab). Design load is the worst of normal, A-feed lost and B-feed lost.</Hint>
+          <Hint>Drag from the strip under a card onto another card to connect. Drag a connection&apos;s dot to reconnect it; double-click a connection to delete it. Drag a rack row (A or B) onto other equipment to move that feed. Drag a rack list to move it on its own. Connect: click upstream then downstream. Racks attach through their feed A and B sources (Power striping tab). Design load is the worst of normal, A-feed lost and B-feed lost.</Hint>
         </Section>
 
         {node && (
@@ -207,6 +333,19 @@ export function ElectricalTab(p: TabProps) {
               <Label>Design utilisation</Label><span>{r?.cap ? <UtilChip u={r.util} /> : "—"}</span>
               {r?.isc != null && <><Label>Secondary fault</Label><span className="font-mono text-xs">{n1(r.isc)} kA sym</span></>}
             </KV>
+            {(() => {
+              const ins = E.links.filter((l) => l.to === node.id), outs = E.links.filter((l) => l.from === node.id);
+              const row = (l: (typeof E.links)[number], other: string) => (
+                <li key={l.id}><button type="button" className="text-left hover:underline" onClick={() => setSel(l.id)}>{by.get(other)?.name ?? "?"}</button></li>
+              );
+              return (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><p className="font-medium">Inputs ({ins.length})</p><ul className="text-muted-foreground">{ins.map((l) => row(l, l.from))}</ul></div>
+                  <div><p className="font-medium">Outputs ({outs.length}{r?.racks.length ? ` + ${r.racks.length} rack feeds` : ""})</p><ul className="text-muted-foreground">{outs.map((l) => row(l, l.to))}</ul></div>
+                </div>
+              );
+            })()}
+            <Hint>Any number of inputs and outputs: use Connect to add one. Inputs land along the top edge, outputs leave from the bottom.</Hint>
             <Btn tone="danger" onClick={del}>Delete</Btn>
           </Section>
         )}
@@ -226,13 +365,25 @@ export function ElectricalTab(p: TabProps) {
       </aside>
 
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--rl-canvas)]">
-        <svg ref={svgRef} className="block h-full w-full touch-none select-none" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+        <svg ref={svgRef} className="block h-full w-full touch-none select-none" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+          onDoubleClick={(e) => {
+            const lk = (e.target as Element).closest("[data-link]") as HTMLElement | null;
+            if (!lk) return;
+            const id = lk.dataset.link!, l = E.links.find((q) => q.id === id);
+            commit((_p, s) => { s.electrical.links = s.electrical.links.filter((q) => q.id !== id); });
+            setSel(null);
+            if (l) toast(`Deleted ${by.get(l.from)?.name} → ${by.get(l.to)?.name}`);
+          }}>
           <g transform={`translate(${v.tx},${v.ty}) scale(${v.z})`}>
             {E.links.map((l) => {
               const a = by.get(l.from), b = by.get(l.to);
               if (!a || !b) return null;
-              const x1 = a.x + NW / 2, y1 = a.y + NH, x2 = b.x + NW / 2, y2 = b.y, my = y1 + (y2 - y1) / 2;
-              const d = `M${x1} ${y1}V${my}H${x2}V${y2}`;
+              const x1 = a.x + (ports.outP.get(l.id) ?? NW / 2), y1 = a.y + NH, x2 = b.x + (ports.inP.get(l.id) ?? NW / 2), y2 = b.y;
+              // Downward: one elbow at mid-height. Upward (target above source): drop below the source,
+              // run across, rise above the target, then come into its top.
+              const d = y2 > y1 + 16
+                ? `M${x1} ${y1}V${y1 + (y2 - y1) / 2}H${x2}V${y2}`
+                : `M${x1} ${y1}V${y1 + 12}H${(x1 + x2) / 2}V${y2 - 12}H${x2}V${y2}`;
               return (
                 <g key={l.id}>
                   <path d={d} fill="none" stroke={sel === l.id ? "var(--rl-accent)" : "var(--foreground)"} strokeWidth={sel === l.id ? 3 : 1.6} />
@@ -264,25 +415,60 @@ export function ElectricalTab(p: TabProps) {
                     ) : null}
                     {x?.isc != null && <text x={42} y={70} fontSize={10.5} fill="var(--muted-foreground)" className="font-mono">Isc {n1(x.isc)} kA</text>}
                     {connFrom === n.id && <rect width={NW} height={NH} rx={4} fill="none" stroke="var(--rl-accent)" strokeWidth={3} strokeDasharray="5 3" />}
+                    <rect data-wire={n.id} x={6} y={NH - 3} width={NW - 12} height={11} fill="transparent" style={{ cursor: "crosshair" }}>
+                      <title>Drag to another card to connect</title>
+                    </rect>
+                    {band?.target === n.id && <rect width={NW} height={NH} rx={4} fill="var(--rl-accent)" fillOpacity={0.08} stroke="var(--rl-accent)" strokeWidth={2.5} pointerEvents="none" />}
+                    {E.links.filter((l) => l.to === n.id && ports.inP.has(l.id)).map((l) => (
+                      <g key={"i" + l.id} data-end={`${l.id}:to`} style={{ cursor: "grab" }}>
+                        <circle cx={ports.inP.get(l.id)} cy={0} r={7} fill="transparent" />
+                        <circle cx={ports.inP.get(l.id)} cy={0} r={3} fill="var(--card)" stroke={sel === l.id ? "var(--rl-accent)" : "var(--foreground)"} strokeWidth={1.3} />
+                        <title>Drag this end onto another card to move the connection there</title>
+                      </g>
+                    ))}
+                    {E.links.filter((l) => l.from === n.id && ports.outP.has(l.id)).map((l) => (
+                      <g key={"o" + l.id} data-end={`${l.id}:from`} style={{ cursor: "grab" }}>
+                        <circle cx={ports.outP.get(l.id)} cy={NH} r={7} fill="transparent" />
+                        <circle cx={ports.outP.get(l.id)} cy={NH} r={3} fill="var(--foreground)" stroke={sel === l.id ? "var(--rl-accent)" : "var(--foreground)"} strokeWidth={1.3} />
+                        <title>Drag this end onto another card to feed the connection from it</title>
+                      </g>
+                    ))}
                   </g>
                   {racks.length > 0 && (() => {
                     const lines = racks.slice(0, 10), bh = 14 + lines.length * 13 + (racks.length > 10 ? 13 : 0);
+                    // The rack list sits at its own offset from the node (drag it); its lead leaves from the
+                    // node's last output connector and comes into the top of the list.
+                    const dx = n.rackDx ?? 10, dy = n.rackDy ?? NH + 8;
+                    const px = ports.rackX.get(n.id) ?? NW / 2, gx = dx + (NW - 20) / 2;
+                    const lead = dy >= NH + 8
+                      ? `M${px} ${NH}V${NH + (dy - NH) / 2}H${gx}V${dy}`
+                      : `M${px} ${NH}V${NH + 10}H${dx + NW - 10}V${dy - 10}H${gx}V${dy}`;
                     return (
-                      <g transform={`translate(${n.x + 10},${n.y + NH + 8})`} pointerEvents="none">
-                        <path d={`M${NW / 2 - 10} -8V0`} stroke="var(--foreground)" strokeDasharray="3 2" />
-                        <rect width={NW - 20} height={bh} rx={3} fill="var(--rl-canvas)" stroke="var(--border)" strokeDasharray="3 2" />
+                      <g>
+                        <path d={lead} transform={`translate(${n.x},${n.y})`} fill="none" stroke="var(--foreground)" strokeDasharray="3 2" pointerEvents="none" />
+                        <circle cx={n.x + px} cy={n.y + NH} r={3} fill="var(--foreground)" pointerEvents="none" />
+                      <g data-racks={n.id} transform={`translate(${n.x + dx},${n.y + dy})`} style={{ cursor: "move" }}>
+                        <rect width={NW - 20} height={bh} rx={3} fill="var(--rl-canvas)" stroke={sel === n.id ? "var(--rl-accent)" : "var(--border)"} strokeDasharray="3 2" />
                         {lines.map((q, i) => (
-                          <text key={i} x={8} y={17 + i * 13} fontSize={10.5} fill="var(--muted-foreground)" className="font-mono">
-                            <tspan fill={`var(--rl-feed${q.f})`}>{q.f}</tspan> {q.x.r.name} · {n1(q.x.it / 2)} / {n1(q.x.it)} kW
-                          </text>
+                          <g key={i} data-feed={`${q.x.r.id}:${q.f}`} style={{ cursor: "grab" }}>
+                            <rect x={3} y={7 + i * 13} width={NW - 26} height={13} rx={2} fill="transparent" />
+                            <text x={8} y={17 + i * 13} fontSize={10.5} fill="var(--muted-foreground)" className="font-mono">
+                              <tspan fill={`var(--rl-feed${q.f})`}>{q.f}</tspan> {q.x.r.name} · {n1(q.x.it / 2)} / {n1(q.x.it)} kW
+                            </text>
+                            <title>{`Drag onto other equipment to move ${q.x.r.name}'s ${q.f} feed`}</title>
+                          </g>
                         ))}
                         {racks.length > 10 && <text x={8} y={17 + 10 * 13} fontSize={10.5} fill="var(--muted-foreground)">+{racks.length - 10} more</text>}
+                      </g>
                       </g>
                     );
                   })()}
                 </g>
               );
             })}
+            {band && (
+              <path d={`M${band.x1} ${band.y1}L${band.x2} ${band.y2}`} fill="none" stroke="var(--rl-accent)" strokeWidth={2} strokeDasharray="6 4" pointerEvents="none" />
+            )}
           </g>
         </svg>
         <div className="absolute right-2.5 top-2.5 flex gap-1">

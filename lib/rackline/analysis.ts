@@ -10,9 +10,10 @@
 import { BTU, CABLE_T, DERATED, SQ3, STD_LEN, redN } from "./constants";
 import { corners, dist, inRect, proj, rackRear } from "./geometry";
 import { stripeLoads, type LibIndex } from "./model";
+import { UNASSIGNED, apportionCarry, netById, netSummaries, netSystems, servedRacks, spineRacks, switchesIn, systemFor, uplinks } from "./network";
 import type {
   Analysis, CableGroup, CableResult, CableType, Check, ElecBasis, ElecNode, ElecResult,
-  Feed, Rack, RackResult, Scenario, TraySeg, Vec,
+  Feed, NetSystem, Rack, RackResult, Scenario, TraySeg, Vec,
 } from "./types";
 
 const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
@@ -30,6 +31,7 @@ export function analyze(s: Scenario, ctx: AnalysisCtx): Analysis {
   const { lib, elec } = ctx;
   const c = s.cool, lf = s.loadFactor || 1;
 
+  const fedBy = new Set(s.electrical.nodes.map((n) => n.id));
   const racks: RackResult[] = s.racks.map((r) => {
     let it = 0, liq = 0, u = 0, nodes = 0;
     for (const d of r.devs) {
@@ -49,6 +51,8 @@ export function analyze(s: Scenario, ctx: AnalysisCtx): Analysis {
     if (air > 45 && !r.rdhx) warn.push(`${n1(air)} kW air load per rack is past practical air cooling`);
     if (r.rdhx && air > c.rdhxKW) warn.push(`RDHx short by ${n1(air - c.rdhxKW)} kW`);
     if (u > r.u) warn.push("Rack over-filled");
+    if (it > 0) for (const [f, id] of [["A", r.feedA], ["B", r.feedB]] as const)
+      if (!id || !fedBy.has(id)) warn.push(`no ${f} feed: assign one in Power striping`);
     return {
       r, it, liq, air, door, room, contained, u, nodes, st, warn,
       cfm: (air * BTU) / (1.08 * c.dtF),
@@ -88,6 +92,9 @@ export function analyze(s: Scenario, ctx: AnalysisCtx): Analysis {
 
   const warns: Check[] = [];
   for (const x of racks) for (const w of x.warn) warns.push({ sev: /over|short|past/.test(w) ? "bad" : "warn", msg: `${x.r.name}: ${w}` });
+  const cduPlaced = s.coolers.filter((o) => o.kind === "cdu").length;
+  if (cduPlaced && cduPlaced < cduTot)
+    warns.push({ sev: "warn", msg: `Placed CDUs ${cduPlaced} are fewer than required ${cduTot} (${c.cduRed})` });
   if (crahPlaced && crahPlaced < crahTot * c.crahKW)
     warns.push({ sev: "warn", msg: `Placed air cooling ${n0(crahPlaced)} kW is below required ${n0(crahTot * c.crahKW)} kW (${c.red})` });
 
@@ -106,6 +113,20 @@ export function analyze(s: Scenario, ctx: AnalysisCtx): Analysis {
   if (out.cab.noPath) warns.push({ sev: "warn", msg: `${out.cab.noPath} cable groups have no tray path; lengths estimated point to point` });
   for (const g of out.cab.segs)
     if (g.fill > s.cable.fillMax) warns.push({ sev: "bad", msg: `${g.t.name} segment ${g.i + 1}: tray fill ${pct(g.fill)} over ${pct(s.cable.fillMax)}` });
+  for (const n of netSummaries(s, lib, out.cab.groups)) {
+    if (n.sys.id === UNASSIGNED.id) warns.push({ sev: "warn", msg: `${n0(n.access)} cables belong to no network system; add their cable type to one on the Network tab` });
+  }
+  // Each leaf rack: its endpoint cables plus its uplinks against its leaves' ports.
+  const onLeaf = new Map<string, { net: string; r: Rack; n: number }>();
+  for (const g of out.cab.groups) {
+    const r = g.link === "access" ? g.to : g.from;
+    const k = g.net + "|" + r.id;
+    (onLeaf.get(k) ?? onLeaf.set(k, { net: g.net, r, n: 0 }).get(k)!).n += g.count;
+  }
+  for (const { net, r, n } of onLeaf.values()) {
+    const ports = switchesIn(r, lib, net, "leaf").reduce((a, d) => a + (lib[d.lib]?.swPorts ?? 0), 0);
+    if (ports && n > ports) warns.push({ sev: "bad", msg: `${r.name}: ${n0(n)} ${netById(netSystems(s), net).name} cables on ${n0(ports)} leaf switch ports` });
+  }
   return out;
 }
 
@@ -277,46 +298,88 @@ export function cableAnalysis(s: Scenario, lib: LibIndex): CableResult {
     return out;
   };
 
-  const nets = s.racks.filter((r) => r.role === "network");
+  type Path = { R: ReturnType<typeof dijk>; to: string } | null;
+  const route = (r: Rack, t: Rack): { t: Rack; len: number; via: CableGroup["via"]; path: Path } => {
+    if (t.id === r.id) return { t, len: 3, via: "in-rack", path: null };
+    if (att[r.id] && att[t.id] && dijk(att[r.id].k).D.has(att[t.id].k)) {
+      const R = dijk(att[r.id].k);
+      return { t, len: (R.D.get(att[t.id].k)! + att[r.id].h + att[t.id].h + 2 * c.perEnd) * (1 + c.slack), via: "tray", path: { R, to: att[t.id].k } };
+    }
+    return { t, len: (Math.abs(r.x - t.x) + Math.abs(r.y - t.y) + 2 * c.perEnd) * (1 + c.slack), via: "direct", path: null };
+  };
   const groups: CableGroup[] = [];
   let noPath = 0;
+  const add = (from: Rack, best: ReturnType<typeof route>, net: string, link: CableGroup["link"], k: CableType, v: number) => {
+    groups.push({ from, to: best.t, net, link, type: k, count: v, len: best.len, std: STD_LEN.find((x) => x >= best.len) || Math.ceil(best.len), via: best.via });
+    if (!best.path) return;
+    // Walk the path back, adding this group's cable cross-section to every edge.
+    let cur = best.path.to, g = 0;
+    const area = ((v * Math.PI) / 4) * CABLE_T[k].od ** 2;
+    while (best.path.R.prev.has(cur) && g++ < 5000) {
+      const e = best.path.R.prev.get(cur)!;
+      e.area += area;
+      cur = e.ka === cur ? e.kb : e.ka;
+    }
+  };
+
+  // Each system's endpoint cables go to the nearest of the racks serving it.
+  const systems = netSystems(s);
+  const served = new Map<string, Rack[]>();
+  const accessIn = new Map<string, Map<string, number>>(); // system → leaf rack → endpoint cables
+  // Rounding carried from rack to rack per (system, cable type) when ports are spread over leaf racks.
+  const carries = new Map<string, number[]>();
+  const carryOf = (key: string, n: number) => carries.get(key) ?? carries.set(key, new Array(n).fill(0)).get(key)!;
+  const servedBy = (sys: NetSystem) => served.get(sys.id) ?? served.set(sys.id, servedRacks(s, lib, sys)).get(sys.id)!;
   for (const r of s.racks) {
-    const ports: Partial<Record<CableType, number>> = {};
+    const bySys = new Map<NetSystem, Partial<Record<CableType, number>>>();
     for (const d of r.devs) {
       const L = lib[d.lib];
       if (!L || !L.ports) continue;
       if (r.role === "network" && L.cat === "network") continue; // switches terminate, they don't uplink here
-      for (const [k, v] of Object.entries(L.ports) as [CableType, number][]) if (v) ports[k] = (ports[k] || 0) + v;
-    }
-    if (!Object.keys(ports).length || !nets.length) continue;
-    let best: { t: Rack; len: number; via: CableGroup["via"]; path: { R: ReturnType<typeof dijk>; to: string } | null } | null = null;
-    for (const t of nets) {
-      let len: number, via: CableGroup["via"], path: { R: ReturnType<typeof dijk>; to: string } | null = null;
-      if (t.id === r.id) { len = 3; via = "in-rack"; }
-      else if (att[r.id] && att[t.id] && dijk(att[r.id].k).D.has(att[t.id].k)) {
-        const R = dijk(att[r.id].k);
-        len = (R.D.get(att[t.id].k)! + att[r.id].h + att[t.id].h + 2 * c.perEnd) * (1 + c.slack);
-        via = "tray";
-        path = { R, to: att[t.id].k };
-      } else {
-        len = (Math.abs(r.x - t.x) + Math.abs(r.y - t.y) + 2 * c.perEnd) * (1 + c.slack);
-        via = "direct";
+      for (const [k, v] of Object.entries(L.ports) as [CableType, number][]) {
+        if (!v) continue;
+        const sys = systemFor(systems, k);
+        const ports = bySys.get(sys) ?? bySys.set(sys, {}).get(sys)!;
+        ports[k] = (ports[k] || 0) + v;
       }
-      if (!best || len < best.len) best = { t, len, via, path };
     }
-    if (!best) continue;
-    if (best.via === "direct") noPath++;
-    for (const [k, v] of Object.entries(ports) as [CableType, number][]) {
-      groups.push({ from: r, to: best.t, type: k, count: v, len: best.len, std: STD_LEN.find((x) => x >= best!.len) || Math.ceil(best.len), via: best.via });
-      if (best.path) {
-        // Walk the path back, adding this group's cable cross-section to every edge.
-        let cur = best.path.to, g = 0;
-        const area = ((v * Math.PI) / 4) * CABLE_T[k].od ** 2;
-        while (best.path.R.prev.has(cur) && g++ < 5000) {
-          const e = best.path.R.prev.get(cur)!;
-          e.area += area;
-          cur = e.ka === cur ? e.kb : e.ka;
+    for (const [sys, ports] of bySys) {
+      const targets = servedBy(sys);
+      if (!targets.length) continue;
+      const m = accessIn.get(sys.id) ?? accessIn.set(sys.id, new Map()).get(sys.id)!;
+      if (sys.attach === "spread" && targets.length > 1) {
+        // Each cable type split over every leaf rack by its leaf count.
+        const w = targets.map((t) => switchesIn(t, lib, sys.id, "leaf").length);
+        const routes = targets.map((t) => route(r, t));
+        if (routes.some((x) => x.via === "direct")) noPath++;
+        for (const [k, v] of Object.entries(ports) as [CableType, number][]) {
+          apportionCarry(v, w, carryOf(sys.id + "|" + k, w.length)).forEach((c, i) => {
+            if (!c) return;
+            add(r, routes[i], sys.id, "access", k, c);
+            m.set(targets[i].id, (m.get(targets[i].id) || 0) + c);
+          });
         }
+        continue;
+      }
+      let best: ReturnType<typeof route> | null = null;
+      for (const t of targets) { const x = route(r, t); if (!best || x.len < best.len) best = x; }
+      if (!best) continue;
+      if (best.via === "direct") noPath++;
+      for (const [k, v] of Object.entries(ports) as [CableType, number][]) add(r, best, sys.id, "access", k, v);
+      m.set(best.t.id, (m.get(best.t.id) || 0) + Object.values(ports).reduce((a, v) => a + (v || 0), 0));
+    }
+  }
+  // Leaf-to-spine uplinks, for systems with spine switches.
+  for (const sys of systems) {
+    const spines = spineRacks(s, lib, sys);
+    if (!spines.length) continue;
+    const k = sys.cables[0] ?? "fabric";
+    for (const [rid, n] of accessIn.get(sys.id) ?? []) {
+      const r = s.racks.find((x) => x.id === rid)!;
+      for (const u of uplinks(r, n, sys, spines)) {
+        const best = route(r, u.to);
+        if (best.via === "direct") noPath++;
+        add(r, best, sys.id, "uplink", k, u.count);
       }
     }
   }

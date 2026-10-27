@@ -1,6 +1,6 @@
 "use client";
 
-import { FEEDABLE, PDU_TYPES } from "@/lib/rackline/constants";
+import { FEEDABLE, MAX_PDU_PAIRS, PDU_TYPES } from "@/lib/rackline/constants";
 import { rackRows } from "@/lib/rackline/geometry";
 import { autoStripe, choosePDU } from "@/lib/rackline/model";
 import { n1, pct } from "@/lib/rackline/format";
@@ -38,7 +38,7 @@ export function PowerTab(p: TabProps) {
             <Label htmlFor="rl-p-dr">Continuous derate</Label><NumField id="rl-p-dr" step={0.05} value={elec.derate} onChange={(v) => commit((pp) => { pp.elec.derate = v; })} />
             <Label htmlFor="rl-p-lf">Design load factor</Label><NumField id="rl-p-lf" step={0.05} value={S.loadFactor} onChange={(v) => commit((_p, s) => { s.loadFactor = v; s.racks.forEach((R) => autoStripe(R, lib, v)); })} />
           </KV>
-          <Hint>PSUs connect line to neutral at {elec.vLN} V. Feed-loss current assumes the surviving PSUs share the device&apos;s full load. Derate 0.8 follows NEC continuous-load practice.</Hint>
+          <Hint>PSUs connect line to neutral at {elec.vLN} V; rack-scale power shelves (3Ø) connect line to line at {elec.vLL} V. Feed-loss current assumes the surviving PSUs share the device&apos;s full load. Derate 0.8 follows NEC continuous-load practice.</Hint>
         </Section>
         {r && (
           <Section title={`Rack ${r.name}`}>
@@ -48,7 +48,7 @@ export function PowerTab(p: TabProps) {
               <Label htmlFor="rl-p-t">PDU type</Label>
               <Select id="rl-p-t" value={r.pdu} onChange={(v) => onRack((R) => { R.pdu = v as PduKey; autoStripe(R, lib, lf); })} options={Object.entries(PDU_TYPES).map(([k, v]) => [k as PduKey, v.name])} />
               <Label htmlFor="rl-p-n">PDU pairs (A+B)</Label>
-              <Select id="rl-p-n" width="w-20" value={String(r.pduPairs)} onChange={(v) => onRack((R) => { R.pduPairs = +v; autoStripe(R, lib, lf); })} options={[["1", "1"], ["2", "2"], ["3", "3"]]} />
+              <Select id="rl-p-n" width="w-20" value={String(r.pduPairs)} onChange={(v) => onRack((R) => { R.pduPairs = +v; autoStripe(R, lib, lf); })} options={Array.from({ length: MAX_PDU_PAIRS }, (_, i) => [String(i + 1), String(i + 1)] as [string, string])} />
               <Label htmlFor="rl-p-a">Feed A source</Label>
               <Select id="rl-p-a" value={r.feedA ?? ""} onChange={(v) => onRack((R) => { R.feedA = v || null; })} options={feedOpts} />
               <Label htmlFor="rl-p-b">Feed B source</Label>
@@ -132,12 +132,13 @@ export function PowerTab(p: TabProps) {
                                     if (dd.map.length !== L.psu) autoStripe(R, lib, lf);
                                     const mm = dd.map[k];
                                     if (shift) mm.f = mm.f === "A" ? "B" : "A";
+                                    else if (L.phase3) mm.p = (mm.p + 1) % (R.pduPairs || 1);
                                     else { mm.ph = (mm.ph + 1) % 3; if (mm.ph === 0 && R.pduPairs > 1) mm.p = (mm.p + 1) % R.pduPairs; }
                                   });
                                 }}
                               >
                                 <span className={feedCls[m.f]}>{m.f}{m.p + 1}</span>
-                                <i className={`inline-block h-2 w-2 rounded-full ${phBg[m.ph]}`} />L{m.ph + 1}
+                                {L.phase3 ? "3Ø" : <><i className={`inline-block h-2 w-2 rounded-full ${phBg[m.ph]}`} />L{m.ph + 1}</>}
                               </button>
                             ))}
                           </div>

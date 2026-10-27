@@ -4,7 +4,7 @@
 // suite (Tailwind + theme tokens); engineering colours (feeds, hot/cold, status)
 // come from the --rl-* tokens in app/globals.css.
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { pct, utilTone } from "@/lib/rackline/format";
 
@@ -197,5 +197,107 @@ export function Table({ head, children, numeric = [] }: { head: ReactNode[]; chi
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Square icon button for toolbars (32 px), with a tooltip. */
+export function IconBtn({ label, className, children, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return (
+    <button
+      type="button" aria-label={label} title={label} {...p}
+      className={cn(
+        "grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35",
+        className,
+      )}
+    >{children}</button>
+  );
+}
+
+/** Toolbar button (32 px) used in the header: quiet by default, optional icon. */
+export function BarBtn({ className, active, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
+  return (
+    <button
+      type="button" {...p}
+      className={cn(
+        "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40",
+        active ? "bg-accent text-foreground" : "text-foreground/80 hover:bg-accent hover:text-foreground",
+        className,
+      )}
+    />
+  );
+}
+
+/**
+ * Dropdown menu: a toolbar trigger and a panel that closes on an outside
+ * click, Escape, or when an item calls `close`.
+ */
+export function Menu({ trigger, label, align = "right", width = "w-56", children }: {
+  trigger: ReactNode; label: string; align?: "left" | "right"; width?: string;
+  children: (close: () => void) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <BarBtn aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label} active={open} onClick={() => setOpen(!open)}>{trigger}</BarBtn>
+      {open && (
+        <div role="menu" className={cn("absolute z-50 mt-1 rounded-lg border bg-popover p-1 text-sm shadow-lg", align === "right" ? "right-0" : "left-0", width)}>
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One row of a Menu. */
+export function MenuItem({ className, danger, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
+  return (
+    <button
+      type="button" role="menuitem" {...p}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40",
+        danger && "text-destructive",
+        className,
+      )}
+    />
+  );
+}
+
+/**
+ * Inline-editable title (project or scenario name): reads as text, edits in
+ * place, commits on blur or Enter, Escape restores. Grows with its text.
+ */
+export function TitleField({ value, onChange, label, disabled, className, max = 40 }: {
+  value: string; onChange: (v: string) => void; label: string; disabled?: boolean; className?: string; max?: number;
+}) {
+  const [text, setText] = useState(value);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setText(value), [value]);
+  return (
+    <input
+      type="text" value={text} aria-label={label} title={label} disabled={disabled}
+      size={Math.max(6, Math.min(max, text.length + 1))}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { const t = text.trim(); if (!t) setText(value); else if (t !== value) onChange(t); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        else if (e.key === "Escape") { setText(value); (e.target as HTMLInputElement).blur(); }
+      }}
+      className={cn(
+        "h-8 min-w-0 truncate rounded-md border border-transparent bg-transparent px-2 text-sm font-semibold text-foreground transition-colors",
+        "hover:border-input focus:border-input focus:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:hover:border-transparent",
+        className,
+      )}
+    />
   );
 }

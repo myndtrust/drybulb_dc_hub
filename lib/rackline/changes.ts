@@ -73,7 +73,7 @@ const scn = (d: RacklineProject, id: string) => d.scenarios.find((s) => s.id ===
 const SCN_LISTS = [
   ["racks", "Rack"], ["hacs", "Containment"], ["trays", "Tray"], ["coolers", "Cooler"],
 ] as const;
-const SCN_FIELDS = [["cool", "Cooling basis"], ["cable", "Cable rules"]] as const;
+const SCN_FIELDS = [["cool", "Cooling basis"], ["cable", "Cable rules"], ["nets", "Network systems"], ["setup", "Setup answers"]] as const;
 
 function units(docs: RacklineProject[]): Unit[] {
   const out: Unit[] = [];

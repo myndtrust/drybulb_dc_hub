@@ -5,7 +5,8 @@ import { DEF_LIB } from "@/lib/rackline/constants";
 import { rackRows } from "@/lib/rackline/geometry";
 import { addDevice, autoStripe, fits, uid } from "@/lib/rackline/model";
 import { n1, pct } from "@/lib/rackline/format";
-import type { DeviceCat, LibItem } from "@/lib/rackline/types";
+import { guessNet, netSystems, tierOf } from "@/lib/rackline/network";
+import type { Device, DeviceCat, LibItem, NetTier, Rack, Scenario } from "@/lib/rackline/types";
 import type { TabProps } from "./shared";
 import { Btn, Fold, Hint, KV, Label, NumField, Section, Seg, TextField } from "./ui";
 
@@ -33,13 +34,19 @@ export function ElevationsTab(p: TabProps) {
 
   const goRow = (i: number) => { setRowPick(i); setSelRack(rows[i].racks[0].id); setSelDev(null); };
 
+  // A new switch joins the network system its model name suggests (changeable on the Network tab).
+  const tag = (d: Device, R: Rack, s: Scenario) => {
+    const L = lib[d.lib];
+    const g = L?.cat === "network" ? guessNet(L, R, netSystems(s)) : undefined;
+    if (g) { d.net = g.net; d.tier = g.tier; }
+  };
   const addOne = (L: LibItem) => {
     if (!r) return;
     let id: string | null = null;
     commit((_p, s) => {
       const R = s.racks.find((q) => q.id === r.id)!;
       const d = addDevice(R, L.id, lib, fromTop(L));
-      if (d) { id = d.id; autoStripe(R, lib, lf); }
+      if (d) { id = d.id; tag(d, R, s); autoStripe(R, lib, lf); }
     });
     if (id) setSelDev(id); else toast("No free space for that device");
   };
@@ -49,7 +56,8 @@ export function ElevationsTab(p: TabProps) {
     let miss = 0;
     commit((_p, s) => s.racks.forEach((R) => {
       if (!ids.has(R.id)) return;
-      if (addDevice(R, L.id, lib, fromTop(L))) autoStripe(R, lib, lf); else miss++;
+      const d = addDevice(R, L.id, lib, fromTop(L));
+      if (d) { tag(d, R, s); autoStripe(R, lib, lf); } else miss++;
     }));
     toast(miss ? `No space in ${miss} rack${miss > 1 ? "s" : ""}` : `Added to ${row.racks.length} racks`);
   };
@@ -107,7 +115,45 @@ export function ElevationsTab(p: TabProps) {
         {dev && DL && (
           <Section title="Selected device">
             <Hint><b className="text-foreground">{DL.name}</b>, {DL.u}U, {n1(DL.kw)} kW</Hint>
-            <KV><Label htmlFor="rl-e-du">Bottom U</Label><NumField id="rl-e-du" step={1} value={dev.u} onChange={(v) => moveDev(Math.round(v))} /></KV>
+            {DL.kwMaxQ != null && DL.kwMaxP != null && (() => {
+              const li = project.lib.findIndex((l) => l.id === DL.id);
+              const prof = DL.kw === DL.kwMaxQ ? "maxq" : DL.kw === DL.kwMaxP ? "maxp" : "custom";
+              return (
+                <div className="space-y-1.5 rounded-md border p-2">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-muted-foreground">Power profile</span>
+                    <Seg value={prof} onChange={(v) => { if (v !== "custom") editLib(li, (l) => { l.kw = v === "maxq" ? l.kwMaxQ! : l.kwMaxP!; }); }}
+                      options={[["maxq", `Max-Q ${n1(DL.kwMaxQ)}`], ["maxp", `Max-P ${n1(DL.kwMaxP)}`], ...(prof === "custom" ? [["custom", `${n1(DL.kw)} kW`] as ["custom", string]] : [])]} />
+                  </div>
+                  <KV>
+                    <Label htmlFor="rl-e-mq">Max-Q rating (kW)</Label>
+                    <NumField id="rl-e-mq" step={1} value={DL.kwMaxQ} onChange={(v) => editLib(li, (l) => { if (l.kw === l.kwMaxQ) l.kw = v; l.kwMaxQ = v; })} />
+                    <Label htmlFor="rl-e-mp">Max-P rating (kW)</Label>
+                    <NumField id="rl-e-mp" step={1} value={DL.kwMaxP} onChange={(v) => editLib(li, (l) => { if (l.kw === l.kwMaxP) l.kw = v; l.kwMaxP = v; })} />
+                  </KV>
+                  <Hint>Applies to every {DL.name} in the project; the design load follows the chosen profile.</Hint>
+                </div>
+              );
+            })()}
+            <KV>
+              <Label htmlFor="rl-e-du">Bottom U</Label><NumField id="rl-e-du" step={1} value={dev.u} onChange={(v) => moveDev(Math.round(v))} />
+              {DL.cat === "network" && (
+                <>
+                  <Label htmlFor="rl-e-net">Network system</Label>
+                  <select id="rl-e-net" value={netSystems(S).some((n) => n.id === dev.net) ? dev.net : ""} className="w-40 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                    onChange={(e) => { const v = e.target.value; commit((_p, s) => { const d = s.racks.find((q) => q.id === r!.id)!.devs.find((q) => q.id === dev.id)!; if (v) d.net = v; else delete d.net; }); }}>
+                    <option value="">No system</option>
+                    {netSystems(S).map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+                  </select>
+                  <Label htmlFor="rl-e-tier">Tier</Label>
+                  <select id="rl-e-tier" value={tierOf(dev.tier)} className="w-40 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                    onChange={(e) => { const v = e.target.value as NetTier; commit((_p, s) => { s.racks.find((q) => q.id === r!.id)!.devs.find((q) => q.id === dev.id)!.tier = v; }); }}>
+                    <option value="leaf">Leaf (takes endpoint cables)</option>
+                    <option value="spine">Spine (takes uplinks)</option>
+                  </select>
+                </>
+              )}
+            </KV>
             <div className="flex gap-1">
               <Btn onClick={() => moveDev(dev.u + 1)}>Move up</Btn>
               <Btn onClick={() => moveDev(dev.u - 1)}>Move down</Btn>

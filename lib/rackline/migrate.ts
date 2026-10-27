@@ -39,6 +39,8 @@ export function migrateProject(doc: unknown): RacklineProject {
       electrical,
       cool: { ...DEFAULT_COOL, ...(isObj(raw.cool) ? raw.cool : {}) },
       cable: { ...DEFAULT_CABLE, ...(isObj(raw.cable) ? raw.cable : {}) },
+      ...(Array.isArray(raw.nets) && raw.nets.length ? { nets: arr(raw.nets) } : {}),
+      ...(isObj(raw.setup) && isObj(raw.setup.options) ? { setup: raw.setup } : {}),
     } as Scenario;
   });
   if (!scenarios.length) throw new RacklineDocError("That file is not a project export from this tool.");

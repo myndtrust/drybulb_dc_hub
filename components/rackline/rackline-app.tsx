@@ -36,13 +36,17 @@ import { ElectricalTab } from "./electrical-tab";
 import { ElevationsTab } from "./elevations-tab";
 import { LayoutTab, type View } from "./layout-tab";
 import { PowerTab } from "./power-tab";
+import { NetworkTab } from "./network-tab";
 import { ProjectsDrawer, type Loaded } from "./projects-drawer";
 import { DrybulbMark } from "@/components/app/drybulb-mark";
 import { PendingInvites } from "./pending-invites";
 import { NOTICES_CHANGED, ProjectNotices } from "./project-notices";
 import { ShareDialog } from "./share-dialog";
 import { TABS, type BgView, type Mutator, type TabKey, type TabProps } from "./shared";
-import { Btn, Seg, TextField } from "./ui";
+import { BarBtn, Btn, IconBtn, Menu, MenuItem, TextField, TitleField } from "./ui";
+import { ChevronDown, Copy, Download, FilePlus, FileText, Layers, MoreHorizontal, Redo2, Trash2, Undo2, Upload, Users } from "lucide-react";
+import Link from "next/link";
+import { AccountMenu } from "@/components/app/account-menu";
 
 const DRAFT_KEY = "rackline.draft";
 const HISTORY = 60;
@@ -244,6 +248,18 @@ function Workbench() {
     previewRef.current = null;
     setPreview(null);
     replaceProject(sp.doc, { id: sp.id, updatedAt: sp.updated_at, role: sp.role, sourceId: sp.source_id, sourceDoc: sp.source_doc }, JSON.stringify(sp.doc));
+  };
+  /** Start a new project. Signed in, it is saved straight away (you own it) so autosave takes over. */
+  const newProject = async (name = "New project") => {
+    const doc = blankProject(name);
+    setConflict(false);
+    previewRef.current = null;
+    setPreview(null);
+    if (!signedIn) { replaceProject(doc, null, null); return; }
+    const m = await createProject(doc);
+    ownSaves.current.add(m.updated_at);
+    replaceProject(doc, { id: m.id, updatedAt: m.updated_at, role: "owner" }, JSON.stringify(doc));
+    toast(`Created ${name}`);
   };
   const editable = (!loaded || canEdit(loaded.role)) && !preview;
 
@@ -739,14 +755,13 @@ function Workbench() {
           <Btn onClick={async () => { try { openSaved(await getProject(target)); } catch { toast("The original isn't available to this account."); } }}>Open original</Btn>
         </div>
       )}
-      <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
-        <h1 className="flex items-center gap-2 text-sm font-semibold" title={TOOL_NAME}>
-          <DrybulbMark size={24} />
-          <span className="leading-tight">
-            <span className="hidden lg:inline">{TOOL_NAME}</span>
-            <span className="lg:hidden">AI Factory Infrastructure</span>
-          </span>
-        </h1>
+      <header className="relative z-30 flex h-12 shrink-0 items-center gap-1 border-b bg-background px-2 sm:px-3">
+        <h1 className="sr-only">{TOOL_NAME}</h1>
+        <Link href="/tools" title="All tools" className="flex shrink-0 items-center gap-2 rounded-md p-1 transition-colors hover:bg-accent">
+          <DrybulbMark size={22} />
+          <span className="hidden whitespace-nowrap text-sm font-semibold tracking-tight 2xl:inline">AI Factory Infrastructure Design</span>
+        </Link>
+        <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
         <ProjectsDrawer
           project={project} loaded={loaded} dirty={dirty} signedIn={signedIn}
           onOpen={(sp) => { openSaved(sp); toast(`Opened ${sp.name}`); }}
@@ -759,41 +774,83 @@ function Workbench() {
             toast("Saved");
           }}
           onSaveCopy={saveAsMyCopy}
+          onNew={newProject}
           onRenameCurrent={(name) => commit((p) => { p.name = name; })}
         />
-        {loaded && canShare(loaded.role) && <Btn onClick={() => setShareOpen(true)}>Share</Btn>}
-        {loaded && !editable && <span className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">View only</span>}
-        <TextField label={loaded && !canWrite(loaded.role) ? "Only the owner can rename this project" : "Project name (click to rename)"} value={project.name} width="w-44" disabled={!editable || (!!loaded && !canWrite(loaded.role))} onChange={(v) => commit((p) => { p.name = v; })} />
-        <span className="hidden text-xs text-muted-foreground sm:inline">Scenario</span>
-        <select
-          aria-label="Scenario" value={scenario.id}
-          onChange={(e) => { const id = e.target.value; commit((p) => { p.active = id; }); setSelRack(null); }}
-          className="max-w-56 rounded-md border border-input bg-background px-2 py-1 text-sm"
-        >
-          {project.scenarios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <TextField value={scenario.name} width="w-36" onChange={(v) => commit((_p, s) => { s.name = v; })} />
-        <Btn title="Duplicate this scenario" onClick={() => commit((p, s) => { const c = clone(s); c.id = uid(); c.name = s.name + " (copy)"; p.scenarios.push(c); p.active = c.id; })}>Duplicate</Btn>
-        <Btn tone="danger" disabled={project.scenarios.length < 2} onClick={() => {
-          if (!scnArm) { setScnArm(true); setTimeout(() => setScnArm(false), 3000); return; }
-          setScnArm(false);
-          commit((p, s) => { p.scenarios = p.scenarios.filter((x) => x.id !== s.id); p.active = p.scenarios[0].id; });
-        }}>{scnArm ? "Confirm delete" : "Delete"}</Btn>
-        <div className="flex-1" />
-        <details className="relative">
-          <summary className="cursor-pointer list-none rounded-md border border-input px-2.5 py-1 text-xs">File ▾</summary>
-          <div className="absolute right-0 z-40 mt-1 grid w-56 gap-1 rounded-md border bg-popover p-2 shadow-lg">
-            <Btn onClick={() => replaceProject(blankProject(), null, null)}>New blank project</Btn>
-            {editable && <Btn onClick={() => download(`${fileSafe(project.name)}.rackline.json`, JSON.stringify(project, null, 1), "application/json")}>Export project JSON</Btn>}
-            <Btn onClick={() => importIn.current?.click()}>Import project JSON</Btn>
-            <Btn onClick={exportSvg}>Export layout SVG</Btn>
-          </div>
-        </details>
+        <TitleField
+          label={loaded && !canWrite(loaded.role) ? "Project name (only the owner can rename it)" : "Project name: click to rename"}
+          value={project.name} disabled={!editable || (!!loaded && !canWrite(loaded.role))}
+          onChange={(v) => commit((p) => { p.name = v; })}
+        />
+        {loaded && !editable && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">View only</span>}
+        {loaded && canShare(loaded.role) && (
+          <BarBtn onClick={() => setShareOpen(true)} title="Share this project"><Users className="h-4 w-4" aria-hidden="true" /><span className="hidden lg:inline">Share</span></BarBtn>
+        )}
+
+        <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Layers className="ml-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <select
+            aria-label="Scenario" title="Scenario" value={scenario.id}
+            onChange={(e) => { const id = e.target.value; commit((p) => { p.active = id; }); setSelRack(null); }}
+            className="h-8 max-w-52 cursor-pointer truncate rounded-md border border-transparent bg-transparent pl-1.5 pr-6 text-sm font-medium text-foreground hover:border-input focus:border-input focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {project.scenarios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <Menu label="Scenario actions" align="left" width="w-64" trigger={<MoreHorizontal className="h-4 w-4" aria-hidden="true" />}>
+            {(close) => (
+              <>
+                <div className="px-2 pb-1 pt-1.5">
+                  <label className="mb-1 block text-[11px] font-medium text-muted-foreground" htmlFor="rl-scn-name">Scenario name</label>
+                  <TextField id="rl-scn-name" width="w-full" value={scenario.name} onChange={(v) => commit((_p, s) => { s.name = v; })} />
+                </div>
+                <div className="my-1 border-t" />
+                <MenuItem onClick={() => { commit((p, s) => { const c = clone(s); c.id = uid(); c.name = s.name + " (copy)"; p.scenarios.push(c); p.active = c.id; }); close(); }}>
+                  <Copy className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Duplicate scenario
+                </MenuItem>
+                <MenuItem danger disabled={project.scenarios.length < 2} onClick={() => {
+                  if (!scnArm) { setScnArm(true); setTimeout(() => setScnArm(false), 3000); return; }
+                  setScnArm(false);
+                  commit((p, s) => { p.scenarios = p.scenarios.filter((x) => x.id !== s.id); p.active = p.scenarios[0].id; });
+                  close();
+                }}>
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />{scnArm ? "Click again to delete" : "Delete scenario"}
+                </MenuItem>
+              </>
+            )}
+          </Menu>
+        </div>
+
+        <div className="min-w-2 flex-1" />
+
+        <span role="status" title={status} className="flex shrink-0 items-center gap-1.5 rounded-full px-2 text-xs text-muted-foreground">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${conflict ? "bg-[var(--rl-bad)]" : saving || dirty ? "bg-[var(--rl-warn)]" : loaded ? "bg-[var(--rl-ok)]" : "bg-muted-foreground/50"}`} aria-hidden="true" />
+          <span className="hidden max-w-56 truncate xl:inline">{status}</span>
+        </span>
+        <div className="flex shrink-0 items-center">
+          <IconBtn label="Undo (Ctrl+Z)" disabled={!hist.undo || !!preview} onClick={undo}><Undo2 className="h-4 w-4" /></IconBtn>
+          <IconBtn label="Redo (Ctrl+Y)" disabled={!hist.redo || !!preview} onClick={redo}><Redo2 className="h-4 w-4" /></IconBtn>
+        </div>
+        <div className="flex h-8 shrink-0 items-center rounded-md bg-muted p-0.5" role="group" aria-label="Units">
+          {(["ft", "m"] as const).map((u) => (
+            <button key={u} type="button" aria-pressed={project.units === u} onClick={() => commit((p) => { p.units = u; })}
+              className={`h-7 rounded px-2 text-xs font-medium transition-colors ${project.units === u ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{u}</button>
+          ))}
+        </div>
+        <Menu label="File" trigger={<><FileText className="h-4 w-4" aria-hidden="true" /><span className="hidden lg:inline">File</span><ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /></>}>
+          {(close) => (
+            <>
+              <MenuItem onClick={() => { close(); newProject().catch(() => toast("Couldn't create the project. Try again.")); }}><FilePlus className="h-4 w-4 text-muted-foreground" aria-hidden="true" />New project</MenuItem>
+              <MenuItem onClick={() => { close(); importIn.current?.click(); }}><Upload className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Import project JSON…</MenuItem>
+              <div className="my-1 border-t" />
+              {editable && <MenuItem onClick={() => { close(); download(`${fileSafe(project.name)}.rackline.json`, JSON.stringify(project, null, 1), "application/json"); }}><Download className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Export project JSON</MenuItem>}
+              <MenuItem onClick={() => { close(); exportSvg(); }}><Download className="h-4 w-4 text-muted-foreground" aria-hidden="true" />Export layout SVG</MenuItem>
+            </>
+          )}
+        </Menu>
         <input ref={importIn} type="file" accept=".json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importJson(f); e.target.value = ""; }} />
-        <Seg value={project.units} onChange={(u) => commit((p) => { p.units = u; })} options={[["ft", "ft"], ["m", "m"]]} />
-        <Btn title="Undo (Ctrl+Z)" disabled={!hist.undo || !!preview} onClick={undo}>Undo</Btn>
-        <Btn title="Redo (Ctrl+Y)" disabled={!hist.redo || !!preview} onClick={redo}>Redo</Btn>
-        <span role="status" className="rounded-full border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">{status}</span>
+        <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+        <AccountMenu />
       </header>
       <nav className="flex overflow-x-auto border-b px-2" aria-label="Sections">
         {TABS.map(([k, l]) => (
@@ -808,6 +865,7 @@ function Workbench() {
         {tab === "elev" && <ElevationsTab {...props} />}
         {tab === "power" && <PowerTab {...props} />}
         {tab === "cables" && <CablesTab {...props} download={download} onDrawTrays={() => setTab("layout")} />}
+        {tab === "network" && <NetworkTab {...props} download={download} />}
         {tab === "cooling" && <CoolingTab {...props} />}
         {tab === "sld" && <ElectricalTab {...props} />}
         {tab === "compare" && <CompareTab {...props} signedIn={signedIn} />}

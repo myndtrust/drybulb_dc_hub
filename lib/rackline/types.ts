@@ -23,7 +23,7 @@ export type RackRole = "compute" | "network" | "storage";
 export type TrayKind = "fiber" | "ladder" | "power" | "busway";
 export type CoolerKind = "crah" | "inrow" | "cdu" | "rdhxcdu";
 export type Redundancy = "N" | "N+1" | "N+2" | "2N";
-export type PduKey = "415-32" | "415-60" | "415-100" | "415-125";
+export type PduKey = "415-32" | "415-60" | "415-100" | "415-125" | "480-60" | "480-100" | "480-125";
 export type ElecType =
   | "utility" | "switch" | "xfmr" | "gen" | "ats" | "swbd"
   | "ups" | "rpp" | "busway" | "mech" | "load";
@@ -35,8 +35,11 @@ export interface LibItem {
   cat: DeviceCat;
   /** Height in rack units. */
   u: number;
-  /** Design power per device (kW). */
+  /** Design power per device (kW): the active power profile's rating when it has Max-Q / Max-P. */
   kw: number;
+  /** Power-profile ratings (kW) of a rack-scale system; `kw` is set to one of them. */
+  kwMaxQ?: number;
+  kwMaxP?: number;
   /** Number of PSUs (0 for passive gear). */
   psu: number;
   /** Rating of one PSU (W). */
@@ -45,8 +48,16 @@ export interface LibItem {
   liq: number;
   /** Network ports per device, by cable type. */
   ports: Partial<Record<CableType, number>>;
+  /** Network gear: ports it offers to the cables it terminates (e.g. 64 on a 64-port switch). */
+  swPorts?: number;
   /** Where the numbers come from, and which ones are estimates. */
   note?: string;
+  /**
+   * Each "PSU" is a balanced three-phase input (a rack-scale power shelf fed by
+   * a 3φ whip, e.g. an NVL72), loading all three phases of its PDU / circuit
+   * line to line, instead of one line-to-neutral PSU per phase.
+   */
+  phase3?: boolean;
 }
 
 /** Where one PSU lands: feed, PDU index within the feed, phase index (0–2). */
@@ -63,6 +74,36 @@ export interface Device {
   u: number;
   /** One entry per PSU; empty means "not striped yet". */
   map: PsuMap[];
+  /** Network gear: the network system it belongs to (NetSystem id)… */
+  net?: string;
+  /** …and its tier. Leaves take the endpoint cables; spines take the leaves' uplinks. */
+  tier?: NetTier;
+}
+
+export type NetTier = "leaf" | "spine";
+
+/**
+ * One separate network (compute fabric, storage / converged, in-band management,
+ * out-of-band…). It carries some of the endpoint cable types and is served by
+ * its own switches, so its cables, racks and topology are kept apart.
+ */
+export interface NetSystem {
+  id: string;
+  name: string;
+  /** Colour on the topology and in schedules. */
+  color: string;
+  /** Endpoint port types it carries. A type belongs to the first system listing it. */
+  cables: CableType[];
+  /** Network racks whose leaves take its endpoint cables. Empty = racks holding its leaf switches, else every network rack. */
+  racks: string[];
+  /**
+   * How an endpoint rack attaches: "nearest" leaf rack (top / end of row), or
+   * "spread" its ports over every leaf rack in proportion to their leaves
+   * (rail-optimised fabrics, where each rack reaches every leaf). Default nearest.
+   */
+  attach?: "nearest" | "spread";
+  /** Leaf-to-spine uplinks per endpoint cable (1 = non-blocking, 0.33 = 3:1 oversubscribed). Used only when the system has spine switches. */
+  uplink: number;
 }
 
 export interface Rack {
@@ -146,6 +187,9 @@ export interface ElecNode {
   kw?: number;
   /** Mechanical node takes its load from the cooling calculation. */
   auto?: boolean;
+  /** Where the diagram draws the list of racks this node feeds, relative to the node (px); absent = just below it. */
+  rackDx?: number;
+  rackDy?: number;
 }
 
 export interface ElecLink {
@@ -212,6 +256,21 @@ export interface Scenario {
   electrical: Electrical;
   cool: CoolingBasis;
   cable: CableRules;
+  /** Network systems; absent = the defaults (one per cable type). */
+  nets?: NetSystem[];
+  /** How the layout was set up, when a generator built it (for "Edit setup"). */
+  setup?: ScenarioSetup;
+}
+
+/** The answers a generator was given, and a fingerprint of what it built. */
+export interface ScenarioSetup {
+  kind: "nvl72" | "block";
+  /** The generator's options (Nvl72PodOptions or GenOptions). */
+  options: Record<string, unknown>;
+  /** Fingerprint of the generated layout and single line; differs once the user edits them. */
+  built: string;
+  /** ISO time it was built. */
+  at: string;
 }
 
 export interface ElecBasis {
@@ -314,6 +373,10 @@ export interface ElecResult {
 export interface CableGroup {
   from: Rack;
   to: Rack;
+  /** Network system (NetSystem id). */
+  net: string;
+  /** Endpoint to leaf, or leaf to spine. */
+  link: "access" | "uplink";
   type: CableType;
   count: number;
   len: number;

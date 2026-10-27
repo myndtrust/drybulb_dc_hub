@@ -17,12 +17,19 @@ export const SQ3 = Math.sqrt(3);
 /** Stock patch-cord lengths (m) that calculated runs round up to. */
 export const STD_LEN = [1, 2, 3, 5, 7, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100];
 
-export const PDU_TYPES: Record<PduKey, { name: string; amps: number }> = {
-  "415-32": { name: "415Y/240V 3Ø 32A", amps: 32 },
-  "415-60": { name: "415Y/240V 3Ø 60A", amps: 60 },
-  "415-100": { name: "415Y/240V 3Ø 100A", amps: 100 },
-  "415-125": { name: "415Y/240V 3Ø 125A", amps: 125 },
+/** Rack PDU / whip circuits. `v` = line-to-line voltage; sizing only offers those matching the project. */
+export const PDU_TYPES: Record<PduKey, { name: string; amps: number; v: number }> = {
+  "415-32": { name: "415Y/240V 3Ø 32A", amps: 32, v: 415 },
+  "415-60": { name: "415Y/240V 3Ø 60A", amps: 60, v: 415 },
+  "415-100": { name: "415Y/240V 3Ø 100A", amps: 100, v: 415 },
+  "415-125": { name: "415Y/240V 3Ø 125A", amps: 125, v: 415 },
+  "480-60": { name: "480V 3Ø 60A", amps: 60, v: 480 },
+  "480-100": { name: "480V 3Ø 100A", amps: 100, v: 480 },
+  "480-125": { name: "480V 3Ø 125A", amps: 125, v: 480 },
 };
+
+/** Most PDU pairs / whip pairs a rack may have (rack-scale systems take 4+). */
+export const MAX_PDU_PAIRS = 6;
 
 /** Cable types with outside diameter (mm) for tray-fill. */
 export const CABLE_T: Record<CableType, { name: string; od: number }> = {
@@ -58,9 +65,9 @@ export const DEF_LIB: LibItem[] = [
   { id: "xe7745-pcie", name: "Dell PowerEdge XE7745 (8× 600 W PCIe GPUs, air, 4U)", cat: "compute", u: 4, kw: 7.5, psu: 4, psuW: 3200, liq: 0, ports: { fabric: 4, storage: 2, mgmt: 1, bmc: 1 },
     note: "Dell spec sheet: 4U air, up to 8 × 600 W double-wide PCIe GPUs (e.g. RTX PRO 6000), 3.2 kW Titanium PSUs. kW, PSU count and 4 fabric ports est." },
   // ── Network, storage, management, passive ──────────────────────────────────
-  { id: "leaf-800", name: "800G fabric switch, 64-port", cat: "network", u: 2, kw: 2.2, psu: 2, psuW: 3000, liq: 0, ports: { mgmt: 1 } },
-  { id: "ns-400", name: "400G storage / N-S switch, 64-port", cat: "network", u: 2, kw: 1.2, psu: 2, psuW: 2000, liq: 0, ports: { mgmt: 1 } },
-  { id: "mgmt-sw", name: "Management switch, 48×10G", cat: "network", u: 1, kw: 0.35, psu: 2, psuW: 650, liq: 0, ports: {} },
+  { id: "leaf-800", name: "800G fabric switch, 64-port", cat: "network", u: 2, kw: 2.2, psu: 2, psuW: 3000, liq: 0, ports: { mgmt: 1 }, swPorts: 64 },
+  { id: "ns-400", name: "400G storage / N-S switch, 64-port", cat: "network", u: 2, kw: 1.2, psu: 2, psuW: 2000, liq: 0, ports: { mgmt: 1 }, swPorts: 64 },
+  { id: "mgmt-sw", name: "Management switch, 48×10G", cat: "network", u: 1, kw: 0.35, psu: 2, psuW: 650, liq: 0, ports: {}, swPorts: 48 },
   { id: "stor", name: "NVMe storage server, 2U", cat: "storage", u: 2, kw: 1.6, psu: 2, psuW: 2000, liq: 0, ports: { storage: 2, mgmt: 1, bmc: 1 } },
   { id: "head", name: "Head / management server, 1U", cat: "server", u: 1, kw: 0.8, psu: 2, psuW: 1200, liq: 0, ports: { storage: 1, mgmt: 1, bmc: 1 } },
   { id: "patch", name: "Fiber patch panel, 1U", cat: "passive", u: 1, kw: 0, psu: 0, psuW: 0, liq: 0, ports: {} },

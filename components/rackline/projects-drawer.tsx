@@ -10,7 +10,8 @@ import {
   SaveConflict, canShare, canWrite, createProject, deleteProject, getProject, listProjects, updateProject,
   type ProjectRole, type SavedProject, type SavedProjectMeta,
 } from "@/lib/rackline/saved-projects";
-import { Chip } from "./ui";
+import { FolderOpen } from "lucide-react";
+import { BarBtn, Chip } from "./ui";
 import type { RacklineProject } from "@/lib/rackline/types";
 
 export interface Loaded {
@@ -31,7 +32,7 @@ const ROLE_CHIP: Record<ProjectRole, string> = { owner: "owner", editor: "editor
 // opened (another tab), the user chooses Reload or Overwrite. Only projects the
 // user is a member of are listed (every project, for Drybulb staff).
 export function ProjectsDrawer({
-  project, loaded, dirty, signedIn, onOpen, onSaved, onSaveCopy, onRenameCurrent,
+  project, loaded, dirty, signedIn, onOpen, onSaved, onSaveCopy, onRenameCurrent, onNew,
 }: {
   project: RacklineProject;
   loaded: Loaded | null;
@@ -43,7 +44,10 @@ export function ProjectsDrawer({
   onSaveCopy: () => Promise<void>;
   /** Rename the project open in the workbench (it autosaves like any edit). */
   onRenameCurrent: (name: string) => void;
+  /** Create a blank project with this name, save it and open it. */
+  onNew: (name: string) => Promise<void>;
 }) {
+  const [naming, setNaming] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [list, setList] = useState<SavedProjectMeta[]>([]);
   const [busy, setBusy] = useState(false);
@@ -100,12 +104,20 @@ export function ProjectsDrawer({
     setList((l) => l.map((m) => (m.id === id ? { ...m, name } : m)));
   });
   const openOne = (id: string) => run(async () => { onOpen(await getProject(id)); setOpen(false); setConflict(false); });
+  const createNew = () => run(async () => {
+    const name = naming?.trim() || "New project";
+    await onNew(name);
+    setNaming(null);
+    setOpen(false);
+  });
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Projects{dirty && signedIn ? " •" : ""}
-      </Button>
+      <BarBtn onClick={() => setOpen(true)} title="Your projects" aria-label="Projects">
+        <FolderOpen className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden md:inline">Projects</span>
+        {dirty && signedIn && <span className="h-1.5 w-1.5 rounded-full bg-[var(--rl-warn)]" aria-label="unsaved changes" />}
+      </BarBtn>
       {open && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden="true" />
@@ -122,6 +134,20 @@ export function ProjectsDrawer({
                 </div>
               ) : (
                 <>
+                  {naming === null ? (
+                    <Button size="sm" variant="outline" className="h-8 w-full text-xs" disabled={busy} onClick={() => setNaming("")}>+ New project</Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus aria-label="New project name" placeholder="Project name" value={naming}
+                        onChange={(e) => setNaming(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") createNew(); else if (e.key === "Escape") { e.stopPropagation(); setNaming(null); } }}
+                        className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      />
+                      <Button size="sm" className="h-8 text-xs" disabled={busy} onClick={createNew}>Create</Button>
+                      <Button size="sm" variant="ghost" className="h-8 text-xs" disabled={busy} onClick={() => setNaming(null)}>Cancel</Button>
+                    </div>
+                  )}
                   <div className="rounded-md border bg-muted/40 p-3">
                     <p className="mb-2 text-xs text-muted-foreground">
                       {loaded ? <>Editing <span className="font-medium text-foreground">{project.name}</span> <Chip tone="mute">{ROLE_CHIP[loaded.role]}</Chip>{dirty ? " · unsaved changes" : " · saved"}</> : <>Not saved yet: <span className="font-medium text-foreground">{project.name}</span></>}

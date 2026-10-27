@@ -4,8 +4,9 @@
  * (app) route group layout — client boundary.
  * Wraps all authenticated/interactive routes with shared client state.
  * SPA feel: use next/link everywhere, loading.tsx per route for skeleton UI.
- * Full-bleed workspaces (Rackline) get the whole window below the nav: no page
- * padding, and the tool's root fills the remaining height as a flex child.
+ * Full-bleed workspaces (Rackline) get the whole window: no site nav (their own
+ * header has the account menu), no page padding, and the tool's root fills the
+ * height as a flex child.
  */
 
 import { usePathname } from "next/navigation";
@@ -23,7 +24,8 @@ export default function AppLayout({
   const fullBleed = FULL_BLEED.some((p) => pathname.startsWith(p));
   return (
     <div className={fullBleed ? "flex h-dvh flex-col" : "flex min-h-screen flex-col"}>
-      <AppNav />
+      {/* Full-bleed tools carry their own header with an account menu. */}
+      {!fullBleed && <AppNav />}
       <main className={fullBleed ? "flex min-h-0 flex-1 flex-col" : "flex-1 container mx-auto px-4 py-8"}>
         <AccountGate>{children}</AccountGate>
       </main>

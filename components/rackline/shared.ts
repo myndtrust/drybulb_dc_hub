@@ -4,13 +4,14 @@ import type { DxfDrawing } from "@/lib/rackline/dxf";
 import type { LibIndex } from "@/lib/rackline/model";
 import type { Analysis, RacklineProject, Scenario } from "@/lib/rackline/types";
 
-export type TabKey = "layout" | "elev" | "power" | "cables" | "cooling" | "sld" | "compare";
+export type TabKey = "layout" | "elev" | "power" | "cables" | "network" | "cooling" | "sld" | "compare";
 
 export const TABS: [TabKey, string][] = [
   ["layout", "Layout"],
   ["elev", "Rack elevations"],
   ["power", "Power striping"],
   ["cables", "Cable pathways"],
+  ["network", "Network"],
   ["cooling", "Cooling"],
   ["sld", "Single line"],
   ["compare", "Compare"],

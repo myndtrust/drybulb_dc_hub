@@ -1,7 +1,7 @@
 {
   "$schema": "./reference-architectures.schema.md",
   "version": 1,
-  "updated": "2026-06-17",
+  "updated": "2026-10-25",
   "note": "Reference-architecture templates for the AI Factory configurator (concept -> BOM). Source of truth; edit here, then run `python scripts/reference_architectures.py validate|build`. An RA is a sized building block: a compute `system` (the smallest priced compute unit), `racking` (how systems fill a rack), a `scalable_unit` (SU), and `bom_ratios` (every other component expressed per a denominator so any target can be sized). `per` denominators: 'gpu' | 'system' | 'rack' | 'su' | 'it_kw' | 'it_mw'. `catalogKey` maps a line to a component in data/equipment-catalog.json so the engine reuses real pricing/products (keys flagged catalog_todo do not exist yet — add in Phase 1). confidence: 'sourced' = from the NVIDIA RA, 'estimate' = proportional/engineering default to refine from the RA wiring guide. Power is IT power (kW); facility power = IT x PUE is computed downstream by lib/energy + lib/pue.",
   "targets": ["gpus", "scalable_units", "racks", "it_mw", "fp4_pflops"],
   "architectures": [
@@ -137,6 +137,58 @@
         { "component": "CRAH / air handling (air fraction)", "catalogKey": "crah", "model": "Row/perimeter CRAH", "per": "rack", "qty": 0.5, "confidence": "estimate" },
         { "component": "UPS + battery", "catalogKey": "ups", "model": "Static UPS", "per": "it_kw", "qty": 1.4, "unit": "kVA", "confidence": "estimate" },
         { "component": "Busway", "catalogKey": "busway", "model": "Overhead busway", "per": "rack", "qty": 1, "confidence": "estimate" }
+      ]
+    },
+    {
+      "key": "vr200-nvl72-modular",
+      "label": "Vera Rubin NVL72 modular AI factory (modular reference design, 4 × 3.36 MW AI Modules)",
+      "vendor": "NVIDIA",
+      "family": "Vera Rubin",
+      "cooling": "hybrid",
+      "liquid_fraction": 0.833,
+      "power_scheme": "ac",
+      "compute_fabric": "ethernet",
+      "confidence": "sourced",
+      "source": "VR200 modular reference design (planning-level basis of design, document on file)",
+      "sources": ["https://www.nvidia.com/en-us/data-center/vera-rubin-nvl72/", "https://developer.nvidia.com/blog/inside-the-NVIDIA-rubin-platform-six-new-chips-one-ai-supercomputer", "https://newsletter.semianalysis.com/p/vera-rubin-extreme-co-design-an-evolution"],
+      "note": "Modular reference design, planning-level basis of design: 13.44 MW IT deployment unit = 4 AI Modules, each 14 GPU racks at 200 kW nominal + 16 support racks at 35 kW (3.36 MW). 34.5 kV MV; one Power Pod per module (5 MVA 34.5 kV-480Y/277 V transformer, 5 MW generator, 6,000 A main switchboard (85 kA, UL891), 2 × 2,000 kVA UPS, 6,000 A UPS distribution board, 4 × 1,600 A feeders) to busway and tap-offs, 4-to-make-3 at rack / feeder / Power Pod level (Pod-level 4-to-make-3 not confirmed by the reference design without further capacity). Separate mechanical powertrain (3.25 MVA transformer, 3.25 MW generator). Hybrid cooling: direct-to-chip via rack SFNs and liquid-to-liquid CDUs to dry / fluid coolers at 104/122 °F (40/50 °C); chillers at 68/82.4 °F (20/28 °C) for CRAHs and assist above an 82 °F dry-bulb switch point; IT coolant < 45 °C at ~10 K ΔT; high-temperature TES 31,397 gal (~6 min ride-through); N+1 pump skids, chillers, CRAHs, CDUs and fluid coolers. Planning PUE 1.27 (17.1 MW site, 2.8 MW mechanical). Rack figures: 72 Rubin GPUs / 36 Vera CPUs, 45 °C inlet (NVIDIA); 8 ConnectX-9 (800G) + 1 BlueField-4 per compute tray, 4 × 110 kW power shelves N+1 with two 100 A whips each, 180-220 kW Max-Q / Max-P (SemiAnalysis). Network switch counts are a non-blocking two-tier estimate on SN6810 (128 × 800G); no NVIDIA Vera Rubin enterprise network RA was available.",
+      "system": {
+        "key": "vr200-nvl72-rack",
+        "label": "Vera Rubin NVL72 rack",
+        "catalogKey": "accel",
+        "gpus": 72,
+        "gpu_model": "Rubin (VR200)",
+        "cpus": 36,
+        "cpu_model": "Vera",
+        "compute_trays": 18,
+        "hbm_tb": 20.7,
+        "power_kw": 200,
+        "rack_u": 48,
+        "capex_usd": 7800000,
+        "capex_note": "Analyst estimate (Morgan Stanley bill of materials, reported 2026: ~$7.8M per rack; later estimates ~$9.1M with HBM4 pricing). Not an NVIDIA price.",
+        "perf_fp4_pflops": 2520,
+        "confidence": "sourced"
+      },
+      "racking": { "systems_per_rack": 1, "gpus_per_rack": 72, "kw_per_rack": 200 },
+      "scalable_unit": { "systems": 14, "racks": 14, "gpus": 1008 },
+      "max_config": { "racks": 56, "gpus": 4032 },
+      "bom_ratios": [
+        { "component": "Scale-out compute NIC (ConnectX-9, 800G)", "catalogKey": "dpu", "model": "NVIDIA ConnectX-9 SuperNIC", "catalog_todo": true, "per": "gpu", "qty": 2, "confidence": "sourced" },
+        { "component": "Storage / control DPU (BlueField-4)", "catalogKey": "dpu", "model": "NVIDIA BlueField-4", "catalog_todo": true, "per": "rack", "qty": 18, "confidence": "sourced" },
+        { "component": "Compute fabric leaf switch (non-blocking two-tier)", "catalogKey": "switches", "model": "NVIDIA Spectrum-X SN6810 (128 × 800G, CPO)", "per": "rack", "qty": 2.25, "confidence": "estimate" },
+        { "component": "Compute fabric spine switch", "catalogKey": "switches", "model": "NVIDIA Spectrum-X SN6810 (128 × 800G, CPO)", "per": "rack", "qty": 1.125, "confidence": "estimate" },
+        { "component": "Converged (storage / in-band) leaf switch", "catalogKey": "switches", "model": "NVIDIA Spectrum-X SN6810", "per": "rack", "qty": 0.28, "confidence": "estimate" },
+        { "component": "Management OOB switch (in rack)", "catalogKey": "mgmt", "model": "NVIDIA SN2201", "catalog_todo": true, "per": "rack", "qty": 2, "confidence": "estimate" },
+        { "component": "Support rack (35 kW nominal: network, storage, management)", "catalogKey": "racks", "model": "Support rack, air cooled", "per": "su", "qty": 16, "confidence": "sourced" },
+        { "component": "Coolant distribution unit (liquid-to-liquid, N+1 per AI Module)", "catalogKey": "cdus", "model": "In-row L2L CDU, ~3 MW", "per": "su", "qty": 2, "confidence": "sourced" },
+        { "component": "Power Pod transformer, 5 MVA 34.5 kV-480Y/277 V", "catalogKey": "transformers", "model": "5 MVA MV/LV transformer", "per": "su", "qty": 1, "confidence": "sourced" },
+        { "component": "Power Pod main switchboard, 6,000 A, 85 kA", "catalogKey": "lv", "model": "UL891 6,000 A switchboard", "per": "su", "qty": 1, "confidence": "sourced" },
+        { "component": "UPS module, 2,000 kVA (2 per Power Pod)", "catalogKey": "ups", "model": "2,000 kVA / 480 V UPS", "per": "su", "qty": 2, "unit": "2,000 kVA module", "confidence": "sourced" },
+        { "component": "Generator, 5 MW (1 per Power Pod)", "catalogKey": "generators", "model": "5 MW standby generator", "per": "su", "qty": 1, "confidence": "sourced" },
+        { "component": "Busway feeder, 1,600 A (4 per Power Pod)", "catalogKey": "busway", "model": "1,600 A busway + tap-offs", "per": "su", "qty": 4, "confidence": "sourced" },
+        { "component": "Mechanical powertrain transformer, 3.25 MVA", "catalogKey": "transformers", "model": "3.25 MVA MV/LV transformer", "per": "su", "qty": 1, "confidence": "sourced" },
+        { "component": "Mechanical powertrain generator, 3.25 MW", "catalogKey": "generators", "model": "3.25 MW standby generator", "per": "su", "qty": 1, "confidence": "sourced" },
+        { "component": "High-temperature thermal energy storage (~6 min)", "catalogKey": "chillers", "model": "TES tank", "catalog_todo": true, "per": "su", "qty": 7849, "unit": "gal", "confidence": "sourced" }
       ]
     }
   ]

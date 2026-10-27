@@ -5,7 +5,7 @@
 // so committed state is never mutated in place; the read-only functions
 // (`stripeLoads`, `occupancy`, `fits`) never mutate.
 
-import { DEF_LIB, PDU_TYPES, SQ3 } from "./constants";
+import { DEF_LIB, MAX_PDU_PAIRS, PDU_TYPES, SQ3 } from "./constants";
 import type {
   CableRules, CoolingBasis, Device, ElecBasis, Electrical, ElecNode, LibItem,
   PduKey, Rack, RacklineProject, Scenario, StripeResult,
@@ -157,7 +157,8 @@ export const rackLoadKW = (r: Rack, lib: LibIndex, lf: number) =>
 
 /**
  * Greedy balance: largest devices first, PSUs alternate A/B, each PSU goes to
- * the least-loaded PDU phase on its feed.
+ * the least-loaded PDU phase on its feed. A three-phase input (`phase3`) goes to
+ * the least-loaded PDU and spreads evenly over its three phases.
  */
 export function autoStripe(r: Rack, lib: LibIndex, lf: number): void {
   const n = r.pduPairs || 1;
@@ -172,6 +173,13 @@ export function autoStripe(r: Rack, lib: LibIndex, lf: number): void {
     for (let k = 0; k < np; k++) {
       const f = np === 1 || k % 2 === 0 ? "A" : "B";
       const inc = w / (f === "A" ? nA : nB);
+      if (L.phase3) {
+        let bp = 0;
+        for (let p = 1; p < n; p++) if (sum3(load[f][p]) < sum3(load[f][bp]) - 1e-9) bp = p;
+        for (let ph = 0; ph < 3; ph++) load[f][bp][ph] += inc / 3;
+        d.map.push({ f, p: bp, ph: 0 });
+        continue;
+      }
       let best: { p: number; ph: number; v: number } | null = null;
       for (let p = 0; p < n; p++)
         for (let ph = 0; ph < 3; ph++) {
@@ -183,6 +191,8 @@ export function autoStripe(r: Rack, lib: LibIndex, lf: number): void {
     }
   }
 }
+
+const sum3 = (a: number[]) => a[0] + a[1] + a[2];
 
 export function validMap(r: Rack, lib: LibIndex): boolean {
   return r.devs.every((d) => {
@@ -212,8 +222,17 @@ export function stripeLoads(r: Rack, lib: LibIndex, elec: ElecBasis, lf: number)
     if (!nA || !nB) warns.push(`${L.name}: all PSUs on one feed`);
     if ((nB && w / nB > L.psuW) || (nA && w / nA > L.psuW)) warns.push(`${L.name}: PSU over ${L.psuW} W when one feed is lost`);
     for (const m of d.map) {
-      norm[m.f][m.p][m.ph] += w / np / (V * pf);
       const cnt = m.f === "A" ? nA : nB;
+      if (L.phase3) {
+        // Balanced 3φ input: line current = P / (√3 · V_LL · pf) on every phase.
+        const k = SQ3 * elec.vLL * pf;
+        for (let ph = 0; ph < 3; ph++) {
+          norm[m.f][m.p][ph] += w / np / k;
+          if (cnt) fail[m.f][m.p][ph] += w / cnt / k;
+        }
+        continue;
+      }
+      norm[m.f][m.p][m.ph] += w / np / (V * pf);
       if (cnt) fail[m.f][m.p][m.ph] += w / cnt / (V * pf);
     }
   }
@@ -230,11 +249,22 @@ export function stripeLoads(r: Rack, lib: LibIndex, elec: ElecBasis, lf: number)
   return { lim, norm, fail, maxN, maxF, util: maxF / lim, imb, capKW, warns, pdu: pt, n };
 }
 
-/** Smallest PDU size × pair count that passes the feed-loss check. False if none fits. */
+/** PDU types for the project's distribution voltage (all of them if none match). */
+export function pduKeysFor(elec: ElecBasis): PduKey[] {
+  const all = Object.keys(PDU_TYPES) as PduKey[];
+  const m = all.filter((k) => PDU_TYPES[k].v === elec.vLL);
+  return m.length ? m : all;
+}
+
+/**
+ * Smallest PDU size × pair count that passes the feed-loss check. False if none
+ * fits. Rack-scale three-phase systems may take up to MAX_PDU_PAIRS pairs.
+ */
 export function choosePDU(r: Rack, lib: LibIndex, elec: ElecBasis, lf: number): boolean {
   const cands: { k: PduKey; n: number; c: number }[] = [];
-  for (const k of Object.keys(PDU_TYPES) as PduKey[])
-    for (let n = 1; n <= 3; n++) cands.push({ k, n, c: PDU_TYPES[k].amps * n });
+  const maxN = r.devs.some((d) => lib[d.lib]?.phase3) ? MAX_PDU_PAIRS : 3;
+  for (const k of pduKeysFor(elec))
+    for (let n = 1; n <= maxN; n++) cands.push({ k, n, c: PDU_TYPES[k].amps * n });
   cands.sort((a, b) => a.c - b.c || a.n - b.n);
   for (const c of cands) {
     r.pdu = c.k;

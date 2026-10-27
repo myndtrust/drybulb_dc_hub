@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { CABLE_T, TRAY_K } from "@/lib/rackline/constants";
+import { netById, netSummaries, netSystems } from "@/lib/rackline/network";
 import { polyLength } from "@/lib/rackline/geometry";
 import { fLen, fTotalLen, fileSafe, fromU, n0, pct, toU, uLbl } from "@/lib/rackline/format";
 import type { CableType } from "@/lib/rackline/types";
@@ -11,14 +13,19 @@ export function CablesTab(p: TabProps & { download: (name: string, data: string,
   const { project, scenario: S, an, commit } = p;
   const C = an.cab, c = S.cable, units = project.units;
   const setRule = (k: keyof typeof c, v: number) => commit((_p, s) => { s.cable[k] = v; });
+  const nets = netSystems(S);
+  const systems = netSummaries(S, p.lib, C.groups).map((n) => n.sys);
+  const [net, setNet] = useState("all");
+  const shown = net === "all" ? C.groups : C.groups.filter((g) => g.net === net);
+  const sysCell = (id: string) => { const n = netById(nets, id); return <><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-[-1px]" style={{ background: n.color }} />{n.name}</>; };
 
   const bins: Partial<Record<CableType, Record<number, number>>> = {};
   for (const g of C.groups) { const b = (bins[g.type] ??= {}); b[g.std] = (b[g.std] || 0) + g.count; }
   const lens = [...new Set(C.groups.map((g) => g.std))].sort((a, b) => a - b);
 
   const csv = () => {
-    const rows: (string | number)[][] = [["From rack", "To rack", "Cable type", "Count", "Calc length (m)", "Stock length (m)", "Route"]];
-    for (const g of C.groups) rows.push([g.from.name, g.to.name, CABLE_T[g.type].name, g.count, g.len.toFixed(1), g.std, g.via]);
+    const rows: (string | number)[][] = [["Network system", "Link", "From rack", "To rack", "Cable type", "Count", "Calc length (m)", "Stock length (m)", "Route"]];
+    for (const g of C.groups) rows.push([netById(nets, g.net).name, g.link === "uplink" ? "leaf to spine" : "endpoint to leaf", g.from.name, g.to.name, CABLE_T[g.type].name, g.count, g.len.toFixed(1), g.std, g.via]);
     p.download(`${fileSafe(S.name)}_cable_schedule.csv`, rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n"), "text/csv");
   };
 
@@ -33,7 +40,7 @@ export function CablesTab(p: TabProps & { download: (name: string, data: string,
             <Label htmlFor="rl-c-md">Max rack-to-tray offset ({uLbl(units)})</Label><NumField id="rl-c-md" step={0.1} value={toU(c.maxDrop, units)} onChange={(v) => setRule("maxDrop", fromU(v, units))} />
             <Label htmlFor="rl-c-fm">Max tray fill</Label><NumField id="rl-c-fm" step={0.05} value={c.fillMax} onChange={(v) => setRule("fillMax", v)} />
           </KV>
-          <Hint>Runs go from every rack with ported equipment to the nearest network rack, along fiber ducts and ladder trays (shortest path through tray junctions). Lengths round up to stock sizes. Port counts per device come from the equipment library.</Hint>
+          <Hint>Runs go from every rack with ported equipment to the nearest leaf rack of each network system, plus leaf-to-spine uplinks, along fiber ducts and ladder trays (shortest path through tray junctions). Lengths round up to stock sizes. Port counts per device come from the equipment library; systems and switches are set on the Network tab.</Hint>
         </Section>
         <Section title="Pathways">
           {S.trays.length ? S.trays.map((t) => (
@@ -69,10 +76,16 @@ export function CablesTab(p: TabProps & { download: (name: string, data: string,
             ))}
           </Table>
         </Panel>
-        <Panel title="Cable schedule">
-          <Table head={["From", "To", "Type", "Qty", "Calc", "Stock", "Route"]} numeric={[3, 4, 5]}>
-            {C.groups.map((g, i) => (
+        <Panel title="Cable schedule" right={
+          <select aria-label="Network system" value={net} onChange={(e) => setNet(e.target.value)} className="rounded-md border border-input bg-background px-2 py-1 text-xs">
+            <option value="all">All network systems</option>
+            {systems.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+          </select>
+        }>
+          <Table head={["System", "From", "To", "Type", "Qty", "Calc", "Stock", "Route"]} numeric={[4, 5, 6]}>
+            {shown.map((g, i) => (
               <tr key={i}>
+                <td>{sysCell(g.net)}{g.link === "uplink" && <span className="text-muted-foreground"> · uplink</span>}</td>
                 <td>{g.from.name}</td><td>{g.to.name}</td><td>{CABLE_T[g.type].name}</td><td className="n">{g.count}</td>
                 <td className="n">{fLen(g.len, units)}</td><td className="n">{g.std} m</td>
                 <td>{g.via === "direct" ? <Chip tone="warn">no tray path</Chip> : g.via}</td>

@@ -2,16 +2,51 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { COOL_K, PDF_SCALES, PDU_TYPES, TRAY_K } from "@/lib/rackline/constants";
-import { buildScenario, COOLING_LABEL, type CoolingScheme, type GenOptions } from "@/lib/rackline/generate";
 import { dist, inRect, polyLength, rackRear } from "@/lib/rackline/geometry";
-import { addDevice, choosePDU, clone, newRack, nextName, uid } from "@/lib/rackline/model";
+import { addDevice, choosePDU, clone, defaultElectrical, libIndex, newRack, nextName, uid } from "@/lib/rackline/model";
+import { NVL72_RACK, ensureNvl72Lib, groupWarnings } from "@/lib/rackline/nvl72";
+import { addCoolers, autoFeed, editedSinceSetup, unfedRacks } from "@/lib/rackline/setup";
 import { fLen, fromU, n0, n1, snapStep, toU, uLbl } from "@/lib/rackline/format";
 import type { CoolerKind, Scenario, TrayKind, Vec } from "@/lib/rackline/types";
 import { bgBounds, changePdfPage, loadBackgroundFile } from "./background";
 import type { TabProps } from "./shared";
 import { Btn, Chip, Fold, Hint, KV, Label, NumField, Section, Select, TextField, UtilChip } from "./ui";
+import { SetupPanel, type Ghost, type SetupKind, type SetupResult } from "./setup-panel";
+
+/** What the Rack tool places: the first compute node in the library, a GB300 NVL72, or an empty network rack. */
+type RackTemplate = "lib" | "gb300-nvl72" | "gb300-nvl72-nom" | "vr200-nvl72" | "net";
+const RACK_TEMPLATES: [RackTemplate, string][] = [
+  ["lib", "Rack with a library compute node"],
+  ["gb300-nvl72", "GB300 NVL72 rack, 142 kW (RA maximum)"],
+  ["gb300-nvl72-nom", "GB300 NVL72 rack, 135 kW (TDP)"],
+  ["vr200-nvl72", "Vera Rubin NVL72 rack (Max-Q / Max-P)"],
+  ["net", "Network rack (empty)"],
+];
 
 export interface View { tx: number; ty: number; z: number }
+
+type StartKind = SetupKind | "draw" | "trace";
+const START: [StartKind, string, string][] = [
+  ["nvl72", "Reference design", "GB300 NVL72 pod (NVIDIA RA) or Vera Rubin NVL72 hall (reference design), question by question"],
+  ["block", "Quick block", "Rows of racks filled with equipment from your library"],
+  ["draw", "Draw it myself", "Place racks, containment, cooling and trays by hand"],
+  ["trace", "Trace a drawing", "Load a PDF, image or DXF floor plan to lay out over"],
+];
+
+/** The four ways into a layout; generated ones open the setup panel beside the plan. */
+function StartOptions({ editable, onPick }: { editable: boolean; onPick: (k: StartKind) => void }) {
+  return (
+    <div className="grid gap-1">
+      {START.map(([k, t, d]) => (
+        <button key={k} type="button" disabled={!editable} onClick={() => onPick(k)}
+          className="rounded-md border border-input px-2.5 py-1.5 text-left transition-colors hover:bg-accent disabled:opacity-50">
+          <span className="block text-sm font-medium">{t}</span>
+          <span className="block text-[11px] leading-snug text-muted-foreground">{d}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 type Tool = "select" | "rack" | "hac" | "cooler" | "tray" | "measure" | "calib" | "bgmove";
 type ObjKind = "racks" | "hacs" | "coolers" | "trays";
@@ -54,17 +89,23 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
   const [grid, setGrid] = useState(true);
   const [fill, setFill] = useState(false);
   const [coolKind, setCoolKind] = useState<CoolerKind>("crah");
+  const [rackT, setRackT] = useState<RackTemplate>("lib");
+  const [panel, setPanel] = useState<SetupKind | null>(null);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
+  const [autoFeedOn, setAutoFeedOn] = useState(true);
+  const [clearArm, setClearArm] = useState(false);
+  /** The empty-plan "Start a layout" card, hidden once the user picks a way in. */
+  const [startHidden, setStartHidden] = useState(false);
+  const [clearAll, setClearAll] = useState(false);
   const [trayKind, setTrayKind] = useState<TrayKind>("fiber");
   const [draft, setDraft] = useState<{ pts: Vec[]; hover?: Vec } | null>(null);
   const [meas, setMeas] = useState<{ a: Vec; b?: Vec; hover?: Vec } | null>(null);
   const [calib, setCalib] = useState<{ a: Vec; b?: Vec; hover?: Vec } | null>(null);
   const [calDist, setCalDist] = useState(0);
-  const [openGen, setOpenGen] = useState(false);
   const [openBg, setOpenBg] = useState(!project.bg);
   const [pdfPage, setPdfPage] = useState(project.bg?.page ?? 1);
   const [pdfScale, setPdfScale] = useState(project.bg?.pdfScale ?? "");
   const [busy, setBusy] = useState(false);
-  const [g, setG] = useState({ nodes: 8, perRack: 2, model: project.lib.find((l) => l.cat === "compute")?.id ?? "", pattern: "pod" as GenOptions["pattern"], cooling: "hac" as CoolingScheme, rackW: 0.6, hot: 1.2, cold: 1.2, net: true });
   const drag = useRef<Drag | null>(null);
   const lastRot = useRef(0);
   const space = useRef(false);
@@ -85,7 +126,8 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
     return () => ro.disconnect();
   }, []);
 
-  const fitView = useCallback(() => {
+  const fitView = useCallback((sc?: Scenario) => {
+    const S = sc ?? p.scenario;
     const pts: Vec[] = [];
     S.racks.forEach((r) => pts.push([r.x, r.y]));
     S.hacs.forEach((h) => pts.push([h.x - h.w / 2, h.y - h.d / 2], [h.x + h.w / 2, h.y + h.d / 2]));
@@ -98,7 +140,13 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
     const W = svgRef.current?.clientWidth || 800, H = svgRef.current?.clientHeight || 600;
     const nz = Math.max(2, Math.min(400, Math.min(W / (x1 - x0), H / (y1 - y0))));
     setView({ z: nz, tx: (W - (x1 - x0) * nz) / 2 - x0 * nz, ty: (H - (y1 - y0) * nz) / 2 - y0 * nz });
-  }, [S, project.bg, bg, setView]);
+  }, [p.scenario, project.bg, bg, setView]);
+
+  const hadGhost = useRef(false);
+  useEffect(() => {
+    if (ghost && !hadGhost.current) fitView(ghost.scenario);
+    hadGhost.current = !!ghost;
+  }, [ghost, fitView]);
 
   useEffect(() => {
     if (p.fitOnMount) { fitView(); p.onFitted(); }
@@ -229,7 +277,7 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
     const w = toWorld(e);
     svgRef.current!.setPointerCapture(e.pointerId);
     const pan = () => { drag.current = { k: "pan", sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty }; };
-    if (e.button === 1 || e.button === 2 || space.current) return pan();
+    if (e.button === 1 || e.button === 2 || space.current || ghost) return pan();
     const target = e.target as Element;
     if (tool === "select") {
       const vt = target.closest("[data-vtx]") as HTMLElement | null;
@@ -261,16 +309,36 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
     }
     if (tool === "rack") {
       const id = uid();
-      commit((_p, s) => {
-        const r = newRack(`R${String(s.racks.length + 1).padStart(2, "0")}`, snp(w[0]), snp(w[1]), lastRot.current);
+      let fedFrom: string | null = null;
+      commit((pp, s) => {
+        const net = rackT === "net";
+        const r = newRack(net ? nextName("NET-00", s.racks.map((x) => x.name)) : `R${String(s.racks.length + 1).padStart(2, "0")}`, snp(w[0]), snp(w[1]), lastRot.current);
         r.id = id;
-        const node = project.lib.find((l) => l.cat === "compute");
-        if (node) addDevice(r, node.id, lib);
-        choosePDU(r, lib, project.elec, s.loadFactor || 1);
+        if (net) r.role = "network";
+        else if (rackT === "lib") {
+          const node = pp.lib.find((l) => l.cat === "compute");
+          if (node) addDevice(r, node.id, lib);
+        } else {
+          // A GB300 NVL72 is a whole rack-scale system with 2 in-rack OOB switches: add them to the library if needed.
+          ensureNvl72Lib(pp.lib);
+          const li = libIndex(pp.lib);
+          r.d = NVL72_RACK.d;
+          addDevice(r, rackT, li);
+          for (let k = 0; k < 2; k++) {
+            const d = addDevice(r, "sn2201-dc", li, true);
+            if (d) { d.net = "net-oob"; d.tier = "leaf"; }
+          }
+        }
+        if (autoFeedOn && !net) {
+          const src = autoFeed(s, r);
+          if (src) fedFrom = src.name;
+        }
+        choosePDU(r, libIndex(pp.lib), pp.elec, s.loadFactor || 1);
         s.racks.push(r);
       });
       setSel([id]);
       p.setSelRack(id);
+      if (fedFrom) toast(`Fed like ${fedFrom}. Change it in Power striping.`);
       return;
     }
     if (tool === "hac") {
@@ -346,25 +414,70 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
     if (d && d.k !== "pan") endLive(d.moved);
   };
 
-  // ── Generator ───────────────────────────────────────────────────────────────
-  const generate = (replace: boolean) => {
+  // ── Layout setup (reference design / quick block) ─────────────────────────
+  const viewCentre = (): [number, number] => {
     const cx = (size.w / 2 - view.tx) / view.z, cy = (size.h / 2 - view.ty) / view.z;
-    const o: GenOptions = { ...g, red: S.cool.red, ox: snp(cx - 3), oy: snp(cy - 1.5), name: `${g.nodes}× · ${g.perRack}/rack · ${COOLING_LABEL[g.cooling]}` };
-    let s: Scenario;
-    try { s = buildScenario(o, project.lib, project.elec); } catch (err) { toast((err as Error).message); return; }
+    return [snp(cx - 3), snp(cy - 1.5)];
+  };
+  const openSetup = (k: SetupKind) => { setTool("select"); setSel([]); setPanel(k); };
+  const closeSetup = useCallback(() => { setPanel(null); setGhost(null); }, []);
+  const onSetupCreate = (r: SetupResult, mode: "new" | "replace"): string | null => {
+    let name = r.scenario.name;
     commit((pp, cur) => {
-      if (replace) {
-        cur.racks = s.racks; cur.hacs = s.hacs; cur.trays = s.trays; cur.coolers = s.coolers; cur.notes = s.notes;
+      for (const l of r.lib) {
+        const i = pp.lib.findIndex((x) => x.id === l.id);
+        if (i < 0) pp.lib.push(clone(l));
+        // A rack type with Max-Q / Max-P ratings takes the ratings and profile chosen in the setup.
+        else if (l.kwMaxQ != null || l.kwMaxP != null) Object.assign(pp.lib[i], { kw: l.kw, kwMaxQ: l.kwMaxQ, kwMaxP: l.kwMaxP });
+      }
+      if (r.elec) { pp.elec.vLL = r.elec.vLL; pp.elec.vLN = r.elec.vLN; }
+      const sc = clone(r.scenario);
+      if (mode === "replace") {
+        // The rebuilt scenario replaces everything but its id and name (no stale fields left behind).
+        const keep = cur as unknown as Record<string, unknown>;
+        for (const k of Object.keys(keep)) if (!(k in sc) && k !== "id" && k !== "name") delete keep[k];
+        Object.assign(cur, sc, { id: cur.id, name: cur.name });
+        name = cur.name;
       } else {
-        s.electrical = clone(cur.electrical);
-        s.cool = { ...clone(cur.cool), red: o.red };
-        pp.scenarios.push(s);
-        pp.active = s.id;
+        sc.id = uid();
+        sc.name = nextName(sc.name, pp.scenarios.map((x) => x.name));
+        name = sc.name;
+        pp.scenarios.push(sc);
+        pp.active = sc.id;
       }
     });
+    setGhost(null);
     setSel([]);
-    toast(replace ? "Layout replaced" : `Scenario "${s.name}" created`);
+    setTimeout(() => fitView(), 0);
+    toast(`${mode === "replace" ? "Updated" : "Created"} "${name}". Undo with Ctrl+Z.`);
+    return name;
   };
+
+  // ── Checks with one-click fixes ─────────────────────────────────────────────
+  const itOf = (id: string) => an.racks.find((x) => x.r.id === id)?.it ?? 0;
+  const unfed = unfedRacks(S, (r) => itOf(r.id));
+  const cduShort = Math.max(0, an.cduTot - S.coolers.filter((c) => c.kind === "cdu").length);
+  const crahPlacedN = S.coolers.filter((c) => c.kind === "crah").length;
+  const crahShort = crahPlacedN ? Math.max(0, Math.ceil((an.crahTot * S.cool.crahKW - an.crahPlaced) / S.cool.crahKW)) : 0;
+  const pduFail = an.racks.filter((x) => x.st.util > 1);
+  const fixes: { label: string; run: () => void; note: string }[] = [];
+  if (unfed.length) fixes.push({
+    label: `Feed ${unfed.length} rack${unfed.length > 1 ? "s" : ""} like the nearest rack`, note: "Copies the A/B feeds of the nearest fed rack; change any in Power striping.",
+    run: () => commit((_p, s) => { for (const r of s.racks) if (unfed.some((u) => u.id === r.id)) autoFeed(s, r); }),
+  });
+  if (cduShort) fixes.push({
+    label: `Place ${cduShort} more CDU${cduShort > 1 ? "s" : ""}`, note: `Next to the last CDU, at ${n0(S.cool.cduKW)} kW each. Drag them where you want.`,
+    run: () => commit((_p, s) => { addCoolers(s, "cdu", cduShort, COOL_K.cdu.w, COOL_K.cdu.d, s.cool.cduKW); }),
+  });
+  if (crahShort) fixes.push({
+    label: `Place ${crahShort} more CRAH${crahShort > 1 ? "s" : ""}`, note: `Next to the last CRAH, at ${n0(S.cool.crahKW)} kW each.`,
+    run: () => commit((_p, s) => { addCoolers(s, "crah", crahShort, COOL_K.crah.w, COOL_K.crah.d, s.cool.crahKW); }),
+  });
+  if (pduFail.length) fixes.push({
+    label: `Resize PDUs on ${pduFail.length} rack${pduFail.length > 1 ? "s" : ""}`, note: "Picks the smallest PDU that passes the feed-loss check; set your own on the rack.",
+    run: () => commit((pp, s) => s.racks.forEach((r) => { if (pduFail.some((x) => x.r.id === r.id)) choosePDU(r, lib, pp.elec, s.loadFactor || 1); })),
+  });
+  const checks = groupWarnings(an.warns.map((w) => w.msg));
 
   // ── Background ──────────────────────────────────────────────────────────────
   const onFile = async (file: File) => {
@@ -416,7 +529,9 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
   };
 
   // ── Drawing ─────────────────────────────────────────────────────────────────
-  const fillBy = useMemo(() => new Map(an.cab.segs.map((sg) => [sg.t.id + ":" + sg.i, sg.fill])), [an]);
+  // While the setup panel is open the plan shows its preview (read-only).
+  const VS = ghost?.scenario ?? S, VA = ghost?.an ?? an;
+  const fillBy = useMemo(() => new Map(VA.cab.segs.map((sg) => [sg.t.id + ":" + sg.i, sg.fill])), [VA]);
 
   const gridLines = useMemo(() => {
     if (!grid) return null;
@@ -464,12 +579,63 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
 
   return (
     <>
-      <aside className="w-full shrink-0 overflow-y-auto border-b px-3 pb-10 md:w-80 md:border-b-0 md:border-r">
+      {panel && (
+        <aside className="max-h-[70vh] w-full shrink-0 border-b md:max-h-none md:w-[26rem] md:border-b-0 md:border-r">
+          <SetupPanel kind={panel} project={project} scenario={S} origin={viewCentre()} onPreview={setGhost} onCreate={onSetupCreate} onClose={closeSetup} goTab={p.goTab} />
+        </aside>
+      )}
+      {!panel && <aside className="w-full shrink-0 overflow-y-auto border-b px-3 pb-10 md:w-80 md:border-b-0 md:border-r">
+        <Section title="Start a layout">
+          <StartOptions editable={p.editable} onPick={(k) => {
+            setStartHidden(true);
+            if (k === "nvl72" || k === "block") openSetup(k);
+            else if (k === "draw") { setTool("rack"); setSel([]); }
+            else { setOpenBg(true); fileIn.current?.click(); }
+          }} />
+        </Section>
+
+        {S.setup && (
+          <Section title="Set up by">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span>{S.setup.kind === "nvl72" ? "GB300 NVL72 reference design" : "Quick block"} · {new Date(S.setup.at).toLocaleDateString()}</span>
+              {editedSinceSetup(S) ? <Chip tone="warn">edited since</Chip> : <Chip tone="ok">as built</Chip>}
+            </div>
+            <Btn disabled={!p.editable} onClick={() => openSetup(S.setup!.kind)}>Edit setup</Btn>
+            <Hint>Reopens the setup with its answers. Updating rebuilds the scenario{editedSinceSetup(S) ? " and discards the edits made since" : ""}; adding a new scenario keeps this one.</Hint>
+          </Section>
+        )}
+
+        {checks.length > 0 && (
+          <Section title={`Checks (${checks.length})`}>
+            {fixes.length > 0 && (
+              <div className="space-y-1.5">
+                {fixes.map((f) => (
+                  <div key={f.label} className="space-y-0.5">
+                    <Btn disabled={!p.editable} onClick={f.run}>{f.label}</Btn>
+                    <Hint>{f.note}</Hint>
+                  </div>
+                ))}
+              </div>
+            )}
+            <details>
+              <summary className="cursor-pointer text-xs text-muted-foreground">Show all checks</summary>
+              <ul className="mt-1 space-y-1">{checks.map((c) => <li key={c} className="text-xs">{c}</li>)}</ul>
+            </details>
+          </Section>
+        )}
+
         <Section title="Tools">
           <div className="grid grid-cols-3 gap-1">
             {tb("select", "Select")}{tb("rack", "Rack")}{tb("hac", "Containment")}
             {tb("cooler", "Cooling unit")}{tb("tray", "Tray / busway")}{tb("measure", "Measure")}
           </div>
+          {tool === "rack" && (
+            <>
+              <KV><Label htmlFor="rl-rack-t">Rack type</Label>
+                <Select id="rl-rack-t" width="w-full" value={rackT} onChange={setRackT} options={RACK_TEMPLATES} /></KV>
+              <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={autoFeedOn} onChange={(e) => setAutoFeedOn(e.target.checked)} /> Feed new racks like the nearest rack</label>
+            </>
+          )}
           {tool === "cooler" && (
             <KV><Label htmlFor="rl-cool-kind">Unit type</Label>
               <Select id="rl-cool-kind" value={coolKind} onChange={setCoolKind} options={Object.entries(COOL_K).map(([k, v]) => [k as CoolerKind, v.name])} /></KV>
@@ -487,6 +653,37 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
             <label className="flex items-center gap-1"><input type="checkbox" checked={fill} onChange={(e) => setFill(e.target.checked)} /> Tray fill colours</label>
           </div>
           <Hint>Drag to move · Shift-click multi-select · R rotate · Ctrl+D duplicate · Del remove · wheel zoom · right-drag or Space-drag pan</Hint>
+          {S.racks.length + S.hacs.length + S.coolers.length + S.trays.length > 0 && (
+            <div className="space-y-1 border-t border-border/60 pt-2">
+              {!clearArm ? (
+                <Btn tone="danger" disabled={!p.editable} onClick={() => setClearArm(true)}>Clear layout…</Btn>
+              ) : (
+                <div className="space-y-1.5 rounded-md border border-destructive/40 p-2">
+                  <p className="text-xs">
+                    Remove all {S.racks.length} racks, {S.hacs.length} containment zones, {S.coolers.length} cooling units and {S.trays.length} trays from &ldquo;{S.name}&rdquo;?
+                    The background drawing stays. Undo with Ctrl+Z.
+                  </p>
+                  <label className="flex items-center gap-1.5 text-xs">
+                    <input type="checkbox" checked={clearAll} onChange={(e) => setClearAll(e.target.checked)} />
+                    Also reset the single line and network systems to defaults
+                  </label>
+                  <div className="flex gap-1">
+                    <Btn tone="danger" onClick={() => {
+                      const all = clearAll;
+                      commit((_p, s) => {
+                        s.racks = []; s.hacs = []; s.coolers = []; s.trays = [];
+                        delete s.setup;
+                        if (all) { s.electrical = defaultElectrical(); delete s.nets; }
+                      });
+                      setSel([]); setTool("select"); setClearArm(false); setClearAll(false); setStartHidden(false);
+                      toast(`Layout cleared${all ? ", single line and networks reset" : ""}. Undo with Ctrl+Z.`);
+                    }}>Clear</Btn>
+                    <Btn onClick={() => { setClearArm(false); setClearAll(false); }}>Cancel</Btn>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </Section>
 
         <Section title={selValid.length > 1 ? `${selValid.length} items selected` : single ? ({ racks: "Rack", hacs: "Containment", coolers: "Cooling unit", trays: "Pathway" } as const)[single.k] : "Selection"}>
@@ -596,26 +793,6 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
           )}
         </Section>
 
-        <Fold title="Generate layout" open={openGen} onToggle={setOpenGen}>
-          <KV>
-            <Label htmlFor="rl-g-n">Compute nodes</Label><NumField id="rl-g-n" min={1} step={1} value={g.nodes} onChange={(v) => setG({ ...g, nodes: Math.max(1, Math.round(v)) })} />
-            <Label htmlFor="rl-g-per">Nodes per rack</Label><NumField id="rl-g-per" min={1} max={10} step={1} value={g.perRack} onChange={(v) => setG({ ...g, perRack: Math.max(1, Math.round(v)) })} />
-            <Label htmlFor="rl-g-model">Node model</Label>
-            <Select id="rl-g-model" value={g.model} onChange={(v) => setG({ ...g, model: v })} options={project.lib.filter((l) => l.cat === "compute").map((l) => [l.id, l.name])} />
-            <Label htmlFor="rl-g-pat">Arrangement</Label>
-            <Select id="rl-g-pat" value={g.pattern} onChange={(v) => setG({ ...g, pattern: v })} options={[["pod", "Two rows, shared hot aisle"], ["single", "Single row"]]} />
-            <Label htmlFor="rl-g-cool">Cooling</Label>
-            <Select id="rl-g-cool" value={g.cooling} onChange={(v) => setG({ ...g, cooling: v })} options={[["hac", "HAC + CRAH"], ["rdhx", "RDHx"], ["hac+rdhx", "HAC + RDHx"]]} />
-            <Label htmlFor="rl-g-w">Rack width</Label>
-            <Select id="rl-g-w" value={String(g.rackW)} onChange={(v) => setG({ ...g, rackW: +v })} options={[["0.6", "600 mm"], ["0.8", "800 mm"]]} />
-            <Label htmlFor="rl-g-hot">Hot aisle ({uLbl(units)})</Label><NumField id="rl-g-hot" step={0.1} value={toU(g.hot, units)} onChange={(v) => setG({ ...g, hot: fromU(v, units) })} />
-            <Label htmlFor="rl-g-cold">Cold aisle ({uLbl(units)})</Label><NumField id="rl-g-cold" step={0.1} value={toU(g.cold, units)} onChange={(v) => setG({ ...g, cold: fromU(v, units) })} />
-            <Label htmlFor="rl-g-net">Network rack</Label><input id="rl-g-net" type="checkbox" checked={g.net} onChange={(e) => setG({ ...g, net: e.target.checked })} />
-          </KV>
-          <div className="flex flex-wrap gap-1"><Btn tone="primary" onClick={() => generate(false)}>Create as new scenario</Btn><Btn onClick={() => generate(true)}>Replace this layout</Btn></div>
-          <Hint>Builds racks, devices, containment, trays, busway, CRAH/CDU count ({S.cool.red}) and auto-sizes PDUs, placed at the view centre. To compare many variants at once, use Sweep on the Compare tab.</Hint>
-        </Fold>
-
         <Fold title="Background drawing" open={openBg} onToggle={setOpenBg}>
           <input ref={fileIn} type="file" hidden accept=".pdf,.png,.jpg,.jpeg,.webp,.svg,.dxf" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
           <div className="flex gap-1">
@@ -657,7 +834,7 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
             </>
           )}
         </Fold>
-      </aside>
+      </aside>}
 
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--rl-canvas)]">
         <svg
@@ -675,7 +852,7 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
             <g>{gridLines}</g>
             <g>{bgLayer}</g>
             <g>
-              {S.trays.map((t) => {
+              {VS.trays.map((t) => {
                 const col = TRAY_K[t.kind]?.color ?? "var(--muted-foreground)", w = Math.max((+t.wmm || 300) / 1000, 2 / z);
                 return (
                   <g key={t.id}>
@@ -683,7 +860,7 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
                       const q = t.pts[i + 1];
                       let c = col;
                       const f = fillBy.get(t.id + ":" + i);
-                      if (fill && f != null) { const u = f / S.cable.fillMax; c = u > 1 ? "var(--rl-bad)" : u > 0.8 ? "var(--rl-warn)" : "var(--rl-ok)"; }
+                      if (fill && f != null) { const u = f / VS.cable.fillMax; c = u > 1 ? "var(--rl-bad)" : u > 0.8 ? "var(--rl-warn)" : "var(--rl-ok)"; }
                       return <line key={i} data-id={t.id} x1={a[0]} y1={a[1]} x2={q[0]} y2={q[1]} stroke={c} strokeOpacity={0.55} strokeWidth={w} strokeLinecap="square" style={{ cursor: "move" }} />;
                     })}
                     {t.pts.length > 0 && <text x={t.pts[0][0]} y={t.pts[0][1] - w / 2 - fs * 0.3} fontSize={fs * 0.85} fill={col} className="pointer-events-none font-mono">{t.name}</text>}
@@ -693,7 +870,7 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
                   </g>
                 );
               })}
-              {S.hacs.map((o) => (
+              {VS.hacs.map((o) => (
                 <g key={o.id} data-id={o.id} transform={`translate(${o.x},${o.y}) rotate(${o.rot || 0})`} style={{ cursor: "move" }}>
                   <rect x={-o.w / 2} y={-o.d / 2} width={o.w} height={o.d} fill="var(--rl-hot-soft)" stroke="var(--rl-hot)" strokeWidth={1.5} strokeDasharray="6 3" vectorEffect="non-scaling-stroke" />
                   <rect x={-o.w / 2} y={-o.d / 2} width={o.w} height={o.d} fill="url(#rl-hatch)" pointerEvents="none" />
@@ -701,7 +878,7 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
                   {selValid.includes(o.id) && selOutline(o.w, o.d)}
                 </g>
               ))}
-              {S.coolers.map((o) => (
+              {VS.coolers.map((o) => (
                 <g key={o.id} data-id={o.id} transform={`translate(${o.x},${o.y}) rotate(${o.rot || 0})`} style={{ cursor: "move" }}>
                   <rect x={-o.w / 2} y={-o.d / 2} width={o.w} height={o.d} fill="var(--rl-cold-soft)" stroke="var(--rl-cold)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
                   <line x1={-o.w / 2} y1={-o.d / 2} x2={o.w / 2} y2={-o.d / 2} stroke="var(--rl-cold)" strokeWidth={3} vectorEffect="non-scaling-stroke" />
@@ -712,7 +889,7 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
                   {selValid.includes(o.id) && selOutline(o.w, o.d)}
                 </g>
               ))}
-              {an.racks.map((x) => {
+              {VA.racks.map((x) => {
                 const r = x.r;
                 return (
                   <g key={r.id} data-id={r.id} transform={`translate(${r.x},${r.y}) rotate(${r.rot || 0})`} style={{ cursor: "move" }}>
@@ -748,14 +925,33 @@ export function LayoutTab(p: TabProps & { view: View; setView: (v: View) => void
         <div className="absolute right-2.5 top-2.5 flex gap-1">
           <Btn aria-label="Zoom in" onClick={() => zoomAt(1.3, size.w / 2, size.h / 2)}>+</Btn>
           <Btn aria-label="Zoom out" onClick={() => zoomAt(1 / 1.3, size.w / 2, size.h / 2)}>−</Btn>
-          <Btn onClick={fitView}>Fit</Btn>
+          <Btn onClick={() => fitView(ghost?.scenario)}>Fit</Btn>
         </div>
-        {TOOL_HINT[tool] && <div className="absolute left-1/2 top-2.5 max-w-[80%] -translate-x-1/2 rounded bg-foreground px-2.5 py-1 text-center text-xs text-background">{TOOL_HINT[tool]}</div>}
+        {ghost && <div className="absolute left-1/2 top-2.5 -translate-x-1/2 rounded bg-[var(--rl-accent)] px-2.5 py-1 text-xs text-white">Preview: nothing is created until you add it</div>}
+        {!ghost && !panel && !startHidden && tool === "select" && !S.racks.length && !project.bg && p.editable && (
+          // The backdrop lets clicks through to the plan; only the card itself takes them.
+          <div className="pointer-events-none absolute inset-0 grid place-items-center p-4">
+            <div className="pointer-events-auto w-full max-w-md space-y-2 rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-semibold">Start a layout</h3>
+                <button type="button" aria-label="Dismiss" onClick={() => setStartHidden(true)} className="rounded-md px-1.5 text-muted-foreground hover:bg-accent">✕</button>
+              </div>
+              <StartOptions editable onPick={(k) => {
+                setStartHidden(true);
+                if (k === "nvl72" || k === "block") openSetup(k);
+                else if (k === "draw") { setTool("rack"); setSel([]); }
+                else { setOpenBg(true); fileIn.current?.click(); }
+              }} />
+            </div>
+          </div>
+        )}
+        {!ghost && TOOL_HINT[tool] && <div className="absolute left-1/2 top-2.5 max-w-[80%] -translate-x-1/2 rounded bg-foreground px-2.5 py-1 text-center text-xs text-background">{TOOL_HINT[tool]}</div>}
         <div className="absolute bottom-2.5 left-2.5 flex max-w-[calc(100%-20px)] flex-wrap gap-3 rounded-md border bg-card px-2.5 py-1.5 text-[11px]">
-          <span><b className="font-mono">{an.racks.length}</b> racks</span>
-          <span><b className="font-mono">{an.nodes}</b> compute nodes</span>
-          <span><b className="font-mono">{n1(an.it)}</b> kW IT</span>
-          <span>max <b className="font-mono">{n1(an.maxRack)}</b> kW/rack</span>
+          {ghost && <Chip tone="mute">preview</Chip>}
+          <span><b className="font-mono">{VA.racks.length}</b> racks</span>
+          <span><b className="font-mono">{VA.nodes}</b> compute nodes</span>
+          <span><b className="font-mono">{n1(VA.it)}</b> kW IT</span>
+          <span>max <b className="font-mono">{n1(VA.maxRack)}</b> kW/rack</span>
           <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[var(--rl-cold)] align-[-1px]" />front</span>
           <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[var(--rl-hot)] align-[-1px]" />rear</span>
           <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border border-[var(--rl-cold)] bg-[var(--rl-cold-soft)] align-[-1px]" />RDHx</span>
